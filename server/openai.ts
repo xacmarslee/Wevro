@@ -25,17 +25,38 @@ export async function generateRelatedWords(
   category: WordCategory
 ): Promise<string[]> {
   try {
+    const examples: Record<WordCategory, string> = {
+      derivatives: `For "happy": ["happiness", "happily", "happier", "happiest", "unhappy"]`,
+      synonyms: `For "happy": ["joyful", "cheerful", "content", "pleased", "delighted"]`,
+      antonyms: `For "happy": ["sad", "unhappy", "miserable", "depressed", "gloomy"]`,
+      collocations: `For "make": ["make a decision", "make progress", "make sense", "make time", "make an effort"]`,
+      idioms: `For "happy": ["happy as a clam", "happy camper", "happy medium", "trigger happy"]`,
+      root: `For "dictionary": ["diction", "dictate", "dictator", "predict", "verdict"]`,
+      prefix: `For "unhappy": ["unable", "uncertain", "unfair", "unkind", "unusual"]`,
+      suffix: `For "happiness": ["kindness", "sadness", "darkness", "weakness", "fitness"]`,
+      "topic-related": `For "computer": ["keyboard", "mouse", "monitor", "software", "hardware", "internet"]`,
+    };
+
     // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
     const response = await openai.chat.completions.create({
       model: "gpt-5",
       messages: [
         {
           role: "system",
-          content: `You are a vocabulary expert helping students learn English words. Generate accurate and useful related words.`,
+          content: `You are a vocabulary expert helping students learn English words. Always generate at least 5 related words. Be specific and helpful.`,
         },
         {
           role: "user",
-          content: `Generate 5-8 ${categoryDescriptions[category]} for the word "${word}". Return ONLY a JSON object with a "words" array containing the words as strings. Do not include the original word.`,
+          content: `Task: Generate 5-8 ${categoryDescriptions[category]} for the word "${word}".
+
+Example: ${examples[category]}
+
+Return a JSON object with a "words" array. IMPORTANT: You must include at least 5 words. Do not include the original word "${word}".
+
+JSON format:
+{
+  "words": ["word1", "word2", "word3", "word4", "word5"]
+}`,
         },
       ],
       response_format: { type: "json_object" },
@@ -45,6 +66,8 @@ export async function generateRelatedWords(
     const content = response.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
     const words = parsed.words || [];
+    
+    console.log(`Generated ${words.length} ${category} for "${word}":`, words);
     
     // Return up to 8 words
     return words.slice(0, 8);

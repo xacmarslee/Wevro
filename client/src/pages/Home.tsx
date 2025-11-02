@@ -50,16 +50,19 @@ export default function Home() {
     mutationFn: async ({
       word,
       category,
+      targetNodeId,
     }: {
       word: string;
       category: WordCategory;
+      targetNodeId: string;
     }) => {
       const response = await apiRequest(
         "POST",
         "/api/generate-words",
         { word, category }
       );
-      return response as { words: string[] };
+      const data = await response.json();
+      return data as { words: string[] };
     },
     onSuccess: (data, variables) => {
       if (!data || !data.words || !Array.isArray(data.words)) {
@@ -76,8 +79,22 @@ export default function Home() {
         return;
       }
 
+      if (data.words.length === 0) {
+        console.warn("No words generated for category:", variables.category);
+        setIsGenerating(false);
+        toast({
+          title: language === "en" ? "No words generated" : "未生成任何單字",
+          description:
+            language === "en"
+              ? `Could not generate ${variables.category} words. Please try another category.`
+              : `無法生成${t.categories[variables.category]}單字，請嘗試其他類別。`,
+          variant: "destructive",
+        });
+        return;
+      }
+
       setNodes((prevNodes) => {
-        const centerNode = prevNodes.find((n) => n.id === centerNodeId);
+        const centerNode = prevNodes.find((n) => n.id === variables.targetNodeId);
         if (!centerNode) return prevNodes;
 
         const angleStep = (2 * Math.PI) / data.words.length;
@@ -124,7 +141,11 @@ export default function Home() {
     if (!centerNode) return;
 
     setIsGenerating(true);
-    generateWordsMutation.mutate({ word: centerNode.word, category });
+    generateWordsMutation.mutate({ 
+      word: centerNode.word, 
+      category,
+      targetNodeId: centerNode.id
+    });
   };
 
   const handleNodeClick = (nodeId: string) => {
@@ -134,11 +155,21 @@ export default function Home() {
   // Generate flashcards from mind map
   const generateFlashcardsMutation = useMutation({
     mutationFn: async (words: string[]) => {
-      const promises = words.map((word) =>
-        apiRequest("POST", "/api/generate-definition", { word })
-      );
+      const promises = words.map(async (word) => {
+        try {
+          const response = await apiRequest("POST", "/api/generate-definition", { word });
+          return await response.json();
+        } catch (error) {
+          console.error(`Failed to generate definition for "${word}":`, error);
+          return { 
+            definition: language === "en" ? "Definition not available" : "定義無法取得", 
+            partOfSpeech: language === "en" ? "Unknown" : "未知",
+            error: true 
+          };
+        }
+      });
       const results = await Promise.all(promises);
-      return results as Array<{ definition: string; partOfSpeech: string }>;
+      return results as Array<{ definition: string; partOfSpeech: string; error?: boolean }>;
     },
     onSuccess: (data) => {
       if (!data || !Array.isArray(data)) {
@@ -154,24 +185,37 @@ export default function Home() {
         return;
       }
 
+      const failedCount = data.filter(d => d.error).length;
+
       const cards: Flashcard[] = nodes.map((node, index) => ({
         id: node.id,
         word: node.word,
-        definition: data[index]?.definition || "定義未找到",
-        partOfSpeech: data[index]?.partOfSpeech || "未知",
+        definition: data[index]?.definition || (language === "en" ? "Definition not found" : "定義未找到"),
+        partOfSpeech: data[index]?.partOfSpeech || (language === "en" ? "Unknown" : "未知"),
         known: false,
       }));
 
       setFlashcards(cards);
       setViewMode("flashcards");
 
-      toast({
-        title: language === "en" ? "Flashcards created!" : "字卡已建立！",
-        description:
-          language === "en"
-            ? `Created ${cards.length} flashcards`
-            : `已建立 ${cards.length} 張字卡`,
-      });
+      if (failedCount > 0) {
+        toast({
+          title: language === "en" ? "Flashcards created with errors" : "字卡建立完成（部分失敗）",
+          description:
+            language === "en"
+              ? `Created ${cards.length} flashcards, but ${failedCount} definitions failed to load`
+              : `已建立 ${cards.length} 張字卡，但 ${failedCount} 個定義載入失敗`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: language === "en" ? "Flashcards created!" : "字卡已建立！",
+          description:
+            language === "en"
+              ? `Created ${cards.length} flashcards`
+              : `已建立 ${cards.length} 張字卡`,
+        });
+      }
     },
     onError: () => {
       toast({

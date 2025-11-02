@@ -46,10 +46,8 @@ export function FlashcardView({
 
   const nextCard = () => {
     setIsFlipped(false);
-    if (currentIndex < cards.length - 1) {
+    if (currentIndex < cards.length) {
       setCurrentIndex((i) => i + 1);
-    } else {
-      onComplete();
     }
   };
 
