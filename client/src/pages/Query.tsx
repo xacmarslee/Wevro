@@ -52,7 +52,7 @@ export default function Query() {
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
       <div>
         <h1 className="text-3xl font-bold mb-2">
-          {language === "en" ? "Query & Translation" : "查詢與翻譯"}
+          {language === "en" ? "Query & Translation" : "查詢"}
         </h1>
         <p className="text-muted-foreground">
           {language === "en" 
