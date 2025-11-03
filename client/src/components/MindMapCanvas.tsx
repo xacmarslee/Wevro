@@ -86,23 +86,23 @@ export function MindMapCanvas({
     return acc;
   }, {} as Record<string, MindMapNode[]>);
 
-  // Create spider thread polylines (one polyline per category connecting all nodes in order)
+  // Create spider thread lines (one straight line per category from center through furthest node)
   const spiderThreads = Object.entries(categoryThreads).map(([category, categoryNodes]) => {
     if (!centerNode || categoryNodes.length === 0) return null;
 
-    // Sort nodes by distance from center (closest to furthest)
+    // Sort nodes by distance from center to get the furthest one
     const sortedNodes = [...categoryNodes].sort((a, b) => {
       const distA = Math.sqrt(Math.pow(a.x - centerNode.x, 2) + Math.pow(a.y - centerNode.y, 2));
       const distB = Math.sqrt(Math.pow(b.x - centerNode.x, 2) + Math.pow(b.y - centerNode.y, 2));
-      return distA - distB;
+      return distB - distA;
     });
 
-    // Create points array: center -> node1 -> node2 -> ... -> nodeN
-    const points = [centerNode, ...sortedNodes];
+    const furthestNode = sortedNodes[0];
 
     return {
       category,
-      points,
+      from: centerNode,
+      to: furthestNode,
     };
   }).filter(Boolean);
 
@@ -126,7 +126,7 @@ export function MindMapCanvas({
         onMouseLeave={handleMouseUp}
       >
         <svg
-          className="absolute inset-0 pointer-events-none z-20"
+          className="absolute inset-0 pointer-events-none z-0"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
@@ -134,29 +134,18 @@ export function MindMapCanvas({
         >
           {spiderThreads.map((thread) => {
             if (!thread) return null;
-            const { category, points } = thread;
+            const { category, from, to } = thread;
             const categoryColor = getCategoryColor(category as WordCategory, isDark);
             
-            // Create polyline points string: "x1,y1 x2,y2 x3,y3 ..."
-            // Filter out any undefined points and create the string
-            const validPoints = points.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number');
-            if (validPoints.length < 2) return null; // Need at least 2 points to draw a line
-            
-            const pointsString = validPoints.map(p => `${p.x},${p.y}`).join(' ');
-            
-            console.log(`Drawing spider thread for ${category}:`, {
-              nodeCount: validPoints.length,
-              points: validPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
-              fullPointsString: pointsString
-            });
-            
             return (
-              <polyline
+              <line
                 key={`thread-${category}`}
-                points={pointsString}
+                x1={from.x}
+                y1={from.y}
+                x2={to.x}
+                y2={to.y}
                 stroke={categoryColor}
                 strokeWidth={2}
-                fill="none"
                 opacity={0.5}
               />
             );
