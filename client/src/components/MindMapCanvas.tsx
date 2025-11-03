@@ -21,6 +21,25 @@ export function MindMapCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Auto-center the center node when it's created
+  useEffect(() => {
+    if (!centerNodeId || !containerRef.current) return;
+    
+    const centerNode = nodes.find((n) => n.id === centerNodeId);
+    if (!centerNode) return;
+
+    // Calculate the center of the viewport
+    const rect = containerRef.current.getBoundingClientRect();
+    const viewportCenterX = rect.width / 2;
+    const viewportCenterY = rect.height / 2;
+
+    // Calculate the pan needed to center the node
+    setPan({
+      x: viewportCenterX - centerNode.x * zoom,
+      y: viewportCenterY - centerNode.y * zoom,
+    });
+  }, [centerNodeId, nodes, zoom]);
+
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;

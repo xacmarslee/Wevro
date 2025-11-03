@@ -23,20 +23,40 @@ export default function Home() {
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>("mindmap");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [categoryAngles, setCategoryAngles] = useState<Record<string, number>>({});
 
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslation(language);
 
+  // Assign angles to categories (like spokes on a wheel)
+  const categories: WordCategory[] = [
+    "derivatives",
+    "synonyms",
+    "antonyms",
+    "collocations",
+    "idioms",
+    "root",
+    "prefix",
+    "suffix",
+    "topic-related",
+  ];
+
+  const getCategoryAngle = (category: WordCategory): number => {
+    const categoryIndex = categories.indexOf(category);
+    return (categoryIndex * 2 * Math.PI) / categories.length;
+  };
+
   // Start with initial word
   const handleStartLearning = () => {
     if (!initialWord.trim()) return;
 
+    // Use fixed coordinates - the canvas will center it
     const newNode: MindMapNode = {
       id: crypto.randomUUID(),
       word: initialWord.trim(),
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
+      x: 0,
+      y: 0,
       isCenter: true,
     };
 
@@ -109,18 +129,27 @@ export default function Home() {
         const centerNode = prevNodes.find((n) => n.id === variables.targetNodeId);
         if (!centerNode) return prevNodes;
 
-        const angleStep = (2 * Math.PI) / data.words.length;
-        const radius = 250;
+        // Get the angle for this category (spider thread direction)
+        const angle = getCategoryAngle(variables.category);
+        
+        // Base distance from center for first word
+        const baseDistance = 200;
+        // Spacing between words along the thread
+        const spacing = 120;
 
-        const newNodes: MindMapNode[] = data.words.map((word, index) => ({
-          id: crypto.randomUUID(),
-          word,
-          x: centerNode.x + radius * Math.cos(angleStep * index),
-          y: centerNode.y + radius * Math.sin(angleStep * index),
-          parentId: centerNode.id,
-          category: variables.category,
-          isCenter: false,
-        }));
+        const newNodes: MindMapNode[] = data.words.map((word, index) => {
+          // Position words along the spider thread
+          const distance = baseDistance + (index * spacing);
+          return {
+            id: crypto.randomUUID(),
+            word,
+            x: centerNode.x + distance * Math.cos(angle),
+            y: centerNode.y + distance * Math.sin(angle),
+            parentId: centerNode.id,
+            category: variables.category,
+            isCenter: false,
+          };
+        });
 
         return [...prevNodes, ...newNodes];
       });
