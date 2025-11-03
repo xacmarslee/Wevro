@@ -68,7 +68,7 @@ export function CategoryButtons({
           variant="secondary"
           size="icon"
           onClick={() => setIsOpen(!isOpen)}
-          className="fixed top-20 left-2 z-50 shadow-lg"
+          className="fixed top-[72px] left-3 z-50 shadow-lg"
           data-testid="button-toggle-categories"
         >
           {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
