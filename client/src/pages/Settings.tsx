@@ -1,13 +1,15 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useStartPage } from "@/contexts/StartPageContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Languages, Moon, Sun } from "lucide-react";
+import { Languages, Moon, Sun, Home } from "lucide-react";
 
 export default function Settings() {
   const { language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
+  const { startPage, setStartPage } = useStartPage();
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
@@ -92,6 +94,48 @@ export default function Settings() {
               >
                 <Moon className="h-4 w-4 mr-2" />
                 {language === "en" ? "Dark" : "深色"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Home className="h-5 w-5" />
+              {language === "en" ? "Start Page" : "起始頁面"}
+            </CardTitle>
+            <CardDescription>
+              {language === "en" 
+                ? "Choose which page to show when you open the app" 
+                : "選擇開啟應用程式時要顯示的頁面"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-col gap-2">
+              <Button
+                variant={startPage === "query" ? "default" : "outline"}
+                onClick={() => setStartPage("query")}
+                className="w-full justify-start"
+                data-testid="button-startpage-query"
+              >
+                {language === "en" ? "Query & Translation" : "查詢與翻譯"}
+              </Button>
+              <Button
+                variant={startPage === "flashcards" ? "default" : "outline"}
+                onClick={() => setStartPage("flashcards")}
+                className="w-full justify-start"
+                data-testid="button-startpage-flashcards"
+              >
+                {language === "en" ? "Flashcards" : "字卡"}
+              </Button>
+              <Button
+                variant={startPage === "mindmaps" ? "default" : "outline"}
+                onClick={() => setStartPage("mindmaps")}
+                className="w-full justify-start"
+                data-testid="button-startpage-mindmaps"
+              >
+                {language === "en" ? "Mind Maps" : "心智圖"}
               </Button>
             </div>
           </CardContent>

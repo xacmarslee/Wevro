@@ -1,10 +1,11 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import { StartPageProvider, useStartPage } from "@/contexts/StartPageContext";
 import { useAuth } from "@/hooks/useAuth";
 import Footer from "@/components/Footer";
 import Query from "@/pages/Query";
@@ -14,6 +15,11 @@ import MindMapEditor from "@/pages/Home";
 import Settings from "@/pages/Settings";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
+
+function StartPageRedirect() {
+  const { startPage } = useStartPage();
+  return <Redirect to={`/${startPage}`} />;
+}
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -34,7 +40,7 @@ function Router() {
           <Route path="/mindmap/new" component={MindMapEditor} />
           <Route path="/mindmap/:id" component={MindMapEditor} />
           <Route path="/settings" component={Settings} />
-          <Route path="/" component={MindMaps} />
+          <Route path="/" component={StartPageRedirect} />
           <Route component={NotFound} />
         </Switch>
       </div>
@@ -48,10 +54,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <LanguageProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
+          <StartPageProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </StartPageProvider>
         </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>
