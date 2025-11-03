@@ -145,8 +145,8 @@ export function MindMapCanvas({
                 x2={to.x}
                 y2={to.y}
                 stroke={categoryColor}
-                strokeWidth={2}
-                opacity={0.5}
+                strokeWidth={3}
+                opacity={0.6}
               />
             );
           })}
