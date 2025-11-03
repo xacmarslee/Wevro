@@ -126,7 +126,7 @@ export function MindMapCanvas({
         onMouseLeave={handleMouseUp}
       >
         <svg
-          className="absolute inset-0 pointer-events-none z-0"
+          className="absolute inset-0 pointer-events-none z-20"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
@@ -138,19 +138,26 @@ export function MindMapCanvas({
             const categoryColor = getCategoryColor(category as WordCategory, isDark);
             
             // Create polyline points string: "x1,y1 x2,y2 x3,y3 ..."
-            const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
+            // Filter out any undefined points and create the string
+            const validPoints = points.filter(p => p && typeof p.x === 'number' && typeof p.y === 'number');
+            if (validPoints.length < 2) return null; // Need at least 2 points to draw a line
+            
+            const pointsString = validPoints.map(p => `${p.x},${p.y}`).join(' ');
+            
+            console.log(`Drawing spider thread for ${category}:`, {
+              nodeCount: validPoints.length,
+              points: validPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+              fullPointsString: pointsString
+            });
             
             return (
-              <motion.polyline
+              <polyline
                 key={`thread-${category}`}
                 points={pointsString}
                 stroke={categoryColor}
                 strokeWidth={2}
                 fill="none"
                 opacity={0.5}
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 0.5 }}
-                transition={{ duration: 0.5 }}
               />
             );
           })}
