@@ -297,22 +297,11 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <div className="px-6 py-3 border-b flex items-center justify-between">
-                <CategoryButtons
-                  onSelectCategory={handleCategorySelect}
-                  disabled={!centerNodeId}
-                  loading={isGenerating}
-                />
-                <Button
-                  variant="outline"
-                  onClick={handleResetMap}
-                  data-testid="button-reset-map"
-                  className="ml-4"
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  {t.newMap}
-                </Button>
-              </div>
+              <CategoryButtons
+                onSelectCategory={handleCategorySelect}
+                disabled={!centerNodeId}
+                loading={isGenerating}
+              />
 
               <div className="flex-1 relative">
                 {isGenerating && (
@@ -345,6 +334,16 @@ export default function Home() {
                     <BookOpen className="h-5 w-5 mr-2" />
                   )}
                   {t.createFlashcards}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleResetMap}
+                  size="lg"
+                  data-testid="button-reset-map"
+                  className="shadow-lg"
+                >
+                  <RotateCcw className="h-5 w-5 mr-2" />
+                  {t.newMap}
                 </Button>
               </div>
             </>

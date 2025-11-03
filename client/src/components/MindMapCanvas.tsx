@@ -64,7 +64,13 @@ export function MindMapCanvas({
     .filter(Boolean);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-background">
+    <div 
+      className="relative h-full w-full overflow-hidden bg-background"
+      style={{
+        backgroundImage: `radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)`,
+        backgroundSize: '24px 24px',
+      }}
+    >
       {/* Zoom controls */}
       <div className="absolute bottom-6 right-6 z-30 flex flex-col gap-2">
         <Button

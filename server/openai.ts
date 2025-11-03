@@ -37,9 +37,9 @@ export async function generateRelatedWords(
       "topic-related": `For "computer": ["keyboard", "mouse", "monitor", "software", "hardware", "internet"]`,
     };
 
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+    // Using gpt-4o for more reliable word generation
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -81,9 +81,9 @@ export async function generateChineseDefinition(
   word: string
 ): Promise<{ definition: string; partOfSpeech: string }> {
   try {
-    // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+    // Using gpt-4o for more reliable definition generation
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
