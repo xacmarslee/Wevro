@@ -3,6 +3,8 @@ import { type MindMapNode } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { getCategoryColor } from "@shared/categoryColors";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface MindMapCanvasProps {
   nodes: MindMapNode[];
@@ -20,6 +22,8 @@ export function MindMapCanvas({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   // Auto-center the center node when it's created
   useEffect(() => {
@@ -87,7 +91,8 @@ export function MindMapCanvas({
       className="relative h-full w-full overflow-hidden bg-background"
       style={{
         backgroundImage: `radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)`,
-        backgroundSize: '24px 24px',
+        backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
+        backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
     >
       {/* Zoom controls */}
@@ -168,6 +173,8 @@ export function MindMapCanvas({
           <AnimatePresence>
             {nodes.map((node) => {
               const isCenter = node.id === centerNodeId;
+              const categoryColor = node.category ? getCategoryColor(node.category, isDark) : undefined;
+              
               return (
                 <motion.div
                   key={node.id}
@@ -190,13 +197,17 @@ export function MindMapCanvas({
                 >
                   <div
                     className={`
-                      rounded-2xl px-8 py-6 font-semibold shadow-lg border transition-all
+                      rounded-xl font-semibold shadow-lg border-2 transition-all
                       ${
                         isCenter
-                          ? "bg-primary text-primary-foreground border-primary-border text-4xl min-w-[200px] shadow-xl"
-                          : "bg-card text-card-foreground border-card-border text-2xl min-w-[150px] hover-elevate active-elevate-2 hover:scale-105"
+                          ? "px-6 py-4 bg-primary text-primary-foreground border-primary-border text-3xl min-w-[160px] shadow-xl"
+                          : "px-4 py-2.5 bg-card text-card-foreground text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105"
                       }
                     `}
+                    style={!isCenter && categoryColor ? {
+                      borderColor: categoryColor,
+                      color: categoryColor,
+                    } : undefined}
                   >
                     <div className="text-center whitespace-nowrap">
                       {node.word}

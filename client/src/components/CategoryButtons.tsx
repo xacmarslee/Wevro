@@ -2,7 +2,9 @@ import { Button } from "@/components/ui/button";
 import { wordCategories, type WordCategory } from "@shared/schema";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
+import { getCategoryColor } from "@shared/categoryColors";
 import { Sparkles } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface CategoryButtonsProps {
   onSelectCategory: (category: WordCategory) => void;
@@ -17,6 +19,8 @@ export function CategoryButtons({
 }: CategoryButtonsProps) {
   const { language } = useLanguage();
   const t = useTranslation(language);
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
 
   return (
     <div className="sticky top-16 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -29,19 +33,26 @@ export function CategoryButtons({
             </span>
           </div>
           
-          {wordCategories.map((category) => (
-            <Button
-              key={category}
-              variant="secondary"
-              size="default"
-              onClick={() => onSelectCategory(category)}
-              disabled={disabled || loading}
-              data-testid={`button-category-${category}`}
-              className="whitespace-nowrap font-medium"
-            >
-              {t.categories[category]}
-            </Button>
-          ))}
+          {wordCategories.map((category) => {
+            const color = getCategoryColor(category, isDark);
+            return (
+              <Button
+                key={category}
+                variant="outline"
+                size="default"
+                onClick={() => onSelectCategory(category)}
+                disabled={disabled || loading}
+                data-testid={`button-category-${category}`}
+                className="whitespace-nowrap font-medium border-2"
+                style={{
+                  borderColor: color,
+                  color: color,
+                }}
+              >
+                {t.categories[category]}
+              </Button>
+            );
+          })}
         </div>
       </div>
     </div>

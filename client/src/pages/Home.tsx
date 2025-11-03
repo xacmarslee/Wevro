@@ -133,9 +133,9 @@ export default function Home() {
         const angle = getCategoryAngle(variables.category);
         
         // Base distance from center for first word
-        const baseDistance = 200;
-        // Spacing between words along the thread
-        const spacing = 120;
+        const baseDistance = 250;
+        // Spacing between words along the thread (increased for better spacing)
+        const spacing = 180;
 
         const newNodes: MindMapNode[] = data.words.map((word, index) => {
           // Position words along the spider thread
