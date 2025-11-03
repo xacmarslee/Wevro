@@ -30,7 +30,7 @@ export async function generateRelatedWords(
       synonyms: `For "happy": ["joyful", "cheerful", "content", "pleased", "delighted"]`,
       antonyms: `For "happy": ["sad", "unhappy", "miserable", "depressed", "gloomy"]`,
       collocations: `For "make": ["make a decision", "make progress", "make sense", "make time", "make an effort"]`,
-      idioms: `For "happy": ["happy as a clam", "happy camper", "happy medium", "trigger happy"]`,
+      idioms: `For "happy": ["happy as a clam", "happy camper", "happy medium", "trigger happy", "happy hour"]`,
       root: `For "dictionary": ["diction", "dictate", "dictator", "predict", "verdict"]`,
       prefix: `For "unhappy": ["unable", "uncertain", "unfair", "unkind", "unusual"]`,
       suffix: `For "happiness": ["kindness", "sadness", "darkness", "weakness", "fitness"]`,
@@ -51,7 +51,9 @@ export async function generateRelatedWords(
 
 Example: ${examples[category]}
 
-Return a JSON object with a "words" array. IMPORTANT: You must include at least 5 words. Do not include the original word "${word}".
+${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them.` : ""}
+
+Return a JSON object with a "words" array. IMPORTANT: You must include at least 5 words. Do not include the original word "${word}" by itself.
 
 JSON format:
 {

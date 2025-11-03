@@ -137,7 +137,7 @@ export function MindMapCanvas({
         onMouseLeave={handleMouseUp}
       >
         <svg
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 pointer-events-none z-0"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
@@ -146,6 +146,7 @@ export function MindMapCanvas({
           {connections.map((conn, idx) => {
             if (!conn) return null;
             const { from, to } = conn;
+            const categoryColor = to.category ? getCategoryColor(to.category, isDark) : "hsl(var(--border))";
             return (
               <motion.line
                 key={`${from.id}-${to.id}-${idx}`}
@@ -153,10 +154,11 @@ export function MindMapCanvas({
                 y1={from.y}
                 x2={to.x}
                 y2={to.y}
-                stroke="hsl(var(--border))"
+                stroke={categoryColor}
                 strokeWidth={2}
+                opacity={0.5}
                 initial={{ pathLength: 0, opacity: 0 }}
-                animate={{ pathLength: 1, opacity: 1 }}
+                animate={{ pathLength: 1, opacity: 0.5 }}
                 transition={{ duration: 0.5 }}
               />
             );
@@ -164,7 +166,7 @@ export function MindMapCanvas({
         </svg>
 
         <div
-          className="absolute inset-0"
+          className="absolute inset-0 z-10"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "0 0",
@@ -198,10 +200,11 @@ export function MindMapCanvas({
                   <div
                     className={`
                       rounded-xl font-semibold shadow-lg border-2 transition-all
+                      px-4 py-2.5 text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105
                       ${
                         isCenter
-                          ? "px-6 py-4 bg-primary text-primary-foreground border-primary-border text-3xl min-w-[160px] shadow-xl"
-                          : "px-4 py-2.5 bg-card text-card-foreground text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105"
+                          ? "bg-primary text-primary-foreground border-primary-border shadow-xl ring-4 ring-primary/20"
+                          : "bg-card text-card-foreground"
                       }
                     `}
                     style={!isCenter && categoryColor ? {
