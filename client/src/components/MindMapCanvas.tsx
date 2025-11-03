@@ -116,6 +116,7 @@ export function MindMapCanvas({
         backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
+      data-mindmap-canvas
     >
       {/* Canvas */}
       <div

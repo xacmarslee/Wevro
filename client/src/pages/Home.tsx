@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { BookOpen, Keyboard, Play, Loader2, RotateCcw } from "lucide-react";
+import { BookOpen, Keyboard, Play, Loader2, RotateCcw, Undo2, Redo2, Save, Download } from "lucide-react";
+import html2canvas from "html2canvas";
 
 type ViewMode = "mindmap" | "flashcards" | "spelling";
 
@@ -24,10 +25,60 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<ViewMode>("mindmap");
   const [isGenerating, setIsGenerating] = useState(false);
   const [categoryAngles, setCategoryAngles] = useState<Record<string, number>>({});
+  
+  // Undo/Redo history stacks (initialize with empty state)
+  const [history, setHistory] = useState<MindMapNode[][]>([[]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const [isSaved, setIsSaved] = useState(false);
 
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslation(language);
+  
+  // Wrapper to update nodes with history tracking
+  const updateNodes = (newNodes: MindMapNode[] | ((prev: MindMapNode[]) => MindMapNode[])) => {
+    setNodes((prevNodes) => {
+      const nextNodes = typeof newNodes === 'function' ? newNodes(prevNodes) : newNodes;
+      
+      // Add to history (remove any forward history if we're not at the end)
+      setHistory((prevHistory) => {
+        const newHistory = prevHistory.slice(0, historyIndex + 1);
+        return [...newHistory, nextNodes];
+      });
+      setHistoryIndex((prev) => prev + 1);
+      setIsSaved(false);
+      
+      return nextNodes;
+    });
+  };
+  
+  // Undo function
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1];
+      setHistoryIndex(historyIndex - 1);
+      setNodes(prevState);
+      toast({
+        title: language === "en" ? "Undo" : "復原",
+        description: language === "en" ? "Action undone" : "已復原上一步",
+        duration: 2000,
+      });
+    }
+  };
+  
+  // Redo function
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1];
+      setHistoryIndex(historyIndex + 1);
+      setNodes(nextState);
+      toast({
+        title: language === "en" ? "Redo" : "取消復原",
+        description: language === "en" ? "Action redone" : "已取消復原",
+        duration: 2000,
+      });
+    }
+  };
 
   // Assign angles to categories (like spokes on a wheel)
   const categories: WordCategory[] = [
@@ -60,17 +111,20 @@ export default function Home() {
       isCenter: true,
     };
 
-    setNodes([newNode]);
+    updateNodes([newNode]);
     setCenterNodeId(newNode.id);
     setInitialWord("");
   };
 
   // Reset map to start fresh
   const handleResetMap = () => {
-    setNodes([]);
+    updateNodes([]);
     setCenterNodeId(undefined);
     setFlashcards([]);
     setViewMode("mindmap");
+    // Clear undo/redo history after reset
+    setHistory([[]]);
+    setHistoryIndex(0);
     toast({
       title: language === "en" ? "Map cleared" : "心智圖已清空",
       description: language === "en" ? "Start fresh with a new word" : "開始輸入新單字",
@@ -128,7 +182,7 @@ export default function Home() {
         return;
       }
 
-      setNodes((prevNodes) => {
+      updateNodes((prevNodes) => {
         const centerNode = prevNodes.find((n) => n.id === variables.targetNodeId);
         if (!centerNode) return prevNodes;
 
@@ -223,7 +277,7 @@ export default function Home() {
 
   // Delete a node and reposition remaining nodes in the same category
   const handleDeleteNode = (nodeId: string) => {
-    setNodes((prevNodes) => {
+    updateNodes((prevNodes) => {
       const nodeToDelete = prevNodes.find(n => n.id === nodeId);
       if (!nodeToDelete || nodeToDelete.isCenter) return prevNodes; // Cannot delete center node
       
@@ -396,6 +450,88 @@ export default function Home() {
   const handleCompleteFlashcards = () => {
     setViewMode("mindmap");
   };
+  
+  // Save mind map mutation
+  const saveMindMapMutation = useMutation({
+    mutationFn: async () => {
+      const centerNode = nodes.find(n => n.isCenter);
+      const name = centerNode ? centerNode.word : "Untitled Mind Map";
+      
+      const response = await apiRequest("POST", "/api/mindmaps", {
+        name,
+        nodes,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      setIsSaved(true);
+      // Clear history after save (keep current state only)
+      setHistory([nodes]);
+      setHistoryIndex(0);
+      
+      toast({
+        title: language === "en" ? "Saved successfully" : "儲存成功",
+        description: language === "en" ? "Your mind map has been saved" : "您的心智圖已儲存",
+        duration: 2000,
+      });
+    },
+    onError: () => {
+      toast({
+        title: language === "en" ? "Save failed" : "儲存失敗",
+        description: language === "en" ? "Failed to save mind map" : "儲存心智圖失敗",
+        variant: "destructive",
+        duration: 2000,
+      });
+    },
+  });
+  
+  const handleSave = () => {
+    if (nodes.length === 0) return;
+    saveMindMapMutation.mutate();
+  };
+  
+  // Download as PNG function
+  const handleDownloadPNG = async () => {
+    const canvasElement = document.querySelector('[data-mindmap-canvas]') as HTMLElement;
+    if (!canvasElement) {
+      toast({
+        title: language === "en" ? "Export failed" : "匯出失敗",
+        description: language === "en" ? "Canvas not found" : "找不到畫布",
+        variant: "destructive",
+        duration: 2000,
+      });
+      return;
+    }
+    
+    try {
+      const canvas = await html2canvas(canvasElement, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+      });
+      
+      const link = document.createElement('a');
+      const centerNode = nodes.find(n => n.isCenter);
+      const filename = centerNode ? `${centerNode.word}-mindmap.png` : 'mindmap.png';
+      
+      link.download = filename;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      
+      toast({
+        title: language === "en" ? "Downloaded" : "已下載",
+        description: language === "en" ? "Mind map exported as PNG" : "心智圖已匯出為 PNG",
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: language === "en" ? "Export failed" : "匯出失敗",
+        description: language === "en" ? "Failed to export mind map" : "匯出心智圖失敗",
+        variant: "destructive",
+        duration: 2000,
+      });
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen">
@@ -403,6 +539,61 @@ export default function Home() {
 
       {viewMode === "mindmap" && (
         <>
+          {/* Mind Map Control Bar - always show for undo/redo access */}
+          {(nodes.length > 0 || history.length > 1) && (
+            <div className="border-b px-6 py-3 flex items-center justify-between bg-card/50">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndo}
+                  disabled={historyIndex <= 0}
+                  data-testid="button-undo"
+                >
+                  <Undo2 className="h-4 w-4 mr-2" />
+                  {language === "en" ? "Undo" : "上一步"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRedo}
+                  disabled={historyIndex >= history.length - 1}
+                  data-testid="button-redo"
+                >
+                  <Redo2 className="h-4 w-4 mr-2" />
+                  {language === "en" ? "Redo" : "下一步"}
+                </Button>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={nodes.length === 0 || saveMindMapMutation.isPending}
+                  data-testid="button-save"
+                >
+                  {saveMindMapMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  {language === "en" ? "Save" : "儲存"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPNG}
+                  disabled={nodes.length === 0}
+                  data-testid="button-download"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {language === "en" ? "Download PNG" : "下載 PNG"}
+                </Button>
+              </div>
+            </div>
+          )}
+          
           {nodes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="w-full max-w-md space-y-6 text-center">
