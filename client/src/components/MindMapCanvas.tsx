@@ -197,11 +197,11 @@ export function MindMapCanvas({
                           e.preventDefault();
                           onNodeDelete(node.id);
                         }}
-                        className="absolute -top-2 -right-2 z-20 w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground border border-border opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:scale-110 shadow-md"
+                        className="absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground border border-border opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity flex items-center justify-center hover:scale-110 shadow-md"
                         data-testid={`button-delete-${node.word}`}
                         aria-label="Delete node"
                       >
-                        <X className="w-3 h-3" />
+                        <X className="w-3.5 h-3.5" />
                       </button>
                     )}
                     
