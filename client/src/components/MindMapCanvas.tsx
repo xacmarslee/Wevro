@@ -86,24 +86,23 @@ export function MindMapCanvas({
     return acc;
   }, {} as Record<string, MindMapNode[]>);
 
-  // Create spider thread lines (one line per category from center through all nodes)
+  // Create spider thread polylines (one polyline per category connecting all nodes in order)
   const spiderThreads = Object.entries(categoryThreads).map(([category, categoryNodes]) => {
     if (!centerNode || categoryNodes.length === 0) return null;
 
-    // Sort nodes by distance from center to get the furthest one
+    // Sort nodes by distance from center (closest to furthest)
     const sortedNodes = [...categoryNodes].sort((a, b) => {
       const distA = Math.sqrt(Math.pow(a.x - centerNode.x, 2) + Math.pow(a.y - centerNode.y, 2));
       const distB = Math.sqrt(Math.pow(b.x - centerNode.x, 2) + Math.pow(b.y - centerNode.y, 2));
-      return distB - distA;
+      return distA - distB;
     });
 
-    const furthestNode = sortedNodes[0];
+    // Create points array: center -> node1 -> node2 -> ... -> nodeN
+    const points = [centerNode, ...sortedNodes];
 
     return {
       category,
-      from: centerNode,
-      to: furthestNode,
-      nodes: categoryNodes,
+      points,
     };
   }).filter(Boolean);
 
@@ -135,17 +134,19 @@ export function MindMapCanvas({
         >
           {spiderThreads.map((thread) => {
             if (!thread) return null;
-            const { category, from, to } = thread;
+            const { category, points } = thread;
             const categoryColor = getCategoryColor(category, isDark);
+            
+            // Create polyline points string: "x1,y1 x2,y2 x3,y3 ..."
+            const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
+            
             return (
-              <motion.line
+              <motion.polyline
                 key={`thread-${category}`}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
+                points={pointsString}
                 stroke={categoryColor}
                 strokeWidth={2}
+                fill="none"
                 opacity={0.5}
                 initial={{ pathLength: 0, opacity: 0 }}
                 animate={{ pathLength: 1, opacity: 0.5 }}
