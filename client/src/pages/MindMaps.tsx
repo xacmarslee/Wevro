@@ -141,15 +141,12 @@ export default function MindMaps() {
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-primary">Wevro</h1>
+        <div className="h-6 w-px bg-border" />
+        <h2 className="text-2xl font-semibold">
           {language === "en" ? "Mind Maps" : "心智圖"}
-        </h1>
-        <p className="text-muted-foreground">
-          {language === "en" 
-            ? "View and manage your vocabulary mind maps" 
-            : "查看並管理您的詞彙心智圖"}
-        </p>
+        </h2>
       </div>
 
       {isLoading ? (

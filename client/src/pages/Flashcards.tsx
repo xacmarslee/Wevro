@@ -124,15 +124,12 @@ export default function Flashcards() {
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">
-          {language === "en" ? "Flashcard Decks" : "字卡組"}
-        </h1>
-        <p className="text-muted-foreground">
-          {language === "en" 
-            ? "Create and practice with flashcard decks" 
-            : "建立並練習字卡組"}
-        </p>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-primary">Wevro</h1>
+        <div className="h-6 w-px bg-border" />
+        <h2 className="text-2xl font-semibold">
+          {language === "en" ? "Flashcards" : "字卡"}
+        </h2>
       </div>
 
       {isLoading ? (

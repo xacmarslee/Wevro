@@ -51,15 +51,12 @@ export default function Query() {
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">
-          {language === "en" ? "Query & Translation" : "查詢"}
-        </h1>
-        <p className="text-muted-foreground">
-          {language === "en"
-            ? "Look up words or translate sentences between English and Traditional Chinese"
-            : "查詢單字或翻譯英文與繁體中文句子"}
-        </p>
+      <div className="flex items-center gap-3">
+        <h1 className="text-2xl font-bold text-primary">Wevro</h1>
+        <div className="h-6 w-px bg-border" />
+        <h2 className="text-2xl font-semibold">
+          {language === "en" ? "Query" : "查詢"}
+        </h2>
       </div>
 
       <Card>
