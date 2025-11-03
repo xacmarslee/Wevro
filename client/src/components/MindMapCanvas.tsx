@@ -73,9 +73,11 @@ export function MindMapCanvas({
     setPan({ x: 0, y: 0 });
   };
 
-  // Group nodes by category for spider thread lines
+  // Group nodes by category AND parent (center node) for spider thread lines
+  const centerNode = nodes.find((n) => n.id === centerNodeId);
+  
   const categoryThreads = nodes.reduce((acc, node) => {
-    if (node.category && node.parentId) {
+    if (node.category && node.parentId === centerNodeId) {
       if (!acc[node.category]) {
         acc[node.category] = [];
       }
@@ -86,7 +88,6 @@ export function MindMapCanvas({
 
   // Create spider thread lines (one line per category from center through all nodes)
   const spiderThreads = Object.entries(categoryThreads).map(([category, categoryNodes]) => {
-    const centerNode = nodes.find((n) => n.id === centerNodeId);
     if (!centerNode || categoryNodes.length === 0) return null;
 
     // Sort nodes by distance from center to get the furthest one
