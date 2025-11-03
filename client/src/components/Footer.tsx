@@ -56,9 +56,9 @@ export default function Footer() {
               key={item.id}
               onClick={() => setLocation(item.path)}
               data-testid={item.testId}
-              className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-md transition-colors ${
+              className={`flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-md transition-all ${
                 active
-                  ? "text-primary"
+                  ? "text-primary bg-primary/10"
                   : "text-muted-foreground hover-elevate"
               }`}
             >
