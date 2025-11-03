@@ -26,7 +26,8 @@ export default function Query() {
     onError: () => {
       toast({
         title: language === "en" ? "Query failed" : "查詢失敗",
-        description: language === "en" ? "Failed to process query" : "處理查詢失敗",
+        description:
+          language === "en" ? "Failed to process query" : "處理查詢失敗",
         variant: "destructive",
         duration: 2000,
       });
@@ -55,23 +56,21 @@ export default function Query() {
           {language === "en" ? "Query & Translation" : "查詢"}
         </h1>
         <p className="text-muted-foreground">
-          {language === "en" 
-            ? "Look up words or translate sentences between English and Traditional Chinese" 
+          {language === "en"
+            ? "Look up words or translate sentences between English and Traditional Chinese"
             : "查詢單字或翻譯英文與繁體中文句子"}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            {language === "en" ? "Input" : "輸入"}
-          </CardTitle>
+          <CardTitle>{language === "en" ? "Input" : "輸入"}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
             placeholder={
-              language === "en" 
-                ? "Enter a word to look up or a sentence to translate..." 
+              language === "en"
+                ? "Enter a word to look up or a sentence to translate..."
                 : "輸入要查詢的單字或要翻譯的句子..."
             }
             value={input}
@@ -111,14 +110,12 @@ export default function Query() {
           <CardContent>
             <div className="space-y-3">
               {translations.map((translation, index) => (
-                <div 
+                <div
                   key={index}
                   className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/30 hover-elevate group"
                   data-testid={`translation-option-${index}`}
                 >
-                  <div className="flex-1 text-base">
-                    {translation}
-                  </div>
+                  <div className="flex-1 text-base">{translation}</div>
                   <Button
                     variant="ghost"
                     size="icon"
