@@ -291,12 +291,6 @@ export default function Home() {
 
       {viewMode === "mindmap" && (
         <>
-          <CategoryButtons
-            onSelectCategory={handleCategorySelect}
-            disabled={!centerNodeId}
-            loading={isGenerating}
-          />
-
           {nodes.length === 0 ? (
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="w-full max-w-md space-y-6 text-center">
@@ -332,6 +326,11 @@ export default function Home() {
             </div>
           ) : (
             <>
+              <CategoryButtons
+                onSelectCategory={handleCategorySelect}
+                disabled={!centerNodeId}
+                loading={isGenerating}
+              />
 
               <div className="flex-1 relative">
                 {isGenerating && (
