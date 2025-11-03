@@ -145,7 +145,7 @@ export function MindMapCanvas({
                   x2={to.x}
                   y2={to.y}
                   stroke={categoryColor}
-                  strokeWidth={3}
+                  strokeWidth={1.5}
                   opacity={0.6}
                   strokeLinecap="round"
                   vectorEffect="non-scaling-stroke"

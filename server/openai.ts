@@ -47,13 +47,13 @@ export async function generateRelatedWords(
         },
         {
           role: "user",
-          content: `Task: Generate 5-8 ${categoryDescriptions[category]} for the word "${word}".
+          content: `Task: Generate 5-7 ${categoryDescriptions[category]} for the word "${word}".
 
 Example: ${examples[category]}
 
 ${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them.` : ""}
 
-Return a JSON object with a "words" array. IMPORTANT: You must include at least 5 words. Do not include the original word "${word}" by itself.
+Return a JSON object with a "words" array. IMPORTANT: You must include at least 5 words and at most 7 words. Do not include the original word "${word}" by itself.
 
 JSON format:
 {
@@ -71,8 +71,8 @@ JSON format:
     
     console.log(`Generated ${words.length} ${category} for "${word}":`, words);
     
-    // Return up to 8 words
-    return words.slice(0, 8);
+    // Return up to 7 words
+    return words.slice(0, 7);
   } catch (error) {
     console.error("Error generating related words:", error);
     throw new Error("Failed to generate related words");
