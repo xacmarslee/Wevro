@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, real } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 
 // Word categories for mind map expansion
 export const wordCategories = [
@@ -20,10 +20,26 @@ export type WordCategory = typeof wordCategories[number];
 
 // ===== DRIZZLE TABLES =====
 
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table for Replit Auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey(),
-  username: varchar("username", { length: 255 }).notNull().unique(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const mindMaps = pgTable("mind_maps", {
@@ -93,6 +109,7 @@ export const insertFlashcardSchema = createInsertSchema(flashcards).omit({ id: t
 
 // Types
 export type User = typeof users.$inferSelect;
+export type UpsertUser = typeof users.$inferInsert;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type DbMindMap = typeof mindMaps.$inferSelect;
 export type InsertMindMap = z.infer<typeof insertMindMapSchema>;

@@ -1,14 +1,13 @@
 import { randomUUID } from "crypto";
-import type { MindMap, FlashcardDeck, Flashcard } from "@shared/schema";
+import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "@shared/schema";
 import { db } from "./db";
 import { mindMaps, flashcardDecks, flashcards, users } from "@shared/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  // Users
-  createUser(username: string): Promise<{ id: string; username: string }>;
-  getUser(id: string): Promise<{ id: string; username: string } | undefined>;
-  getUserByUsername(username: string): Promise<{ id: string; username: string } | undefined>;
+  // Users (Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
 
   // Mind maps
   getMindMap(id: string, userId: string): Promise<MindMap | undefined>;
@@ -31,20 +30,24 @@ export interface IStorage {
 }
 
 export class DbStorage implements IStorage {
-  // User methods
-  async createUser(username: string): Promise<{ id: string; username: string }> {
-    const id = randomUUID();
-    const [user] = await db.insert(users).values({ id, username }).returning();
-    return user;
-  }
-
-  async getUser(id: string): Promise<{ id: string; username: string } | undefined> {
+  // User methods (Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user;
   }
 
-  async getUserByUsername(username: string): Promise<{ id: string; username: string } | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
     return user;
   }
 
