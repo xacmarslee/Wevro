@@ -74,6 +74,7 @@ export default function Home() {
     toast({
       title: language === "en" ? "Map cleared" : "心智圖已清空",
       description: language === "en" ? "Start fresh with a new word" : "開始輸入新單字",
+      duration: 2000,
     });
   };
 
@@ -107,6 +108,7 @@ export default function Home() {
               ? "Invalid response from server"
               : "伺服器回應格式錯誤",
           variant: "destructive",
+          duration: 2000,
         });
         return;
       }
@@ -121,6 +123,7 @@ export default function Home() {
               ? `Could not generate ${variables.category} words. Please try another category.`
               : `無法生成${t.categories[variables.category]}單字，請嘗試其他類別。`,
           variant: "destructive",
+          duration: 2000,
         });
         return;
       }
@@ -185,6 +188,7 @@ export default function Home() {
           language === "en"
             ? `Added ${data.words.length} ${variables.category} words`
             : `已新增 ${data.words.length} 個${t.categories[variables.category]}`,
+        duration: 2000,
       });
     },
     onError: () => {
@@ -196,6 +200,7 @@ export default function Home() {
             ? "Failed to generate words. Please try again."
             : "生成單字失敗，請重試。",
         variant: "destructive",
+        duration: 2000,
       });
     },
   });
@@ -214,6 +219,86 @@ export default function Home() {
 
   const handleNodeClick = (nodeId: string) => {
     setCenterNodeId(nodeId);
+  };
+
+  // Delete a node and reposition remaining nodes in the same category
+  const handleDeleteNode = (nodeId: string) => {
+    setNodes((prevNodes) => {
+      const nodeToDelete = prevNodes.find(n => n.id === nodeId);
+      if (!nodeToDelete || nodeToDelete.isCenter) return prevNodes; // Cannot delete center node
+      
+      // Get all nodes in the same category with the same parent
+      const sameCategory = prevNodes.filter(
+        n => n.category === nodeToDelete.category && n.parentId === nodeToDelete.parentId
+      );
+      
+      // Remove the node
+      const nodesAfterDelete = prevNodes.filter(n => n.id !== nodeId);
+      
+      // If there are other nodes in the same category, reposition them
+      if (sameCategory.length > 1) {
+        const centerNode = prevNodes.find(n => n.id === nodeToDelete.parentId);
+        if (!centerNode) return nodesAfterDelete;
+        
+        // Get remaining nodes in this category (sorted by distance)
+        const remainingInCategory = sameCategory
+          .filter(n => n.id !== nodeId)
+          .sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - centerNode.x, 2) + Math.pow(a.y - centerNode.y, 2));
+            const distB = Math.sqrt(Math.pow(b.x - centerNode.x, 2) + Math.pow(b.y - centerNode.y, 2));
+            return distA - distB;
+          });
+        
+        // Recalculate positions
+        if (!nodeToDelete.category) return nodesAfterDelete;
+        const angle = getCategoryAngle(nodeToDelete.category);
+        const baseDistance = 250;
+        const boundaryGap = 80;
+        
+        const estimateNodeWidth = (text: string) => {
+          const charWidth = 12;
+          const padding = 32;
+          const minWidth = 100;
+          return Math.max(minWidth, text.length * charWidth + padding);
+        };
+        
+        let currentDistance = baseDistance;
+        
+        return nodesAfterDelete.map(node => {
+          const indexInCategory = remainingInCategory.findIndex(n => n.id === node.id);
+          
+          if (indexInCategory >= 0) {
+            // Recalculate position for this node
+            const nodeWidth = estimateNodeWidth(node.word);
+            
+            const updatedNode = {
+              ...node,
+              x: centerNode.x + currentDistance * Math.cos(angle),
+              y: centerNode.y + currentDistance * Math.sin(angle),
+            };
+            
+            // Calculate distance for next node
+            if (indexInCategory < remainingInCategory.length - 1) {
+              const nextNode = remainingInCategory[indexInCategory + 1];
+              const nextNodeWidth = estimateNodeWidth(nextNode.word);
+              currentDistance += nodeWidth / 2 + boundaryGap + nextNodeWidth / 2;
+            }
+            
+            return updatedNode;
+          }
+          
+          return node;
+        });
+      }
+      
+      return nodesAfterDelete;
+    });
+
+    toast({
+      title: language === "en" ? "Node deleted" : "節點已刪除",
+      description: language === "en" ? "Node removed successfully" : "節點已成功移除",
+      duration: 2000,
+    });
   };
 
   // Generate flashcards from mind map
@@ -245,6 +330,7 @@ export default function Home() {
               ? "Invalid response from server"
               : "伺服器回應格式錯誤",
           variant: "destructive",
+          duration: 2000,
         });
         return;
       }
@@ -270,6 +356,7 @@ export default function Home() {
               ? `Created ${cards.length} flashcards, but ${failedCount} definitions failed to load`
               : `已建立 ${cards.length} 張字卡，但 ${failedCount} 個定義載入失敗`,
           variant: "destructive",
+          duration: 2000,
         });
       } else {
         toast({
@@ -278,6 +365,7 @@ export default function Home() {
             language === "en"
               ? `Created ${cards.length} flashcards`
               : `已建立 ${cards.length} 張字卡`,
+          duration: 2000,
         });
       }
     },
@@ -289,6 +377,7 @@ export default function Home() {
             ? "Failed to create flashcards. Please try again."
             : "建立字卡失敗，請重試。",
         variant: "destructive",
+        duration: 2000,
       });
     },
   });
@@ -368,6 +457,7 @@ export default function Home() {
                 <MindMapCanvas
                   nodes={nodes}
                   onNodeClick={handleNodeClick}
+                  onNodeDelete={handleDeleteNode}
                   centerNodeId={centerNodeId}
                 />
               </div>

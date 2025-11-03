@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getCategoryColor } from "@shared/categoryColors";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -9,12 +9,14 @@ import { useTheme } from "@/contexts/ThemeContext";
 interface MindMapCanvasProps {
   nodes: MindMapNode[];
   onNodeClick: (nodeId: string) => void;
+  onNodeDelete: (nodeId: string) => void;
   centerNodeId?: string;
 }
 
 export function MindMapCanvas({
   nodes,
   onNodeClick,
+  onNodeDelete,
   centerNodeId,
 }: MindMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -183,13 +185,28 @@ export function MindMapCanvas({
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                    className="cursor-pointer"
+                    className="cursor-pointer relative group"
                     onClick={(e) => {
                       e.stopPropagation();
                       onNodeClick(node.id);
                     }}
                     data-testid={`node-${node.word}`}
                   >
+                    {/* Delete button - only show on non-center nodes */}
+                    {!isCenter && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onNodeDelete(node.id);
+                        }}
+                        className="absolute -top-2 -right-2 z-20 w-5 h-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:scale-110"
+                        data-testid={`button-delete-${node.word}`}
+                        aria-label="Delete node"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                    
                     <div
                       className={`
                         rounded-xl font-semibold shadow-lg border-2 transition-all
