@@ -134,22 +134,45 @@ export default function Home() {
         
         // Base distance from center for first word
         const baseDistance = 250;
-        // Spacing between words along the thread (increased for better spacing)
-        const spacing = 180;
+        // Fixed gap between node boundaries (edge to edge)
+        const boundaryGap = 80;
+        
+        // Estimate node width based on text length
+        // Approximate: 12px per character + 32px padding (px-4 = 16px each side)
+        const estimateNodeWidth = (text: string) => {
+          const charWidth = 12;
+          const padding = 32;
+          const minWidth = 100; // min-w-[100px]
+          return Math.max(minWidth, text.length * charWidth + padding);
+        };
 
-        const newNodes: MindMapNode[] = data.words.map((word, index) => {
-          // Position words along the spider thread
-          const distance = baseDistance + (index * spacing);
-          return {
+        let currentDistance = baseDistance;
+        const newNodes: MindMapNode[] = [];
+        
+        for (let i = 0; i < data.words.length; i++) {
+          const word = data.words[i];
+          const nodeWidth = estimateNodeWidth(word);
+          
+          const node = {
             id: crypto.randomUUID(),
             word,
-            x: centerNode.x + distance * Math.cos(angle),
-            y: centerNode.y + distance * Math.sin(angle),
+            x: centerNode.x + currentDistance * Math.cos(angle),
+            y: centerNode.y + currentDistance * Math.sin(angle),
             parentId: centerNode.id,
             category: variables.category,
             isCenter: false,
           };
-        });
+          
+          newNodes.push(node);
+          
+          // Calculate next position: 
+          // current center + half of current node width + gap + half of next node width
+          if (i < data.words.length - 1) {
+            const nextWord = data.words[i + 1];
+            const nextNodeWidth = estimateNodeWidth(nextWord);
+            currentDistance += nodeWidth / 2 + boundaryGap + nextNodeWidth / 2;
+          }
+        }
 
         return [...prevNodes, ...newNodes];
       });

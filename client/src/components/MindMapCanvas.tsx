@@ -73,18 +73,38 @@ export function MindMapCanvas({
     setPan({ x: 0, y: 0 });
   };
 
-  // Draw connections between nodes
-  const connections = nodes
-    .filter((node) => node.parentId)
-    .map((node) => {
-      const parent = nodes.find((n) => n.id === node.parentId);
-      if (!parent) return null;
-      return {
-        from: parent,
-        to: node,
-      };
-    })
-    .filter(Boolean);
+  // Group nodes by category for spider thread lines
+  const categoryThreads = nodes.reduce((acc, node) => {
+    if (node.category && node.parentId) {
+      if (!acc[node.category]) {
+        acc[node.category] = [];
+      }
+      acc[node.category].push(node);
+    }
+    return acc;
+  }, {} as Record<string, MindMapNode[]>);
+
+  // Create spider thread lines (one line per category from center through all nodes)
+  const spiderThreads = Object.entries(categoryThreads).map(([category, categoryNodes]) => {
+    const centerNode = nodes.find((n) => n.id === centerNodeId);
+    if (!centerNode || categoryNodes.length === 0) return null;
+
+    // Sort nodes by distance from center to get the furthest one
+    const sortedNodes = [...categoryNodes].sort((a, b) => {
+      const distA = Math.sqrt(Math.pow(a.x - centerNode.x, 2) + Math.pow(a.y - centerNode.y, 2));
+      const distB = Math.sqrt(Math.pow(b.x - centerNode.x, 2) + Math.pow(b.y - centerNode.y, 2));
+      return distB - distA;
+    });
+
+    const furthestNode = sortedNodes[0];
+
+    return {
+      category,
+      from: centerNode,
+      to: furthestNode,
+      nodes: categoryNodes,
+    };
+  }).filter(Boolean);
 
   return (
     <div 
@@ -112,13 +132,13 @@ export function MindMapCanvas({
             transformOrigin: "0 0",
           }}
         >
-          {connections.map((conn, idx) => {
-            if (!conn) return null;
-            const { from, to } = conn;
-            const categoryColor = to.category ? getCategoryColor(to.category, isDark) : "hsl(var(--border))";
+          {spiderThreads.map((thread) => {
+            if (!thread) return null;
+            const { category, from, to } = thread;
+            const categoryColor = getCategoryColor(category, isDark);
             return (
               <motion.line
-                key={`${from.id}-${to.id}-${idx}`}
+                key={`thread-${category}`}
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
