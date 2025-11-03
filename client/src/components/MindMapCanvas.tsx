@@ -95,37 +95,6 @@ export function MindMapCanvas({
         backgroundPosition: `${pan.x}px ${pan.y}px`,
       }}
     >
-      {/* Zoom controls */}
-      <div className="absolute bottom-6 right-6 z-30 flex flex-col gap-2">
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={() => setZoom((z) => Math.min(z * 1.2, 3))}
-          data-testid="button-zoom-in"
-          className="shadow-lg"
-        >
-          <ZoomIn className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={() => setZoom((z) => Math.max(z * 0.8, 0.3))}
-          data-testid="button-zoom-out"
-          className="shadow-lg"
-        >
-          <ZoomOut className="h-5 w-5" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={resetView}
-          data-testid="button-reset-view"
-          className="shadow-lg"
-        >
-          <Maximize2 className="h-5 w-5" />
-        </Button>
-      </div>
-
       {/* Canvas */}
       <div
         ref={containerRef}
