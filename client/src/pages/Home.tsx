@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { BookOpen, Keyboard, Play, Loader2 } from "lucide-react";
+import { BookOpen, Keyboard, Play, Loader2, RotateCcw } from "lucide-react";
 
 type ViewMode = "mindmap" | "flashcards" | "spelling";
 
@@ -43,6 +43,18 @@ export default function Home() {
     setNodes([newNode]);
     setCenterNodeId(newNode.id);
     setInitialWord("");
+  };
+
+  // Reset map to start fresh
+  const handleResetMap = () => {
+    setNodes([]);
+    setCenterNodeId(undefined);
+    setFlashcards([]);
+    setViewMode("mindmap");
+    toast({
+      title: language === "en" ? "Map cleared" : "心智圖已清空",
+      description: language === "en" ? "Start fresh with a new word" : "開始輸入新單字",
+    });
   };
 
   // Generate related words for a category
@@ -285,11 +297,22 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <CategoryButtons
-                onSelectCategory={handleCategorySelect}
-                disabled={!centerNodeId}
-                loading={isGenerating}
-              />
+              <div className="px-6 py-3 border-b flex items-center justify-between">
+                <CategoryButtons
+                  onSelectCategory={handleCategorySelect}
+                  disabled={!centerNodeId}
+                  loading={isGenerating}
+                />
+                <Button
+                  variant="outline"
+                  onClick={handleResetMap}
+                  data-testid="button-reset-map"
+                  className="ml-4"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  {t.newMap}
+                </Button>
+              </div>
 
               <div className="flex-1 relative">
                 {isGenerating && (
