@@ -26,8 +26,8 @@ export function CategoryButtons({
 
   return (
     <>
-      {/* Desktop/Tablet Landscape - Top horizontal bar (hidden on mobile portrait) */}
-      <div className="hidden md:block sticky top-16 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      {/* Desktop/Tablet Landscape - Top horizontal bar (hidden on smaller screens) */}
+      <div className="hidden lg:block sticky top-16 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container px-4 py-4">
           <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
             <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap pr-2">
@@ -61,8 +61,8 @@ export function CategoryButtons({
         </div>
       </div>
 
-      {/* Mobile Portrait - Left vertical sidebar (visible on mobile portrait only) */}
-      <div className="md:hidden">
+      {/* Mobile/Tablet - Left vertical sidebar (visible on smaller screens) */}
+      <div className="lg:hidden">
         {/* Toggle button - hamburger menu */}
         <Button
           variant="secondary"
