@@ -10,8 +10,8 @@ import { Loader2, Search, Copy, Check } from "lucide-react";
 
 export default function Query() {
   const [input, setInput] = useState("");
-  const [result, setResult] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [translations, setTranslations] = useState<string[]>([]);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const { language } = useLanguage();
   const { toast } = useToast();
 
@@ -21,7 +21,7 @@ export default function Query() {
       return await response.json();
     },
     onSuccess: (data) => {
-      setResult(data.result);
+      setTranslations(data.translations || []);
     },
     onError: () => {
       toast({
@@ -38,14 +38,14 @@ export default function Query() {
     queryMutation.mutate(input.trim());
   };
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(result);
-    setCopied(true);
+  const handleCopy = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
     toast({
       title: language === "en" ? "Copied" : "已複製",
       duration: 2000,
     });
-    setTimeout(() => setCopied(false), 2000);
+    setTimeout(() => setCopiedIndex(null), 2000);
   };
 
   return (
@@ -101,31 +101,39 @@ export default function Query() {
         </CardContent>
       </Card>
 
-      {result && (
+      {translations.length > 0 && (
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {language === "en" ? "Result" : "結果"}
-              </CardTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopy}
-                data-testid="button-copy-result"
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 mr-2" />
-                ) : (
-                  <Copy className="h-4 w-4 mr-2" />
-                )}
-                {language === "en" ? "Copy" : "複製"}
-              </Button>
-            </div>
+            <CardTitle>
+              {language === "en" ? "Translations" : "翻譯選項"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap">
-              {result}
+            <div className="space-y-3">
+              {translations.map((translation, index) => (
+                <div 
+                  key={index}
+                  className="flex items-start justify-between gap-3 p-3 rounded-lg bg-muted/30 hover-elevate group"
+                  data-testid={`translation-option-${index}`}
+                >
+                  <div className="flex-1 text-base">
+                    {translation}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => handleCopy(translation, index)}
+                    data-testid={`button-copy-${index}`}
+                  >
+                    {copiedIndex === index ? (
+                      <Check className="h-4 w-4" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              ))}
             </div>
           </CardContent>
         </Card>

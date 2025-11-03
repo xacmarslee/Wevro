@@ -88,20 +88,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
         messages: [
           {
             role: "system",
-            content: "You are a helpful bilingual dictionary and translation assistant. When given an English word, provide its definition, pronunciation, and Traditional Chinese translation. When given a Chinese phrase or sentence, translate it to English. When given an English phrase or sentence, translate it to Traditional Chinese. Provide clear, concise, and accurate information."
+            content: `You are a bilingual translation assistant. Provide 2-4 different translation options.
+            
+For English words or phrases, translate to Traditional Chinese with different levels of formality/style.
+For Chinese phrases/sentences, translate to English with different nuances.
+
+Return ONLY a JSON array of translation strings, no explanations, no labels. Each translation should be a complete, standalone option.
+
+Example for "hello":
+["你好", "您好", "哈囉", "嗨"]
+
+Example for "How are you?":
+["你好嗎？", "您好嗎？", "近來可好？", "最近怎麼樣？"]`
           },
           {
             role: "user",
             content: text
           }
         ],
-        temperature: 0.7,
+        temperature: 0.8,
         max_tokens: 500,
+        response_format: { type: "json_object" }
       });
 
-      const result = completion.choices[0]?.message?.content || "No result generated";
+      const responseContent = completion.choices[0]?.message?.content || "{}";
+      
+      // Parse the JSON response
+      let translations: string[] = [];
+      try {
+        const parsed = JSON.parse(responseContent);
+        // Handle different possible response formats
+        if (Array.isArray(parsed)) {
+          translations = parsed;
+        } else if (parsed.translations && Array.isArray(parsed.translations)) {
+          translations = parsed.translations;
+        } else if (parsed.options && Array.isArray(parsed.options)) {
+          translations = parsed.options;
+        } else {
+          // If we get an object, extract all string values
+          translations = Object.values(parsed).filter(v => typeof v === 'string') as string[];
+        }
+      } catch (parseError) {
+        console.error("Failed to parse translations:", parseError);
+        translations = [responseContent];
+      }
 
-      res.json({ result });
+      // Ensure we have at least 1 and at most 4 translations
+      if (translations.length === 0) {
+        translations = ["Translation not available"];
+      }
+      translations = translations.slice(0, 4);
+
+      res.json({ translations });
     } catch (error: any) {
       console.error("Query error:", error);
       res.status(500).json({ message: "Failed to process query" });
