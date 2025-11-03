@@ -39,7 +39,8 @@ export default function Footer() {
 
   const isActive = (path: string) => {
     if (path === "/mindmaps") {
-      return location === path || location.startsWith("/mindmap/");
+      // Mind maps is the default route, so "/" should also activate it
+      return location === path || location === "/" || location.startsWith("/mindmap/");
     }
     return location === path;
   };
