@@ -67,6 +67,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Query/translation endpoint
+  app.post("/api/query", isAuthenticated, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        text: z.string().min(1),
+      });
+
+      const { text } = schema.parse(req.body);
+
+      // Use OpenAI to process query or translation
+      const OpenAI = (await import("openai")).default;
+      const openai = new OpenAI({
+        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful bilingual dictionary and translation assistant. When given an English word, provide its definition, pronunciation, and Traditional Chinese translation. When given a Chinese phrase or sentence, translate it to English. When given an English phrase or sentence, translate it to Traditional Chinese. Provide clear, concise, and accurate information."
+          },
+          {
+            role: "user",
+            content: text
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 500,
+      });
+
+      const result = completion.choices[0]?.message?.content || "No result generated";
+
+      res.json({ result });
+    } catch (error: any) {
+      console.error("Query error:", error);
+      res.status(500).json({ message: "Failed to process query" });
+    }
+  });
+
   // Mind map CRUD endpoints (protected)
   app.get("/api/mindmaps", isAuthenticated, async (req: any, res) => {
     try {

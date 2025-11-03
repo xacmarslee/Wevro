@@ -1,30 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type MindMapNode, type Flashcard, type WordCategory } from "@shared/schema";
-import { Header } from "@/components/Header";
+import { useRoute } from "wouter";
+import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { CategoryButtons } from "@/components/CategoryButtons";
 import { MindMapCanvas } from "@/components/MindMapCanvas";
-import { FlashcardView } from "@/components/FlashcardView";
-import { SpellingTest } from "@/components/SpellingTest";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { BookOpen, Keyboard, Play, Loader2, RotateCcw, Undo2, Redo2, Save, Download } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { Play, Loader2, Undo2, Redo2, Save, Download } from "lucide-react";
 import html2canvas from "html2canvas";
 
-type ViewMode = "mindmap" | "flashcards" | "spelling";
-
 export default function Home() {
+  // Check if we're editing an existing mind map
+  const [, params] = useRoute("/mindmap/:id");
+  const mindMapId = params?.id !== "new" ? params?.id : undefined;
+  
   const [nodes, setNodes] = useState<MindMapNode[]>([]);
   const [centerNodeId, setCenterNodeId] = useState<string | undefined>();
   const [initialWord, setInitialWord] = useState("");
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [viewMode, setViewMode] = useState<ViewMode>("mindmap");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [categoryAngles, setCategoryAngles] = useState<Record<string, number>>({});
   
   // Undo/Redo history stacks (initialize with empty state)
   const [history, setHistory] = useState<MindMapNode[][]>([[]]);
@@ -34,6 +31,38 @@ export default function Home() {
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslation(language);
+  
+  // Load existing mind map if editing
+  const { data: existingMindMap, isLoading: isLoadingMindMap } = useQuery({
+    queryKey: ["/api/mindmaps", mindMapId],
+    queryFn: async () => {
+      if (!mindMapId) return null;
+      const response = await fetch(`/api/mindmaps/${mindMapId}`, {
+        credentials: "include",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to load mind map");
+      }
+      return await response.json();
+    },
+    enabled: !!mindMapId,
+  });
+  
+  // Initialize with existing mind map data
+  useEffect(() => {
+    if (existingMindMap?.nodes && Array.isArray(existingMindMap.nodes)) {
+      const loadedNodes = existingMindMap.nodes as MindMapNode[];
+      setNodes(loadedNodes);
+      const centerNode = loadedNodes.find((n) => n.isCenter);
+      if (centerNode) {
+        setCenterNodeId(centerNode.id);
+      }
+      // Initialize history with loaded state
+      setHistory([loadedNodes]);
+      setHistoryIndex(0);
+      setIsSaved(true);
+    }
+  }, [existingMindMap]);
   
   // Wrapper to update nodes with history tracking
   const updateNodes = (newNodes: MindMapNode[] | ((prev: MindMapNode[]) => MindMapNode[])) => {
@@ -120,8 +149,6 @@ export default function Home() {
   const handleResetMap = () => {
     updateNodes([]);
     setCenterNodeId(undefined);
-    setFlashcards([]);
-    setViewMode("mindmap");
     // Clear undo/redo history after reset
     setHistory([[]]);
     setHistoryIndex(0);
@@ -355,113 +382,26 @@ export default function Home() {
     });
   };
 
-  // Generate flashcards from mind map
-  const generateFlashcardsMutation = useMutation({
-    mutationFn: async (words: string[]) => {
-      const promises = words.map(async (word) => {
-        try {
-          const response = await apiRequest("POST", "/api/generate-definition", { word });
-          return await response.json();
-        } catch (error) {
-          console.error(`Failed to generate definition for "${word}":`, error);
-          return { 
-            definition: language === "en" ? "Definition not available" : "定義無法取得", 
-            partOfSpeech: language === "en" ? "Unknown" : "未知",
-            error: true 
-          };
-        }
-      });
-      const results = await Promise.all(promises);
-      return results as Array<{ definition: string; partOfSpeech: string; error?: boolean }>;
-    },
-    onSuccess: (data) => {
-      if (!data || !Array.isArray(data)) {
-        console.error("Invalid flashcard response:", data);
-        toast({
-          title: language === "en" ? "Error" : "錯誤",
-          description:
-            language === "en"
-              ? "Invalid response from server"
-              : "伺服器回應格式錯誤",
-          variant: "destructive",
-          duration: 2000,
-        });
-        return;
-      }
-
-      const failedCount = data.filter(d => d.error).length;
-
-      const cards: Flashcard[] = nodes.map((node, index) => ({
-        id: node.id,
-        word: node.word,
-        definition: data[index]?.definition || (language === "en" ? "Definition not found" : "定義未找到"),
-        partOfSpeech: data[index]?.partOfSpeech || (language === "en" ? "Unknown" : "未知"),
-        known: false,
-      }));
-
-      setFlashcards(cards);
-      setViewMode("flashcards");
-
-      if (failedCount > 0) {
-        toast({
-          title: language === "en" ? "Flashcards created with errors" : "字卡建立完成（部分失敗）",
-          description:
-            language === "en"
-              ? `Created ${cards.length} flashcards, but ${failedCount} definitions failed to load`
-              : `已建立 ${cards.length} 張字卡，但 ${failedCount} 個定義載入失敗`,
-          variant: "destructive",
-          duration: 2000,
-        });
-      } else {
-        toast({
-          title: language === "en" ? "Flashcards created!" : "字卡已建立！",
-          description:
-            language === "en"
-              ? `Created ${cards.length} flashcards`
-              : `已建立 ${cards.length} 張字卡`,
-          duration: 2000,
-        });
-      }
-    },
-    onError: () => {
-      toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description:
-          language === "en"
-            ? "Failed to create flashcards. Please try again."
-            : "建立字卡失敗，請重試。",
-        variant: "destructive",
-        duration: 2000,
-      });
-    },
-  });
-
-  const handleCreateFlashcards = () => {
-    const words = nodes.map((n) => n.word);
-    generateFlashcardsMutation.mutate(words);
-  };
-
-  const handleUpdateCard = (cardId: string, known: boolean) => {
-    setFlashcards((prev) =>
-      prev.map((card) => (card.id === cardId ? { ...card, known } : card))
-    );
-  };
-
-  const handleCompleteFlashcards = () => {
-    setViewMode("mindmap");
-  };
-  
   // Save mind map mutation
   const saveMindMapMutation = useMutation({
     mutationFn: async () => {
       const centerNode = nodes.find(n => n.isCenter);
       const name = centerNode ? centerNode.word : "Untitled Mind Map";
       
-      const response = await apiRequest("POST", "/api/mindmaps", {
-        name,
-        nodes,
-      });
-      return await response.json();
+      // Update existing mind map or create new one
+      if (mindMapId) {
+        const response = await apiRequest("PATCH", `/api/mindmaps/${mindMapId}`, {
+          name,
+          nodes,
+        });
+        return await response.json();
+      } else {
+        const response = await apiRequest("POST", "/api/mindmaps", {
+          name,
+          nodes,
+        });
+        return await response.json();
+      }
     },
     onSuccess: () => {
       setIsSaved(true);
@@ -534,11 +474,9 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      <Header />
-
-      {viewMode === "mindmap" && (
-        <>
+    <div className="flex flex-col h-full">
+      {/* Mind Map Editor */}
+      <>
           {/* Mind Map Control Bar - always show for undo/redo access */}
           {(nodes.length > 0 || history.length > 1) && (
             <div className="border-b px-6 py-3 flex items-center justify-between bg-card/50">
@@ -653,95 +591,9 @@ export default function Home() {
                 />
               </div>
 
-              <div className="absolute bottom-6 left-6 z-30 flex gap-3">
-                <Button
-                  onClick={handleCreateFlashcards}
-                  disabled={nodes.length === 0 || generateFlashcardsMutation.isPending}
-                  size="lg"
-                  data-testid="button-create-flashcards"
-                  className="shadow-lg"
-                >
-                  {generateFlashcardsMutation.isPending ? (
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  ) : (
-                    <BookOpen className="h-5 w-5 mr-2" />
-                  )}
-                  {t.createFlashcards}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleResetMap}
-                  size="lg"
-                  data-testid="button-reset-map"
-                  className="shadow-lg"
-                >
-                  <RotateCcw className="h-5 w-5 mr-2" />
-                  {t.newMap}
-                </Button>
-              </div>
             </>
           )}
-        </>
-      )}
-
-      {viewMode === "flashcards" && (
-        <div className="flex-1 flex flex-col">
-          <div className="border-b px-6 py-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">{t.swipeMode}</h2>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setViewMode("spelling")}
-                data-testid="button-switch-spelling"
-              >
-                <Keyboard className="h-5 w-5 mr-2" />
-                {t.spellingMode}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setViewMode("mindmap")}
-                data-testid="button-back-to-map"
-              >
-                {t.backToMap}
-              </Button>
-            </div>
-          </div>
-          <FlashcardView
-            cards={flashcards}
-            onUpdateCard={handleUpdateCard}
-            onComplete={handleCompleteFlashcards}
-          />
-        </div>
-      )}
-
-      {viewMode === "spelling" && (
-        <div className="flex-1 flex flex-col">
-          <div className="border-b px-6 py-4 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">{t.spellingMode}</h2>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setViewMode("flashcards")}
-                data-testid="button-switch-swipe"
-              >
-                <BookOpen className="h-5 w-5 mr-2" />
-                {t.swipeMode}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setViewMode("mindmap")}
-                data-testid="button-back-to-map-spelling"
-              >
-                {t.backToMap}
-              </Button>
-            </div>
-          </div>
-          <SpellingTest
-            cards={flashcards}
-            onComplete={() => setViewMode("mindmap")}
-          />
-        </div>
-      )}
+      </>
     </div>
   );
 }
