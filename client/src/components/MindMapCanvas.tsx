@@ -127,29 +127,32 @@ export function MindMapCanvas({
       >
         <svg
           className="absolute inset-0 pointer-events-none z-0"
-          style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-            transformOrigin: "0 0",
-          }}
+          width="100%"
+          height="100%"
+          style={{ overflow: "visible" }}
         >
-          {spiderThreads.map((thread) => {
-            if (!thread) return null;
-            const { category, from, to } = thread;
-            const categoryColor = getCategoryColor(category as WordCategory, isDark);
-            
-            return (
-              <line
-                key={`thread-${category}`}
-                x1={from.x}
-                y1={from.y}
-                x2={to.x}
-                y2={to.y}
-                stroke={categoryColor}
-                strokeWidth={3}
-                opacity={0.6}
-              />
-            );
-          })}
+          <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
+            {spiderThreads.map((thread) => {
+              if (!thread) return null;
+              const { category, from, to } = thread;
+              const categoryColor = getCategoryColor(category as WordCategory, isDark) || "#999";
+              
+              return (
+                <line
+                  key={`thread-${category}`}
+                  x1={from.x}
+                  y1={from.y}
+                  x2={to.x}
+                  y2={to.y}
+                  stroke={categoryColor}
+                  strokeWidth={3}
+                  opacity={0.6}
+                  strokeLinecap="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </g>
         </svg>
 
         <div
