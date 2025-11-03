@@ -32,6 +32,8 @@ import {
 import { Plus, BookOpen, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export default function Flashcards() {
   const { language } = useLanguage();
@@ -41,6 +43,9 @@ export default function Flashcards() {
   const [editingDeck, setEditingDeck] = useState<any>(null);
   const [newName, setNewName] = useState("");
   const [deletingDeck, setDeletingDeck] = useState<any>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [deckName, setDeckName] = useState("");
+  const [wordsList, setWordsList] = useState("");
 
   // Fetch user's flashcard decks (only when authenticated)
   const { data: decks = [], isLoading } = useQuery({
@@ -100,6 +105,38 @@ export default function Flashcards() {
       });
     },
   });
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: async ({ name, words }: { name: string; words: string[] }) => {
+      const response = await apiRequest("POST", "/api/flashcards/batch-create", { name, words });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Failed to create deck" }));
+        throw new Error(errorData.message || "Failed to create deck");
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/flashcard-decks"] });
+      setIsCreating(false);
+      setDeckName("");
+      setWordsList("");
+      toast({
+        title: language === "en" ? "Created" : "已建立",
+        description: language === "en" ? "Deck created successfully with AI-generated definitions" : "字卡組已成功建立並生成AI翻譯",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: language === "en" ? "Error" : "錯誤",
+        description: error.message || (language === "en" ? "Failed to create deck" : "建立字卡組失敗"),
+        variant: "destructive",
+        duration: 5000,
+      });
+    },
+  });
   
   const handleRename = (deck: any) => {
     setEditingDeck(deck);
@@ -108,6 +145,25 @@ export default function Flashcards() {
   
   const handleDelete = (deck: any) => {
     setDeletingDeck(deck);
+  };
+
+  const handleCreateNew = () => {
+    setIsCreating(true);
+    setDeckName("");
+    setWordsList("");
+  };
+  
+  const confirmCreate = () => {
+    if (deckName.trim() && wordsList.trim()) {
+      const words = wordsList
+        .split('\n')
+        .map(w => w.trim())
+        .filter(w => w.length > 0);
+      
+      if (words.length > 0) {
+        createMutation.mutate({ name: deckName.trim(), words });
+      }
+    }
   };
   
   const confirmRename = () => {
@@ -150,7 +206,7 @@ export default function Flashcards() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button data-testid="button-create-first-deck">
+            <Button onClick={handleCreateNew} data-testid="button-create-first-deck">
               <Plus className="h-4 w-4 mr-2" />
               {language === "en" ? "Create Deck" : "建立字卡組"}
             </Button>
@@ -208,6 +264,71 @@ export default function Flashcards() {
           ))}
         </div>
       )}
+
+      {/* Create Dialog */}
+      <Dialog open={isCreating} onOpenChange={(open) => !open && setIsCreating(false)}>
+        <DialogContent data-testid="dialog-create-deck" className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Create Flashcard Deck" : "建立字卡組"}</DialogTitle>
+            <DialogDescription>
+              {language === "en" 
+                ? "Enter a deck name and words (one per line). AI will generate Traditional Chinese definitions."
+                : "輸入字卡組名稱和單字（每行一個），AI 將生成繁體中文翻譯。"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="deck-name">{language === "en" ? "Deck Name" : "字卡組名稱"}</Label>
+              <Input
+                id="deck-name"
+                value={deckName}
+                onChange={(e) => setDeckName(e.target.value)}
+                placeholder={language === "en" ? "e.g., Academic Vocabulary" : "例如：學術詞彙"}
+                data-testid="input-deck-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="words-list">
+                {language === "en" ? "Words (one per line)" : "單字列表（每行一個）"}
+              </Label>
+              <Textarea
+                id="words-list"
+                value={wordsList}
+                onChange={(e) => setWordsList(e.target.value)}
+                placeholder={language === "en" 
+                  ? "happy\nsad\nexcited\ncalm\nanxious"
+                  : "happy\nsad\nexcited\ncalm\nanxious"}
+                className="min-h-[200px] font-mono"
+                data-testid="input-words-list"
+              />
+              <p className="text-xs text-muted-foreground">
+                {language === "en" 
+                  ? "AI will generate concise Traditional Chinese definitions (max 20 characters) for each word."
+                  : "AI 將為每個單字生成簡潔的繁體中文翻譯（最多20字）。"}
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreating(false)} data-testid="button-cancel-create">
+              {language === "en" ? "Cancel" : "取消"}
+            </Button>
+            <Button 
+              onClick={confirmCreate} 
+              disabled={!deckName.trim() || !wordsList.trim() || createMutation.isPending} 
+              data-testid="button-confirm-create"
+            >
+              {createMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {language === "en" ? "Creating..." : "建立中..."}
+                </>
+              ) : (
+                language === "en" ? "Create Deck" : "建立字卡組"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Rename Dialog */}
       <Dialog open={!!editingDeck} onOpenChange={(open) => !open && setEditingDeck(null)}>

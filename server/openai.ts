@@ -120,3 +120,70 @@ Example format:
     throw new Error("Failed to generate definition");
   }
 }
+
+export async function generateBatchDefinitions(
+  words: string[]
+): Promise<Array<{ word: string; definition: string; partOfSpeech: string }>> {
+  try {
+    // Using gpt-4o for batch definition generation
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a bilingual English-Chinese vocabulary expert. Provide accurate Traditional Chinese definitions for multiple words.`,
+        },
+        {
+          role: "user",
+          content: `Provide Traditional Chinese definitions for the following English words: ${words.join(", ")}
+
+For each word, return:
+- "word": The original English word
+- "definition": A clear, concise Traditional Chinese definition (繁體中文), maximum 20 characters
+- "partOfSpeech": The part of speech in Traditional Chinese (e.g., 名詞, 動詞, 形容詞, 副詞, etc.)
+
+IMPORTANT: Keep definitions concise (max 20 Traditional Chinese characters).
+
+Return a JSON object with an array of word definitions:
+{
+  "definitions": [
+    {
+      "word": "happy",
+      "definition": "快樂的；高興的",
+      "partOfSpeech": "形容詞"
+    }
+  ]
+}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 1000,
+    });
+
+    const content = response.choices[0]?.message?.content || "{}";
+    const parsed = JSON.parse(content);
+    const rawDefinitions = parsed.definitions || [];
+    
+    // Validate and sanitize definitions
+    const validDefinitions = rawDefinitions
+      .filter((def: any) => {
+        // Must have all required fields
+        return def.word && def.definition && def.partOfSpeech;
+      })
+      .map((def: any) => ({
+        word: def.word,
+        // Trim definition to 20 Traditional Chinese characters max
+        definition: def.definition.length > 20 
+          ? def.definition.substring(0, 20)
+          : def.definition,
+        partOfSpeech: def.partOfSpeech || "未知",
+      }));
+    
+    console.log(`Generated ${validDefinitions.length} valid definitions out of ${words.length} requested words`);
+    
+    return validDefinitions;
+  } catch (error) {
+    console.error("Error generating batch definitions:", error);
+    throw new Error("Failed to generate batch definitions");
+  }
+}

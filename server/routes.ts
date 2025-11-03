@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateRelatedWords, generateChineseDefinition } from "./openai";
+import { generateRelatedWords, generateChineseDefinition, generateBatchDefinitions } from "./openai";
 import {
   generateWordsRequestSchema,
   generateDefinitionRequestSchema,
@@ -248,6 +248,82 @@ Example for "How are you?":
     } catch (error: any) {
       console.error("Error in GET /api/flashcards/:id:", error);
       res.status(500).json({ error: "Failed to fetch flashcard deck" });
+    }
+  });
+
+  // Batch create flashcard deck with AI-generated definitions
+  app.post("/api/flashcards/batch-create", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const schema = z.object({
+        name: z.string().min(1),
+        words: z.array(z.string().min(1)).min(1),
+      });
+
+      const { name, words } = schema.parse(req.body);
+
+      // Generate definitions for all words
+      const definitions = await generateBatchDefinitions(words);
+
+      // Validate that we got at least some definitions back
+      if (definitions.length === 0) {
+        res.status(502).json({ 
+          error: "AI generation failed", 
+          message: "Failed to generate any definitions. Please try again." 
+        });
+        return;
+      }
+
+      // STRICT VALIDATION: All words must have valid definitions
+      if (definitions.length < words.length) {
+        const generatedWords = new Set(definitions.map(d => d.word.toLowerCase()));
+        const missingWords = words.filter(w => !generatedWords.has(w.toLowerCase()));
+        
+        console.error(`Failed to generate definitions for ${missingWords.length} words: ${missingWords.join(", ")}`);
+        
+        res.status(502).json({ 
+          error: "Incomplete generation", 
+          message: `Failed to generate definitions for: ${missingWords.join(", ")}. Please try again or remove these words.` 
+        });
+        return;
+      }
+
+      // Create flashcards from definitions with validation
+      const cards = definitions
+        .filter((def) => def.word && def.definition && def.partOfSpeech)
+        .map((def) => ({
+          id: crypto.randomUUID(),
+          word: def.word,
+          definition: def.definition,
+          partOfSpeech: def.partOfSpeech,
+          known: false,
+        }));
+
+      // Final check: ensure all cards are valid
+      if (cards.length < words.length) {
+        console.error(`Card validation failed: expected ${words.length}, got ${cards.length}`);
+        res.status(502).json({ 
+          error: "AI generation failed", 
+          message: "Some definitions were incomplete. Please try again." 
+        });
+        return;
+      }
+
+      // Create the deck
+      const deck = await storage.createFlashcardDeck(
+        { name, cards: [] },
+        userId,
+        cards
+      );
+
+      res.json(deck);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid request data", details: error.errors });
+        return;
+      }
+      console.error("Error in POST /api/flashcards/batch-create:", error);
+      res.status(500).json({ error: "Failed to create flashcard deck", message: error.message });
     }
   });
 
