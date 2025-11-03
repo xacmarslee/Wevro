@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { type MindMapNode } from "@shared/schema";
+import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -135,7 +135,7 @@ export function MindMapCanvas({
           {spiderThreads.map((thread) => {
             if (!thread) return null;
             const { category, points } = thread;
-            const categoryColor = getCategoryColor(category, isDark);
+            const categoryColor = getCategoryColor(category as WordCategory, isDark);
             
             // Create polyline points string: "x1,y1 x2,y2 x3,y3 ..."
             const pointsString = points.map(p => `${p.x},${p.y}`).join(' ');
@@ -169,50 +169,54 @@ export function MindMapCanvas({
               const categoryColor = node.category ? getCategoryColor(node.category, isDark) : undefined;
               
               return (
-                <motion.div
+                <div
                   key={node.id}
-                  data-node
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                  className="absolute cursor-pointer"
+                  className="absolute"
                   style={{
                     left: node.x,
                     top: node.y,
                     transform: "translate(-50%, -50%)",
                   }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onNodeClick(node.id);
-                  }}
-                  data-testid={`node-${node.word}`}
                 >
-                  <div
-                    className={`
-                      rounded-xl font-semibold shadow-lg border-2 transition-all
-                      px-4 py-2.5 text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105
-                      ${
-                        isCenter
-                          ? "bg-primary text-primary-foreground border-primary-border shadow-xl ring-4 ring-primary/20"
-                          : "bg-card text-card-foreground"
-                      }
-                    `}
-                    style={!isCenter && categoryColor ? {
-                      borderColor: categoryColor,
-                      color: categoryColor,
-                    } : undefined}
+                  <motion.div
+                    data-node
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onNodeClick(node.id);
+                    }}
+                    data-testid={`node-${node.word}`}
                   >
-                    <div className="text-center whitespace-nowrap">
-                      {node.word}
-                    </div>
-                    {node.category && !isCenter && (
-                      <div className="text-xs text-muted-foreground text-center mt-1 font-normal">
-                        {node.category}
+                    <div
+                      className={`
+                        rounded-xl font-semibold shadow-lg border-2 transition-all
+                        px-4 py-2.5 text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105
+                        ${
+                          isCenter
+                            ? "bg-primary text-primary-foreground border-primary-border shadow-xl ring-4 ring-primary/20"
+                            : "bg-card text-card-foreground"
+                        }
+                      `}
+                      style={!isCenter && categoryColor ? {
+                        borderColor: categoryColor,
+                        color: categoryColor,
+                      } : undefined}
+                    >
+                      <div className="text-center whitespace-nowrap">
+                        {node.word}
                       </div>
-                    )}
-                  </div>
-                </motion.div>
+                      {node.category && !isCenter && (
+                        <div className="text-xs text-muted-foreground text-center mt-1 font-normal">
+                          {node.category}
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                </div>
               );
             })}
           </AnimatePresence>
