@@ -16,6 +16,52 @@ const insertFlashcardDeckSchema = flashcardDeckSchema.omit({ id: true, createdAt
 const updateMindMapSchema = mindMapSchema.partial();
 const updateFlashcardDeckSchema = flashcardDeckSchema.partial();
 
+// Temporary: Create or get guest user for testing (will be replaced with real auth)
+let guestUserId: string | null = null;
+let guestUserPromise: Promise<string> | null = null;
+
+async function getGuestUserId(): Promise<string> {
+  // If we already have the ID cached, return it immediately
+  if (guestUserId) return guestUserId;
+  
+  // If there's already a promise in flight, wait for it to avoid race conditions
+  if (guestUserPromise) return guestUserPromise;
+  
+  // Start the async operation and cache the promise
+  guestUserPromise = (async () => {
+    try {
+      // Check if guest user exists
+      const existingUser = await storage.getUserByUsername("guest");
+      if (existingUser) {
+        guestUserId = existingUser.id;
+        return existingUser.id;
+      }
+      
+      // Try to create the guest user
+      try {
+        const newUser = await storage.createUser("guest");
+        guestUserId = newUser.id;
+        return newUser.id;
+      } catch (error: any) {
+        // If creation failed due to unique constraint (concurrent request), fetch the existing user
+        if (error.code === '23505' || error.message?.includes('unique')) {
+          const existingUser = await storage.getUserByUsername("guest");
+          if (existingUser) {
+            guestUserId = existingUser.id;
+            return existingUser.id;
+          }
+        }
+        throw error;
+      }
+    } finally {
+      // Clear the promise cache after completion (success or failure)
+      guestUserPromise = null;
+    }
+  })();
+  
+  return guestUserPromise;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Generate related words for a category
   app.post("/api/generate-words", async (req, res) => {
@@ -55,7 +101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mind map CRUD endpoints
   app.get("/api/mindmaps", async (req, res) => {
     try {
-      const mindMaps = await storage.getAllMindMaps();
+      const userId = await getGuestUserId();
+      const mindMaps = await storage.getAllMindMaps(userId);
       res.json(mindMaps);
     } catch (error: any) {
       console.error("Error in GET /api/mindmaps:", error);
@@ -65,7 +112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/mindmaps/:id", async (req, res) => {
     try {
-      const mindMap = await storage.getMindMap(req.params.id);
+      const userId = await getGuestUserId();
+      const mindMap = await storage.getMindMap(req.params.id, userId);
       if (!mindMap) {
         res.status(404).json({ error: "Mind map not found" });
         return;
@@ -79,8 +127,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/mindmaps", async (req, res) => {
     try {
+      const userId = await getGuestUserId();
       const validatedData = insertMindMapSchema.parse(req.body);
-      const mindMap = await storage.createMindMap(validatedData);
+      const mindMap = await storage.createMindMap(validatedData, userId);
       res.json(mindMap);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -94,8 +143,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/mindmaps/:id", async (req, res) => {
     try {
+      const userId = await getGuestUserId();
       const validatedData = updateMindMapSchema.parse(req.body);
-      const mindMap = await storage.updateMindMap(req.params.id, validatedData);
+      const mindMap = await storage.updateMindMap(req.params.id, userId, validatedData);
       if (!mindMap) {
         res.status(404).json({ error: "Mind map not found" });
         return;
@@ -113,7 +163,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/mindmaps/:id", async (req, res) => {
     try {
-      const success = await storage.deleteMindMap(req.params.id);
+      const userId = await getGuestUserId();
+      const success = await storage.deleteMindMap(req.params.id, userId);
       if (!success) {
         res.status(404).json({ error: "Mind map not found" });
         return;
@@ -128,7 +179,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Flashcard deck CRUD endpoints
   app.get("/api/flashcards", async (req, res) => {
     try {
-      const decks = await storage.getAllFlashcardDecks();
+      const userId = await getGuestUserId();
+      const decks = await storage.getAllFlashcardDecks(userId);
       res.json(decks);
     } catch (error: any) {
       console.error("Error in GET /api/flashcards:", error);
@@ -138,7 +190,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/flashcards/:id", async (req, res) => {
     try {
-      const deck = await storage.getFlashcardDeck(req.params.id);
+      const userId = await getGuestUserId();
+      const deck = await storage.getFlashcardDeck(req.params.id, userId);
       if (!deck) {
         res.status(404).json({ error: "Flashcard deck not found" });
         return;
@@ -152,8 +205,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/flashcards", async (req, res) => {
     try {
+      const userId = await getGuestUserId();
       const validatedData = insertFlashcardDeckSchema.parse(req.body);
-      const deck = await storage.createFlashcardDeck(validatedData);
+      const deck = await storage.createFlashcardDeck(validatedData, userId, validatedData.cards);
       res.json(deck);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -167,8 +221,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/flashcards/:id", async (req, res) => {
     try {
+      const userId = await getGuestUserId();
       const validatedData = updateFlashcardDeckSchema.parse(req.body);
-      const deck = await storage.updateFlashcardDeck(req.params.id, validatedData);
+      const deck = await storage.updateFlashcardDeck(req.params.id, userId, validatedData);
       if (!deck) {
         res.status(404).json({ error: "Flashcard deck not found" });
         return;
@@ -186,7 +241,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/flashcards/:id", async (req, res) => {
     try {
-      const success = await storage.deleteFlashcardDeck(req.params.id);
+      const userId = await getGuestUserId();
+      const success = await storage.deleteFlashcardDeck(req.params.id, userId);
       if (!success) {
         res.status(404).json({ error: "Flashcard deck not found" });
         return;
