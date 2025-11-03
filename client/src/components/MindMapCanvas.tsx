@@ -185,11 +185,7 @@ export function MindMapCanvas({
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                    className="cursor-pointer relative group"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNodeClick(node.id);
-                    }}
+                    className="relative group"
                     data-testid={`node-${node.word}`}
                   >
                     {/* Delete button - only show on non-center nodes */}
@@ -197,9 +193,10 @@ export function MindMapCanvas({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          e.preventDefault();
                           onNodeDelete(node.id);
                         }}
-                        className="absolute -top-2 -right-2 z-20 w-5 h-5 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:scale-110"
+                        className="absolute -top-2 -right-2 z-20 w-5 h-5 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground border border-border opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:scale-110 shadow-md"
                         data-testid={`button-delete-${node.word}`}
                         aria-label="Delete node"
                       >
@@ -209,7 +206,7 @@ export function MindMapCanvas({
                     
                     <div
                       className={`
-                        rounded-xl font-semibold shadow-lg border-2 transition-all
+                        rounded-xl font-semibold shadow-lg border-2 transition-all cursor-pointer
                         px-4 py-2.5 text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105
                         ${
                           isCenter
@@ -221,6 +218,10 @@ export function MindMapCanvas({
                         borderColor: categoryColor,
                         color: categoryColor,
                       } : undefined}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onNodeClick(node.id);
+                      }}
                     >
                       <div className="text-center whitespace-nowrap">
                         {node.word}
