@@ -23,6 +23,31 @@ export default function Home() {
   const [initialWord, setInitialWord] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   
+  // Get word from URL query parameter if creating new mind map
+  useEffect(() => {
+    if (!mindMapId) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const wordParam = urlParams.get('word');
+      if (wordParam) {
+        setInitialWord(wordParam);
+        // Auto-start with the word
+        setTimeout(() => {
+          const newNode: MindMapNode = {
+            id: crypto.randomUUID(),
+            word: wordParam.trim(),
+            x: 0,
+            y: 0,
+            isCenter: true,
+          };
+          setNodes([newNode]);
+          setCenterNodeId(newNode.id);
+          setHistory([[newNode]]);
+          setHistoryIndex(0);
+        }, 100);
+      }
+    }
+  }, [mindMapId]);
+  
   // Undo/Redo history stacks (initialize with empty state)
   const [history, setHistory] = useState<MindMapNode[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);

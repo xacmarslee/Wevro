@@ -44,6 +44,8 @@ export default function MindMaps() {
   const [editingMindMap, setEditingMindMap] = useState<any>(null);
   const [newName, setNewName] = useState("");
   const [deletingMindMap, setDeletingMindMap] = useState<any>(null);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newWord, setNewWord] = useState("");
 
   // Fetch user's mind maps (only when authenticated)
   const { data: mindMaps = [], isLoading } = useQuery({
@@ -105,7 +107,15 @@ export default function MindMaps() {
   });
 
   const handleCreateNew = () => {
-    setLocation("/mindmap/new");
+    setIsCreatingNew(true);
+    setNewWord("");
+  };
+  
+  const confirmCreateNew = () => {
+    if (newWord.trim()) {
+      setLocation(`/mindmap/new?word=${encodeURIComponent(newWord.trim())}`);
+      setIsCreatingNew(false);
+    }
   };
   
   const handleRename = (mindMap: any) => {
@@ -167,8 +177,14 @@ export default function MindMaps() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {mindMaps.map((mindMap: any) => (
+        <>
+          <Button onClick={handleCreateNew} data-testid="button-create-mindmap">
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "en" ? "Create Mind Map" : "建立心智圖"}
+          </Button>
+          
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {mindMaps.map((mindMap: any) => (
             <Card 
               key={mindMap.id} 
               className="hover-elevate active-elevate-2 transition-all relative"
@@ -221,8 +237,37 @@ export default function MindMaps() {
               </div>
             </Card>
           ))}
-        </div>
+          </div>
+        </>
       )}
+      
+      {/* Create New Mind Map Dialog */}
+      <Dialog open={isCreatingNew} onOpenChange={(open) => !open && setIsCreatingNew(false)}>
+        <DialogContent data-testid="dialog-create-mindmap">
+          <DialogHeader>
+            <DialogTitle>{language === "en" ? "Create Mind Map" : "建立心智圖"}</DialogTitle>
+            <DialogDescription>
+              {language === "en" ? "Enter a word to start your mind map" : "輸入一個單字開始您的心智圖"}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newWord}
+            onChange={(e) => setNewWord(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && confirmCreateNew()}
+            placeholder={language === "en" ? "Enter a word..." : "輸入單字..."}
+            autoFocus
+            data-testid="input-create-mindmap"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreatingNew(false)} data-testid="button-cancel-create">
+              {language === "en" ? "Cancel" : "取消"}
+            </Button>
+            <Button onClick={confirmCreateNew} disabled={!newWord.trim()} data-testid="button-confirm-create">
+              {language === "en" ? "Create" : "建立"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       
       {/* Rename Dialog */}
       <Dialog open={!!editingMindMap} onOpenChange={(open) => !open && setEditingMindMap(null)}>
