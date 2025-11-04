@@ -50,9 +50,20 @@ Preferred communication style: Simple, everyday language.
 - Response logging middleware for API calls
 
 **Core API Endpoints**
-1. `POST /api/generate-words` - Generate related words for a category using AI
-2. `POST /api/generate-definition` - Generate Traditional Chinese definitions
-3. CRUD operations for mind maps and flashcard decks (in-memory storage)
+
+*Dictionary & Translation System (November 2025 Refactor):*
+1. `GET /api/dictionary/lookup/:word` - Full dictionary lookup with English + Chinese
+   - Returns immediately with English definitions (Free Dictionary API)
+   - Chinese translations complete in background (3-5 seconds)
+   - Permanent PostgreSQL cache (zero cost on subsequent lookups)
+2. `GET /api/dictionary/status/:word` - Check translation completion status
+3. `GET /api/dictionary/queue-status` - Monitor background translation queue
+4. `POST /api/generate-definition` - Legacy endpoint (backward compatible)
+   - Returns English first, Chinese after background translation
+
+*Other Endpoints:*
+5. `POST /api/generate-words` - Generate related words for a category using AI
+6. CRUD operations for mind maps and flashcard decks (in-memory storage)
 
 ### Data Storage Solutions
 
@@ -61,18 +72,23 @@ Preferred communication style: Simple, everyday language.
 - Data stored in JavaScript Maps (non-persistent)
 - UUID-based unique identifiers using `crypto.randomUUID()`
 
-**Database Configuration (Drizzle ORM Ready)**
-- **Drizzle ORM** configured with PostgreSQL dialect (`drizzle.config.ts`)
-- Schema defined in `shared/schema.ts` using Zod (ready for drizzle-zod conversion)
-- Connection expects **Neon Database** via `@neondatabase/serverless`
-- Migration directory: `./migrations`
-- Push command: `npm run db:push`
+**Database Configuration (Active PostgreSQL)**
+- **Drizzle ORM** with PostgreSQL via **Neon Database** (`@neondatabase/serverless`)
+- Schema defined in `shared/schema.ts` using drizzle-zod for type safety
+- **words** table in production for permanent dictionary caching
+- Migration command: `npm run db:push` (or `--force` if needed)
+- Upsert pattern prevents concurrent insert conflicts
 
 **Data Models**
 1. **MindMapNode**: Word nodes with position, parent relationships, categories
 2. **Flashcard**: Word/definition pairs with learning status
 3. **FlashcardDeck**: Collections of flashcards with metadata
 4. **MindMap**: Complete mind map state with node arrays
+5. **Word** (PostgreSQL): Permanent dictionary cache
+   - lemma (PK): normalized word form
+   - senses: JSON array with English + Traditional Chinese definitions
+   - enReady/zhReady: status flags for immediate vs. background content
+   - Handles concurrent lookups with upsert pattern (onConflictDoNothing)
 
 **Schema Sharing Strategy**
 - Schemas defined once in `shared/schema.ts` using Zod
@@ -83,11 +99,18 @@ Preferred communication style: Simple, everyday language.
 
 **AI Integration**
 - **OpenAI API** via Replit's AI Integrations service
-- Model: GPT-5 (as specified in `server/openai.ts`)
+- Model: GPT-4o (updated November 2025)
 - Configured via environment variables:
   - `AI_INTEGRATIONS_OPENAI_BASE_URL`
   - `AI_INTEGRATIONS_OPENAI_API_KEY`
-- JSON mode enabled for structured responses
+- **Strict Translation Mode**: AI only translates (never invents content)
+- JSON mode with enforced response schema
+- Background translation queue prevents UI blocking
+
+**Dictionary Data Source**
+- **Free Dictionary API** (dictionaryapi.dev) for English definitions
+- Zero cost, no rate limits, authoritative sources
+- Adapter layer in `server/dictionary-api.ts`
 
 **Database Service**
 - **Neon Database** (PostgreSQL-compatible serverless database)
