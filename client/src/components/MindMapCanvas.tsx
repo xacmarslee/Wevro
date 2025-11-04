@@ -77,38 +77,49 @@ export function MindMapCanvas({
     setPan({ x: 0, y: 0 });
   };
 
-  // Group nodes by category AND parent (center node) for spider thread lines
+  // Group nodes by parent AND category to preserve all connections
   const centerNode = nodes.find((n) => n.id === centerNodeId);
   
-  const categoryThreads = nodes.reduce((acc, node) => {
-    if (node.category && node.parentId === centerNodeId) {
-      if (!acc[node.category]) {
-        acc[node.category] = [];
+  // Create a map of parent -> category -> nodes
+  const connectionsByParent = nodes.reduce((acc, node) => {
+    if (node.category && node.parentId) {
+      if (!acc[node.parentId]) {
+        acc[node.parentId] = {};
       }
-      acc[node.category].push(node);
+      if (!acc[node.parentId][node.category]) {
+        acc[node.parentId][node.category] = [];
+      }
+      acc[node.parentId][node.category].push(node);
     }
     return acc;
-  }, {} as Record<string, MindMapNode[]>);
+  }, {} as Record<string, Record<string, MindMapNode[]>>);
 
-  // Create spider thread lines (one straight line per category from center through furthest node)
-  const spiderThreads = Object.entries(categoryThreads).map(([category, categoryNodes]) => {
-    if (!centerNode || categoryNodes.length === 0) return null;
+  // Create spider thread lines for all parent-child relationships
+  const spiderThreads: Array<{ category: string; from: MindMapNode; to: MindMapNode }> = [];
+  
+  Object.entries(connectionsByParent).forEach(([parentId, categories]) => {
+    const parentNode = nodes.find(n => n.id === parentId);
+    if (!parentNode) return;
+    
+    Object.entries(categories).forEach(([category, categoryNodes]) => {
+      if (categoryNodes.length === 0) return;
+      
+      // Sort nodes by distance from parent to get the furthest one
+      const sortedNodes = [...categoryNodes].sort((a, b) => {
+        const distA = Math.sqrt(Math.pow(a.x - parentNode.x, 2) + Math.pow(a.y - parentNode.y, 2));
+        const distB = Math.sqrt(Math.pow(b.x - parentNode.x, 2) + Math.pow(b.y - parentNode.y, 2));
+        return distB - distA;
+      });
 
-    // Sort nodes by distance from center to get the furthest one
-    const sortedNodes = [...categoryNodes].sort((a, b) => {
-      const distA = Math.sqrt(Math.pow(a.x - centerNode.x, 2) + Math.pow(a.y - centerNode.y, 2));
-      const distB = Math.sqrt(Math.pow(b.x - centerNode.x, 2) + Math.pow(b.y - centerNode.y, 2));
-      return distB - distA;
+      const furthestNode = sortedNodes[0];
+
+      spiderThreads.push({
+        category,
+        from: parentNode,
+        to: furthestNode,
+      });
     });
-
-    const furthestNode = sortedNodes[0];
-
-    return {
-      category,
-      from: centerNode,
-      to: furthestNode,
-    };
-  }).filter(Boolean);
+  });
 
   return (
     <div 
