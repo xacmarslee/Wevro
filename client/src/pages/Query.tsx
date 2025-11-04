@@ -62,6 +62,13 @@ export default function Query() {
   // Fetch search suggestions for autocomplete
   const { data: suggestionsData } = useQuery<{ suggestions: SearchSuggestion[] }>({
     queryKey: ["/api/dictionary/search", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/dictionary/search?q=${encodeURIComponent(searchQuery)}`);
+      if (!response.ok) {
+        throw new Error("Search failed");
+      }
+      return await response.json();
+    },
     enabled: searchQuery.length > 0 && mode === "dictionary",
     staleTime: 30000, // Cache for 30 seconds
   });
