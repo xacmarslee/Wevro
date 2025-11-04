@@ -147,6 +147,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(status);
   });
 
+  // NEW: Dictionary search suggestions (autocomplete)
+  app.get("/api/dictionary/search", async (req, res) => {
+    try {
+      const query = req.query.q as string;
+      
+      if (!query || query.trim().length === 0) {
+        return res.json({ suggestions: [] });
+      }
+
+      const normalizedQuery = query.toLowerCase().trim();
+
+      // Common English words database for suggestions
+      const commonWords = [
+        "abandon", "ability", "able", "about", "above", "abroad", "absence", "absolute", "accept", "access",
+        "accident", "account", "achieve", "acquire", "across", "action", "active", "actual", "add", "address",
+        "admit", "adult", "advance", "advantage", "advice", "affect", "afford", "afraid", "after", "again",
+        "against", "agency", "agent", "agree", "ahead", "allow", "almost", "alone", "along", "already",
+        "also", "alter", "alternative", "although", "always", "amazing", "among", "amount", "analysis", "ancient",
+        "angry", "animal", "announce", "annual", "another", "answer", "anxious", "anybody", "anymore", "anyone",
+        "anything", "anyway", "anywhere", "apart", "apparent", "appear", "apple", "application", "apply", "approach",
+        "appropriate", "approve", "area", "argue", "arise", "around", "arrange", "arrest", "arrive", "article",
+        "artist", "aside", "aspect", "assess", "assign", "assist", "assume", "assure", "attach", "attack",
+        "attempt", "attend", "attention", "attitude", "attract", "audience", "author", "authority", "automatic", "available",
+        "average", "avoid", "aware", "away", "background", "balance", "ball", "band", "bank", "base",
+        "basic", "basis", "battle", "beautiful", "beauty", "because", "become", "before", "begin", "behavior",
+        "behind", "belief", "believe", "belong", "below", "benefit", "beside", "best", "better", "between",
+        "beyond", "bind", "birth", "black", "blame", "blank", "block", "blood", "blow", "blue",
+        "board", "boat", "body", "book", "border", "born", "borrow", "both", "bother", "bottom",
+        "boundary", "brain", "branch", "brave", "break", "brief", "bright", "bring", "broad", "brother",
+        "brown", "budget", "build", "building", "bunch", "burden", "burn", "burst", "business", "busy",
+        "button", "cabinet", "calculate", "call", "camera", "campaign", "campus", "cancel", "cancer", "candidate",
+        "capable", "capacity", "capital", "capture", "carbon", "card", "care", "career", "careful", "carefully",
+        "carry", "case", "cash", "cast", "category", "cause", "celebrate", "cell", "center", "central",
+        "century", "ceremony", "certain", "certainly", "chain", "chair", "challenge", "chamber", "champion", "chance",
+        "change", "channel", "chapter", "character", "charge", "charity", "chart", "chase", "cheap", "check",
+        "chemical", "chest", "chief", "child", "childhood", "choice", "choose", "Christian", "church", "circle",
+        "citizen", "city", "civil", "claim", "class", "classic", "classroom", "clean", "clear", "clearly",
+        "client", "climate", "climb", "clinic", "clock", "close", "closed", "closely", "clothes", "cloud",
+        "club", "coach", "coal", "coast", "coat", "code", "coffee", "cold", "collapse", "colleague",
+        "collect", "collection", "college", "color", "column", "combination", "combine", "come", "comfort", "comfortable",
+        "command", "comment", "commercial", "commission", "commit", "commitment", "committee", "common", "communicate", "communication",
+        "community", "company", "compare", "comparison", "compete", "competition", "competitive", "complain", "complaint", "complete",
+        "create", "creative", "creature", "credit", "crime", "criminal", "crisis", "criterion", "critical", "criticism"
+      ];
+
+      // Filter words that start with the query
+      const suggestions = commonWords
+        .filter(word => word.startsWith(normalizedQuery))
+        .slice(0, 10) // Return top 10 matches
+        .map(word => ({
+          word,
+          // You could add more metadata here from your database if needed
+        }));
+
+      res.json({ suggestions });
+    } catch (error: any) {
+      console.error("Error in /api/dictionary/search:", error);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
   // Query/translation endpoint
   app.post("/api/query", isAuthenticated, async (req: any, res) => {
     try {
