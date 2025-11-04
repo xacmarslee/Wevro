@@ -254,6 +254,7 @@ export type GenerateDefinitionResponse = z.infer<typeof generateDefinitionRespon
 // Mind map save/load schemas
 export const mindMapSchema = z.object({
   id: z.string(),
+  userId: z.string(),
   name: z.string(),
   nodes: z.array(mindMapNodeSchema),
   createdAt: z.string(),

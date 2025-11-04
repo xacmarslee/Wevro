@@ -62,6 +62,7 @@ export class DbStorage implements IStorage {
 
     return {
       id: dbMindMap.id,
+      userId: dbMindMap.userId,
       name: dbMindMap.name,
       nodes: dbMindMap.nodes,
       createdAt: dbMindMap.createdAt.toISOString(),
@@ -77,6 +78,7 @@ export class DbStorage implements IStorage {
 
     return dbMindMaps.map((m) => ({
       id: m.id,
+      userId: m.userId,
       name: m.name,
       nodes: m.nodes,
       createdAt: m.createdAt.toISOString(),
@@ -97,6 +99,7 @@ export class DbStorage implements IStorage {
 
     return {
       id: created.id,
+      userId: created.userId,
       name: created.name,
       nodes: created.nodes,
       createdAt: created.createdAt.toISOString(),
@@ -118,6 +121,7 @@ export class DbStorage implements IStorage {
 
     return {
       id: updated.id,
+      userId: updated.userId,
       name: updated.name,
       nodes: updated.nodes,
       createdAt: updated.createdAt.toISOString(),

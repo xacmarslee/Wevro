@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Search, Copy, Check, BookOpen, Languages } from "lucide-react";
+import LogoText from "@/components/LogoText";
 import {
   Command,
   CommandEmpty,
@@ -75,9 +76,21 @@ export default function Query() {
 
   const suggestions: SearchSuggestion[] = suggestionsData?.suggestions || [];
 
+  // Auto-open popover when suggestions are loaded and there's actual input
+  useEffect(() => {
+    // Only show popover if there's input AND suggestions exist
+    if (searchQuery.trim().length > 0 && suggestions.length > 0 && mode === "dictionary") {
+      setOpen(true);
+    } else {
+      // Don't show popover if no suggestions or no input
+      setOpen(false);
+    }
+  }, [suggestions.length, searchQuery, mode]);
+
   // Dictionary lookup mutation
   const dictionaryMutation = useMutation({
     mutationFn: async (word: string) => {
+      setOpen(false);
       const response = await fetch(`/api/dictionary/lookup/${encodeURIComponent(word)}`);
       if (!response.ok) {
         throw new Error("Dictionary lookup failed");
@@ -86,7 +99,6 @@ export default function Query() {
     },
     onSuccess: (data: DictionaryResult) => {
       setDictionaryResults(data);
-      setOpen(false);
     },
     onError: () => {
       toast({
@@ -154,7 +166,7 @@ export default function Query() {
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-primary">Wevro</h1>
+        <LogoText className="text-2xl font-bold text-primary" />
         <div className="h-6 w-px bg-border" />
         <h2 className="text-2xl font-semibold">
           {language === "en" ? "Query" : "查詢"}
@@ -187,24 +199,37 @@ export default function Query() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Popover open={open} onOpenChange={setOpen}>
+              <Popover open={open} onOpenChange={setOpen} modal={false}>
                 <PopoverTrigger asChild>
                   <div className="relative">
                     <Input
-                      placeholder={
-                        language === "en"
-                          ? "Enter a word (e.g., create, hello)..."
-                          : "輸入單字（例如：create、hello）..."
-                      }
+                      placeholder={language === "en" ? "Enter a word..." : "輸入單字..."}
                       value={dictionaryInput}
                       onChange={(e) => {
-                        setDictionaryInput(e.target.value);
-                        setSearchQuery(e.target.value);
-                        setOpen(e.target.value.length > 0);
+                        const value = e.target.value;
+                        setDictionaryInput(value);
+                        setSearchQuery(value);
+                        // Close popover if input is empty
+                        if (value.trim().length === 0) {
+                          setOpen(false);
+                        }
                       }}
                       onKeyDown={(e) => {
-                        if (e.key === "Enter" && !open) {
-                          handleDictionarySearch(dictionaryInput);
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          if (dictionaryInput.trim()) {
+                            handleDictionarySearch(dictionaryInput);
+                          }
+                        }
+                        // Close popover on Escape
+                        if (e.key === "Escape") {
+                          setOpen(false);
+                        }
+                      }}
+                      onFocus={() => {
+                        // Open popover if there's input AND suggestions
+                        if (dictionaryInput.trim().length > 0 && suggestions.length > 0) {
+                          setOpen(true);
                         }
                       }}
                       className="h-10"
@@ -212,29 +237,43 @@ export default function Query() {
                     />
                   </div>
                 </PopoverTrigger>
-                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-                  <Command>
-                    <CommandList>
-                      <CommandEmpty>
-                        {language === "en" ? "No suggestions found" : "沒有找到建議"}
-                      </CommandEmpty>
-                      <CommandGroup>
-                        {suggestions.map((suggestion) => (
+                {/* Only render popover content if there are suggestions */}
+                {suggestions.length > 0 && (
+                  <PopoverContent 
+                    className="w-[var(--radix-popover-trigger-width)] p-0" 
+                    align="start"
+                    onOpenAutoFocus={(e) => {
+                      // Prevent focus from moving to popover
+                      e.preventDefault();
+                    }}
+                  >
+                    <Command>
+                      <CommandList>
+                        <CommandGroup>
+                          {suggestions.map((suggestion) => (
                           <CommandItem
                             key={suggestion.word}
                             value={suggestion.word}
                             onSelect={(value) => {
+                              setDictionaryInput(value);
                               handleDictionarySearch(value);
+                              setOpen(false);
+                              // Keep focus in input after selection
+                              const input = document.querySelector('[data-testid="input-dictionary"]') as HTMLInputElement;
+                              if (input) {
+                                setTimeout(() => input.focus(), 0);
+                              }
                             }}
                             data-testid={`suggestion-${suggestion.word}`}
                           >
                             {suggestion.word}
                           </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                )}
               </Popover>
 
               <Button
@@ -315,11 +354,7 @@ export default function Query() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Textarea
-                placeholder={
-                  language === "en"
-                    ? "Enter text to translate (English ↔ Traditional Chinese)..."
-                    : "輸入要翻譯的文字（英文 ↔ 繁體中文）..."
-                }
+                placeholder={language === "en" ? "Enter text..." : "輸入文字..."}
                 value={translationInput}
                 onChange={(e) => setTranslationInput(e.target.value)}
                 onKeyDown={(e) => {

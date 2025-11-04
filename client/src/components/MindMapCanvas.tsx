@@ -48,12 +48,6 @@ export function MindMapCanvas({
     });
   }, [centerNodeId, nodes, zoom]);
 
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.min(Math.max(prev * delta, 0.3), 3));
-  };
-
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
     setIsDragging(true);
@@ -72,10 +66,57 @@ export function MindMapCanvas({
     setIsDragging(false);
   };
 
+  // Touch event handlers for mobile support
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest("[data-node]")) return;
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    setPan({
+      x: touch.clientX - dragStart.x,
+      y: touch.clientY - dragStart.y,
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
   const resetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
   };
+
+  // Add non-passive wheel and touch event listeners to fix passive event errors
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheelEvent = (e: WheelEvent) => {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      setZoom((prev) => Math.min(Math.max(prev * delta, 0.3), 3));
+    };
+
+    const handleTouchMoveEvent = (e: TouchEvent) => {
+      if (isDragging) {
+        e.preventDefault(); // Prevent scrolling while dragging
+      }
+    };
+
+    container.addEventListener('wheel', handleWheelEvent, { passive: false });
+    container.addEventListener('touchmove', handleTouchMoveEvent, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheelEvent);
+      container.removeEventListener('touchmove', handleTouchMoveEvent);
+    };
+  }, [isDragging]);
 
   // Group nodes by parent AND category to preserve all connections
   const centerNode = nodes.find((n) => n.id === centerNodeId);
@@ -134,12 +175,14 @@ export function MindMapCanvas({
       {/* Canvas */}
       <div
         ref={containerRef}
-        className="h-full w-full cursor-grab active:cursor-grabbing"
-        onWheel={handleWheel}
+        className="h-full w-full cursor-grab active:cursor-grabbing touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <svg
           className="absolute inset-0 pointer-events-none z-0"

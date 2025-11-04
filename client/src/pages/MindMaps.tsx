@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, Network, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import LogoText from "@/components/LogoText";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -142,7 +143,7 @@ export default function MindMaps() {
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-primary">Wevro</h1>
+        <LogoText className="text-2xl font-bold text-primary" />
         <div className="h-6 w-px bg-border" />
         <h2 className="text-2xl font-semibold">
           {language === "en" ? "Mind Maps" : "心智圖"}
@@ -160,11 +161,6 @@ export default function MindMaps() {
               <Network className="h-5 w-5" />
               {language === "en" ? "No mind maps yet" : "尚無心智圖"}
             </CardTitle>
-            <CardDescription>
-              {language === "en" 
-                ? "Create your first mind map to start exploring vocabulary relationships" 
-                : "建立第一個心智圖開始探索詞彙關係"}
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={handleCreateNew} data-testid="button-create-first-mindmap">
@@ -180,7 +176,7 @@ export default function MindMaps() {
             {language === "en" ? "Create Mind Map" : "建立心智圖"}
           </Button>
           
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             {mindMaps.map((mindMap: any) => (
             <Card 
               key={mindMap.id} 
@@ -191,9 +187,9 @@ export default function MindMaps() {
                 className="cursor-pointer"
                 onClick={() => setLocation(`/mindmap/${mindMap.id}`)}
               >
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg truncate flex-1">{mindMap.name || "Untitled"}</CardTitle>
+                    <CardTitle className="text-base truncate flex-1">{mindMap.name || "Untitled"}</CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -221,12 +217,12 @@ export default function MindMaps() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     {mindMap.nodes?.length || 0} {language === "en" ? "nodes" : "個節點"}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
+                <CardContent className="pt-0">
+                  <p className="text-xs text-muted-foreground">
                     {language === "en" ? "Last updated: " : "最後更新："}
                     {new Date(mindMap.createdAt).toLocaleDateString()}
                   </p>
@@ -243,9 +239,6 @@ export default function MindMaps() {
         <DialogContent data-testid="dialog-create-mindmap">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Create Mind Map" : "建立心智圖"}</DialogTitle>
-            <DialogDescription>
-              {language === "en" ? "Enter a word to start your mind map" : "輸入一個單字開始您的心智圖"}
-            </DialogDescription>
           </DialogHeader>
           <Input
             value={newWord}
@@ -279,7 +272,7 @@ export default function MindMaps() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && confirmRename()}
-            placeholder={language === "en" ? "Mind map name" : "心智圖名稱"}
+            placeholder={language === "en" ? "New name" : "新名稱"}
             data-testid="input-rename-mindmap"
           />
           <DialogFooter>

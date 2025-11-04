@@ -4,3 +4,19 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Environment variables (sensitive data)
+.env
+.env.local
+.env.*.local
+
+# Local development files
+.local/
+*.bat
+*.ps1
+
+# Documentation (optional - remove if you want to include them)
+SETUP_LOCAL.md
+env.example.txt
+啟動說明.txt
+快速啟動.txt

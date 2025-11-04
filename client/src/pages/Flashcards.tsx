@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, BookOpen, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import LogoText from "@/components/LogoText";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -183,7 +184,7 @@ export default function Flashcards() {
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
       <div className="flex items-center gap-3">
-        <h1 className="text-2xl font-bold text-primary">Wevro</h1>
+        <LogoText className="text-2xl font-bold text-primary" />
         <div className="h-6 w-px bg-border" />
         <h2 className="text-2xl font-semibold">
           {language === "en" ? "Flashcards" : "字卡"}
@@ -201,11 +202,6 @@ export default function Flashcards() {
               <BookOpen className="h-5 w-5" />
               {language === "en" ? "No decks yet" : "尚無字卡組"}
             </CardTitle>
-            <CardDescription>
-              {language === "en" 
-                ? "Create your first flashcard deck to start learning" 
-                : "建立第一個字卡組開始學習"}
-            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button onClick={handleCreateNew} data-testid="button-create-first-deck">
@@ -221,7 +217,7 @@ export default function Flashcards() {
             {language === "en" ? "Create Deck" : "建立字卡組"}
           </Button>
           
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {decks.map((deck: any) => (
             <Card 
               key={deck.id} 
@@ -232,9 +228,9 @@ export default function Flashcards() {
                 className="cursor-pointer"
                 onClick={() => setLocation(`/flashcards/${deck.id}`)}
               >
-                <CardHeader>
+                <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-lg truncate flex-1">{deck.name || "Untitled"}</CardTitle>
+                    <CardTitle className="text-base truncate flex-1">{deck.name || "Untitled"}</CardTitle>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <Button
@@ -262,12 +258,12 @@ export default function Flashcards() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <CardDescription>
+                  <CardDescription className="text-xs">
                     {deck.cards?.length || 0} {language === "en" ? "cards" : "張卡片"}
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
+                <CardContent className="pt-0">
+                  <p className="text-xs text-muted-foreground">
                     {language === "en" ? "Last updated: " : "最後更新："}
                     {new Date(deck.createdAt).toLocaleDateString()}
                   </p>
@@ -284,11 +280,6 @@ export default function Flashcards() {
         <DialogContent data-testid="dialog-create-deck" className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Create Flashcard Deck" : "建立字卡組"}</DialogTitle>
-            <DialogDescription>
-              {language === "en" 
-                ? "Enter a deck name and words (one per line). AI will generate Traditional Chinese definitions."
-                : "輸入字卡組名稱和單字（每行一個），AI 將生成繁體中文翻譯。"}
-            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -297,7 +288,7 @@ export default function Flashcards() {
                 id="deck-name"
                 value={deckName}
                 onChange={(e) => setDeckName(e.target.value)}
-                placeholder={language === "en" ? "e.g., Academic Vocabulary" : "例如：學術詞彙"}
+                placeholder={language === "en" ? "Deck name" : "字卡組名稱"}
                 data-testid="input-deck-name"
               />
             </div>
@@ -309,9 +300,7 @@ export default function Flashcards() {
                 id="words-list"
                 value={wordsList}
                 onChange={(e) => setWordsList(e.target.value)}
-                placeholder={language === "en" 
-                  ? "happy\nsad\nexcited\ncalm\nanxious"
-                  : "happy\nsad\nexcited\ncalm\nanxious"}
+                placeholder={language === "en" ? "happy\nsad\nexcited" : "happy\nsad\nexcited"}
                 className="min-h-[200px] font-mono"
                 data-testid="input-words-list"
               />
@@ -357,7 +346,7 @@ export default function Flashcards() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && confirmRename()}
-            placeholder={language === "en" ? "Deck name" : "字卡組名稱"}
+            placeholder={language === "en" ? "New name" : "新名稱"}
             data-testid="input-rename-deck"
           />
           <DialogFooter>

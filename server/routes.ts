@@ -14,19 +14,44 @@ import { setupAuth, isAuthenticated } from "./replitAuth";
 import { lookupWord, getWordStatus, getQueueStatus } from "./dictionary-service";
 
 // Insert schemas (omit auto-generated fields)
-const insertMindMapSchema = mindMapSchema.omit({ id: true, createdAt: true });
+const insertMindMapSchema = mindMapSchema.omit({ id: true, userId: true, createdAt: true });
 const insertFlashcardDeckSchema = flashcardDeckSchema.omit({ id: true, createdAt: true });
 const updateMindMapSchema = mindMapSchema.partial();
 const updateFlashcardDeckSchema = flashcardDeckSchema.partial();
 
+// Helper function to get user ID (works in both Replit and local dev mode)
+function getUserId(req: any): string {
+  if (!process.env.REPL_ID) {
+    // Local development mode - use mock user ID
+    return 'local-dev-user';
+  }
+  // Replit mode - get from auth
+  return req.user.claims.sub;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup Replit Auth
-  await setupAuth(app);
+  // Setup Replit Auth (only in Replit environment)
+  if (process.env.REPL_ID) {
+    await setupAuth(app);
+  } else {
+    console.log('ℹ️  Skipping Replit Auth (local development mode)');
+  }
 
   // Auth route: Get current user
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      // In local development mode, return a mock user
+      if (!process.env.REPL_ID) {
+        return res.json({
+          id: 'local-dev-user',
+          email: 'developer@local.dev',
+          firstName: 'Local',
+          lastName: 'Developer',
+          profileImageUrl: null
+        });
+      }
+      
+      const userId = getUserId(req);
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -290,7 +315,7 @@ Example for "How are you?":
   // Mind map CRUD endpoints (protected)
   app.get("/api/mindmaps", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const mindMaps = await storage.getAllMindMaps(userId);
       res.json(mindMaps);
     } catch (error: any) {
@@ -301,7 +326,7 @@ Example for "How are you?":
 
   app.get("/api/mindmaps/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const mindMap = await storage.getMindMap(req.params.id, userId);
       if (!mindMap) {
         res.status(404).json({ error: "Mind map not found" });
@@ -316,7 +341,7 @@ Example for "How are you?":
 
   app.post("/api/mindmaps", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validatedData = insertMindMapSchema.parse(req.body);
       const mindMap = await storage.createMindMap(validatedData, userId);
       res.json(mindMap);
@@ -332,7 +357,7 @@ Example for "How are you?":
 
   app.patch("/api/mindmaps/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validatedData = updateMindMapSchema.parse(req.body);
       const mindMap = await storage.updateMindMap(req.params.id, userId, validatedData);
       if (!mindMap) {
@@ -352,7 +377,7 @@ Example for "How are you?":
 
   app.delete("/api/mindmaps/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const success = await storage.deleteMindMap(req.params.id, userId);
       if (!success) {
         res.status(404).json({ error: "Mind map not found" });
@@ -368,7 +393,7 @@ Example for "How are you?":
   // Flashcard deck CRUD endpoints (protected)
   app.get("/api/flashcards", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const decks = await storage.getAllFlashcardDecks(userId);
       res.json(decks);
     } catch (error: any) {
@@ -379,7 +404,7 @@ Example for "How are you?":
 
   app.get("/api/flashcards/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const deck = await storage.getFlashcardDeck(req.params.id, userId);
       if (!deck) {
         res.status(404).json({ error: "Flashcard deck not found" });
@@ -395,7 +420,7 @@ Example for "How are you?":
   // Batch create flashcard deck with AI-generated definitions
   app.post("/api/flashcards/batch-create", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const schema = z.object({
         name: z.string().min(1),
         words: z.array(z.string().min(1)).min(1),
@@ -470,7 +495,7 @@ Example for "How are you?":
 
   app.post("/api/flashcards", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validatedData = insertFlashcardDeckSchema.parse(req.body);
       const deck = await storage.createFlashcardDeck(validatedData, userId, validatedData.cards);
       res.json(deck);
@@ -486,7 +511,7 @@ Example for "How are you?":
 
   app.patch("/api/flashcards/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const validatedData = updateFlashcardDeckSchema.parse(req.body);
       const deck = await storage.updateFlashcardDeck(req.params.id, userId, validatedData);
       if (!deck) {
@@ -506,7 +531,7 @@ Example for "How are you?":
 
   app.delete("/api/flashcards/:id", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = getUserId(req);
       const success = await storage.deleteFlashcardDeck(req.params.id, userId);
       if (!success) {
         res.status(404).json({ error: "Flashcard deck not found" });

@@ -14,13 +14,10 @@ export function Header() {
       <div className="container flex h-16 items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-xl">
-              W
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">{t.appName}</h1>
-              <p className="text-xs text-muted-foreground">{t.tagline}</p>
-            </div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-baseline">
+              <span style={{ fontFamily: 'Quicksand, sans-serif', fontWeight: 600 }} className="text-primary">W</span>
+              <span style={{ fontFamily: 'Poiret One, cursive', fontWeight: 900, textShadow: '0 0 0.4px currentColor, 0 0 0.4px currentColor' }} className="text-primary">evro</span>
+            </h1>
           </div>
         </div>
 

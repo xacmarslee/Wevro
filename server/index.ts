@@ -1,3 +1,7 @@
+// Load environment variables from .env file
+import { config } from "dotenv";
+config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
@@ -47,6 +51,23 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure local dev user exists in database (for local development only)
+  if (!process.env.REPL_ID) {
+    const { storage } = await import("./storage");
+    try {
+      await storage.upsertUser({
+        id: 'local-dev-user',
+        email: 'developer@local.dev',
+        firstName: 'Local',
+        lastName: 'Developer',
+        profileImageUrl: null,
+      });
+      log('✓ Local dev user ensured');
+    } catch (error) {
+      log('Warning: Could not create local dev user:', error);
+    }
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -71,11 +92,9 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  
+  // Use simple listen for cross-platform compatibility (Windows doesn't support reusePort)
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
   });
 })();
