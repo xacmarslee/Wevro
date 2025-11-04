@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useTranslation } from "@/lib/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Play, Loader2, Undo2, Redo2, Save, Download } from "lucide-react";
@@ -66,6 +67,7 @@ export default function Home() {
 
   const { toast } = useToast();
   const { language } = useLanguage();
+  const { theme } = useTheme();
   const t = useTranslation(language);
   
   // Load existing mind map if editing
@@ -529,9 +531,15 @@ export default function Home() {
     }
     
     try {
+      // Get the actual background color from the canvas element
+      const computedStyle = window.getComputedStyle(canvasElement);
+      const backgroundColor = computedStyle.backgroundColor || (theme === 'dark' ? '#14151a' : '#fafafa');
+      
       const canvas = await html2canvas(canvasElement, {
-        backgroundColor: '#ffffff',
+        backgroundColor,
         scale: 2,
+        logging: false,
+        useCORS: true,
       });
       
       const link = document.createElement('a');
