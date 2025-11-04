@@ -139,3 +139,63 @@ Preferred communication style: Simple, everyday language.
 - PostgreSQL session store via `connect-pg-simple`
 - Session table managed automatically by the library
 - Credentials handling via Express session middleware
+
+## Recent Changes
+
+### November 4, 2025 - UX Improvements & AI Prompt Optimization
+
+**1. Query Page Redesign (Completed)**
+- Added Dictionary/Translation toggle for separate workflows
+- Dictionary mode: autocomplete search with POS tags and multiple senses
+- Translation mode: large textarea returning 2-4 AI translation options
+- New endpoint: `GET /api/dictionary/search?q={query}` for autocomplete suggestions
+- Fixed TanStack Query parameter formatting for search API
+
+**2. AI Prompt Optimization for Flashcards**
+- **File**: `server/translator.ts`
+- **Problem**: Chinese translations were too verbose (e.g., "frog" → "小型兩棲動物，常生活於水中")
+- **Solution**: Modified AI prompt to provide concise flashcard-friendly translations:
+  - Common nouns: Just the Chinese word (frog → 青蛙)
+  - Common verbs: Just the Chinese verb (run → 跑)
+  - Common adjectives: Just the Chinese adjective (happy → 快樂的)
+  - Complex terms: Max 15 characters (democracy → 民主政治)
+- **Impact**: Only affects NEW translations (cached translations unchanged)
+
+**3. Toast Notification Improvements**
+- **Files**: `client/src/hooks/use-toast.ts`, `client/src/components/ui/toast.tsx`
+- **Changes**:
+  - Auto-dismiss time: 1000000ms → **2000ms** (2 seconds)
+  - Position: Changed to **bottom-right corner** (always)
+  - Size: Reduced max-width from 420px to **320px**
+  - Padding: Reduced from `p-6` to **`p-3`** (more compact)
+  - Animation: Always slides in from bottom
+- **Impact**: All toasts (prefix, suffix, root, general notifications) now auto-dismiss
+
+**4. Mind Map Connection Preservation**
+- **File**: `client/src/components/MindMapCanvas.tsx`
+- **Problem**: Clicking a new center node deleted all existing connection lines
+- **Solution**: Changed connection logic to track ALL parent-child relationships
+  - Previous: Only showed `node.parentId === centerNodeId`
+  - Current: Builds map of `parent -> category -> children` for all nodes
+  - Draws spider threads for every parent's category groups
+- **Impact**: Connection lines persist when changing center node, creating rich visual web
+
+### AI Prompts Reference
+
+All AI prompts are located in the following files:
+
+1. **server/translator.ts** (lines 43-71)
+   - Purpose: Translate English dictionary definitions to Traditional Chinese
+   - Updated: November 4, 2025 for flashcard conciseness
+
+2. **server/openai.ts** (lines 44-67)
+   - Purpose: Generate related words for mind map (synonyms, antonyms, etc.)
+   - Uses GPT-4o with category-specific examples
+
+3. **server/routes.ts** (lines 229-243)
+   - Purpose: Translation mode in Query page (2-4 options, different formality levels)
+   - Handles both EN→ZH-TW and ZH-TW→EN
+
+4. **server/openai.ts** (lines 96-109)
+   - Purpose: Legacy Chinese definition generator (may be unused)
+   - Consider removing if confirmed obsolete
