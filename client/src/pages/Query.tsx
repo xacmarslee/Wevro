@@ -29,7 +29,7 @@ export default function Query() {
         description:
           language === "en" ? "Failed to process query" : "處理查詢失敗",
         variant: "destructive",
-        duration: 2000,
+        
       });
     },
   });
@@ -44,7 +44,7 @@ export default function Query() {
     setCopiedIndex(index);
     toast({
       title: language === "en" ? "Copied" : "已複製",
-      duration: 2000,
+      
     });
     setTimeout(() => setCopiedIndex(null), 2000);
   };

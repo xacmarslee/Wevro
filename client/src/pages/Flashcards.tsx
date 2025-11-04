@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useLocation } from "wouter";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,6 +40,7 @@ export default function Flashcards() {
   const { language } = useLanguage();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const [editingDeck, setEditingDeck] = useState<any>(null);
   const [newName, setNewName] = useState("");
@@ -226,46 +228,51 @@ export default function Flashcards() {
               className="hover-elevate active-elevate-2 transition-all relative"
               data-testid={`card-deck-${deck.id}`}
             >
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-lg truncate flex-1">{deck.name || "Untitled"}</CardTitle>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        data-testid={`button-menu-${deck.id}`}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleRename(deck)} data-testid={`button-rename-${deck.id}`}>
-                        <Pencil className="h-4 w-4 mr-2" />
-                        {language === "en" ? "Rename" : "重新命名"}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleDelete(deck)}
-                        className="text-destructive"
-                        data-testid={`button-delete-${deck.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        {language === "en" ? "Delete" : "刪除"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <CardDescription>
-                  {deck.cards?.length || 0} {language === "en" ? "cards" : "張卡片"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {language === "en" ? "Last updated: " : "最後更新："}
-                  {new Date(deck.createdAt).toLocaleDateString()}
-                </p>
-              </CardContent>
+              <div 
+                className="cursor-pointer"
+                onClick={() => setLocation(`/flashcards/${deck.id}`)}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-lg truncate flex-1">{deck.name || "Untitled"}</CardTitle>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          data-testid={`button-menu-${deck.id}`}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRename(deck); }} data-testid={`button-rename-${deck.id}`}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          {language === "en" ? "Rename" : "重新命名"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={(e) => { e.stopPropagation(); handleDelete(deck); }}
+                          className="text-destructive"
+                          data-testid={`button-delete-${deck.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {language === "en" ? "Delete" : "刪除"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <CardDescription>
+                    {deck.cards?.length || 0} {language === "en" ? "cards" : "張卡片"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">
+                    {language === "en" ? "Last updated: " : "最後更新："}
+                    {new Date(deck.createdAt).toLocaleDateString()}
+                  </p>
+                </CardContent>
+              </div>
             </Card>
           ))}
           </div>

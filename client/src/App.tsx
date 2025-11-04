@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Footer from "@/components/Footer";
 import Query from "@/pages/Query";
 import Flashcards from "@/pages/Flashcards";
+import FlashcardPractice from "@/pages/FlashcardPractice";
 import MindMaps from "@/pages/MindMaps";
 import MindMapEditor from "@/pages/Home";
 import Settings from "@/pages/Settings";
@@ -35,6 +36,7 @@ function Router() {
       <div className="flex-1 overflow-hidden">
         <Switch>
           <Route path="/query" component={Query} />
+          <Route path="/flashcards/:id" component={FlashcardPractice} />
           <Route path="/flashcards" component={Flashcards} />
           <Route path="/mindmaps" component={MindMaps} />
           <Route path="/mindmap/new" component={MindMapEditor} />

@@ -129,7 +129,7 @@ export default function Home() {
       toast({
         title: language === "en" ? "Undo" : "復原",
         description: language === "en" ? "Action undone" : "已復原上一步",
-        duration: 2000,
+        
       });
     }
   };
@@ -143,7 +143,7 @@ export default function Home() {
       toast({
         title: language === "en" ? "Redo" : "取消復原",
         description: language === "en" ? "Action redone" : "已取消復原",
-        duration: 2000,
+        
       });
     }
   };
@@ -194,7 +194,7 @@ export default function Home() {
     toast({
       title: language === "en" ? "Map cleared" : "心智圖已清空",
       description: language === "en" ? "Start fresh with a new word" : "開始輸入新單字",
-      duration: 2000,
+      
     });
   };
 
@@ -228,7 +228,7 @@ export default function Home() {
               ? "Invalid response from server"
               : "伺服器回應格式錯誤",
           variant: "destructive",
-          duration: 2000,
+          
         });
         return;
       }
@@ -243,7 +243,7 @@ export default function Home() {
               ? `Could not generate ${variables.category} words. Please try another category.`
               : `無法生成${t.categories[variables.category]}單字，請嘗試其他類別。`,
           variant: "destructive",
-          duration: 2000,
+          
         });
         return;
       }
@@ -308,7 +308,7 @@ export default function Home() {
           language === "en"
             ? `Added ${data.words.length} ${variables.category} words`
             : `已新增 ${data.words.length} 個${t.categories[variables.category]}`,
-        duration: 2000,
+        
       });
     },
     onError: () => {
@@ -320,7 +320,7 @@ export default function Home() {
             ? "Failed to generate words. Please try again."
             : "生成單字失敗，請重試。",
         variant: "destructive",
-        duration: 2000,
+        
       });
     },
   });
@@ -417,7 +417,7 @@ export default function Home() {
     toast({
       title: language === "en" ? "Node deleted" : "節點已刪除",
       description: language === "en" ? "Node removed successfully" : "節點已成功移除",
-      duration: 2000,
+      
     });
   };
 
@@ -448,6 +448,9 @@ export default function Home() {
       setHistory([nodes]);
       setHistoryIndex(0);
       
+      // Invalidate mind maps query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
+      
       // Show confirmation dialog to ask about saving as flashcards
       setShowSaveConfirmDialog(true);
     },
@@ -456,7 +459,7 @@ export default function Home() {
         title: language === "en" ? "Save failed" : "儲存失敗",
         description: language === "en" ? "Failed to save mind map" : "儲存心智圖失敗",
         variant: "destructive",
-        duration: 2000,
+        
       });
     },
   });
@@ -499,7 +502,7 @@ export default function Home() {
       toast({
         title: language === "en" ? "Flashcards created" : "字卡已建立",
         description: language === "en" ? "Flashcard deck created successfully" : "字卡組已成功建立",
-        duration: 2000,
+        
       });
       setShowSaveConfirmDialog(false);
     },
@@ -525,7 +528,7 @@ export default function Home() {
         title: language === "en" ? "Export failed" : "匯出失敗",
         description: language === "en" ? "No nodes to export" : "沒有節點可匯出",
         variant: "destructive",
-        duration: 2000,
+        
       });
       return;
     }
@@ -566,7 +569,7 @@ export default function Home() {
           title: language === "en" ? "Export failed" : "匯出失敗",
           description: language === "en" ? "Canvas not found" : "找不到畫布",
           variant: "destructive",
-          duration: 2000,
+          
         });
         return;
       }
@@ -686,7 +689,7 @@ export default function Home() {
       toast({
         title: language === "en" ? "Downloaded" : "已下載",
         description: language === "en" ? "Mind map exported as PNG" : "心智圖已匯出為 PNG",
-        duration: 2000,
+        
       });
     } catch (error) {
       console.error('Export error:', error);
@@ -694,7 +697,7 @@ export default function Home() {
         title: language === "en" ? "Export failed" : "匯出失敗",
         description: language === "en" ? "Failed to export mind map" : "匯出心智圖失敗",
         variant: "destructive",
-        duration: 2000,
+        
       });
     }
   };
