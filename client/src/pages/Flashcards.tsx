@@ -213,7 +213,13 @@ export default function Flashcards() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <>
+          <Button onClick={handleCreateNew} data-testid="button-create-deck">
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "en" ? "Create Deck" : "建立字卡組"}
+          </Button>
+          
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {decks.map((deck: any) => (
             <Card 
               key={deck.id} 
@@ -262,7 +268,8 @@ export default function Flashcards() {
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Create Dialog */}
