@@ -1,0 +1,224 @@
+一、整體流程（你可以照這個做）
+
+使用者查字 → 從 Firestore 讀快取
+
+命中 → 直接回傳（0 成本、0 等待）
+
+未命中 →
+
+A. 打「英文權威字典 API」拿到：詞性、定義、例句、音標、變化（能拿多少拿多少）
+
+B. 立即回傳「英文版」給使用者（UI 顯示：中文生成中…）
+
+C. 後台觸發 AI：把英文定義/例句翻成臺灣繁中、補齊必要欄位 → 存回 Firestore
+
+D. 前端訂閱 doc 變化 → 幾秒後自動更新顯示「中文完成 ✅」
+
+關鍵是：英文立刻可用、中文延遲完成 + 永久快取（只花第一次 token）。
+
+二、資料結構（Firestore 範例）
+/words/{lemma}  // lemma 用小寫、去掉空白與符號；多詞以空白保留，如 "set up"
+{
+  headword: "create",
+  lemma: "create",
+  lang: "en",
+  phonetics: { ipa: "kriˈeɪt", audioUrl: "..." },
+  inflections: { past: "created", gerund: "creating", third: "creates" },
+  cefr: "B1",            // 若字典 API 無此欄可空
+  frequency: 3,          // 可選
+  provider: {
+    name: "collins",     // or "wordsapi"/"free_dict"...
+    retrievedAt: 1730697600000,
+    licenseNote: "© Collins API; on-screen only"
+  },
+  senses: [
+    {
+      id: "s1",
+      pos: "verb",
+      labels: ["formal"],         // 可選：語域/領域標籤
+      def_en: "to make something new exist",
+      def_zh_tw: "創造；使誕生；使產生",
+      examples: [
+        { en: "The company was created in 2010.", zh_tw: "該公司成立於 2010 年。" }
+      ],
+      synonyms: ["produce","generate","form"],
+      antonyms: ["destroy"],
+      collocations: [
+        { phrase: "create opportunities", zh_tw: "創造機會" },
+        { phrase: "create a mess", zh_tw: "弄得一團亂" }
+      ],
+      notes_zh_tw: "學術寫作偏用 'generate/produce'，口語常用 'make'。"
+    },
+    ...
+  ],
+  status: {
+    enReady: true,
+    zhReady: true,       // 若中文尚未生成：false
+    lastUpdated: 1730697600000
+  },
+  moderation: { flagged:false, reports:0 }
+}
+
+
+設計重點
+
+senses[]：承接權威字典的義項切分（保證結構穩）
+
+def_zh_tw / examples.zh_tw：只要翻譯一次，之後全靠快取
+
+provider/licenseNote：保留授權資訊，日後要換供應商也容易
+
+status.zhReady：前端可用來顯示 Loading/Done
+
+三、字典 API 端（英文來源）怎麼接
+
+先寫 Provider Adapter：統一把不同字典的回傳轉成你的標準格式
+
+getWord("create") → NormalizedWord（上面那種結構，不含中文）
+
+建議先接一個免費/低門檻（如 WordsAPI / dictionaryapi.dev），等要做商轉再切到 Collins / Lexicala 等更穩定來源
+
+不要把英文定義改寫，保持權威原文（信任度來自這裡）
+
+四、AI「只做翻譯與補欄位」，別讓它亂編
+
+原則：AI 不發明新義、不新增示例，只翻譯英文字典給的內容，並把詞組（collocations）翻出自然臺灣用語。
+做法：下嚴格系統 prompt + JSON Schema。
+
+Prompt（系統指令，繁中）
+你是英→繁中（台灣）字典編輯。請「只翻譯」我提供的英文定義與例句，避免新增或杜撰義項。
+要求：
+- 中文用詞貼近台灣：例「公司」非「公司行號」、「電腦」非「計算機」。
+- 定義要簡潔，但保留關鍵語義區分。
+- 例句直譯為主，必要時意譯自然、簡短。
+- collocations 請翻出常用說法（例如 "create opportunities" → "創造機會"）。
+- 不要加入你自己的新例句或新義項，除非原文已有。
+- 輸出符合以下 JSON schema，不要有多餘文字。
+
+JSON Schema（範例）
+{
+  "senses": [
+    {
+      "id": "s1",
+      "def_zh_tw": "…",
+      "examples_zh_tw": ["…","…"],
+      "collocations_zh_tw": [
+        {"phrase": "create opportunities", "zh_tw": "創造機會"}
+      ],
+      "notes_zh_tw": "（可空）"
+    }
+  ]
+}
+
+後端合併邏輯
+
+以 id 對應既有 senses，只填 def_zh_tw / examples.zh_tw / collocations[].zh_tw
+
+若某 sense 英文無例句 → examples_zh_tw 留空
+
+任一欄位缺翻譯 → 允許空值，但不要生成新內容
+
+五、控流與成本（讓你不會「爆掉」）
+
+節流策略（建議全部打開）：
+
+Per-user Quota：例如免費用戶每天 30 次查詢（查「新字」才計數；命中快取不計）。
+
+去重：lemma 正規化（小寫、去尾點…），避免同字重複生成。
+
+多層快取：
+
+Firestore（永久）
+
+Cloudflare KV / Edge Cache（熱字 24–72 小時）
+
+排隊 + 重試：AI 翻譯走 隊列（如 Cloud Tasks / Pub/Sub），避免高峰同時 1000 次。
+
+斷路器：字典 API/AI 出錯時，只回英文內容，中文暫緩。
+
+熱門字預取：背景預先把常見 2000 字補中文。
+
+成本估算（示例）：
+
+單字含 3 義項、每義項 1–2 例句 → 輸入 ~500–900 tokens
+
+產出翻譯 ~150–250 tokens
+
+一次成本 < NT$0.1–0.3（依模型而定），且只發生第一次
+
+六、實作輪廓（TypeScript/雲端函式）
+// 1) 查字主要流程
+export async function lookupWord(lemma: string) {
+  const key = normalizeLemma(lemma);
+  const cached = await firestoreGet(`/words/${key}`);
+  if (cached) return cached;
+
+  // A. 取英文資料（權威 API）
+  const en = await provider.getWord(key);     // 失敗要 graceful fallback
+  const doc = buildWordDocFromProvider(en);   // 填好 senses[], def_en, examples.en...
+  doc.status = { enReady: true, zhReady: false };
+  await firestoreSet(`/words/${key}`, doc);
+
+  // B. 丟到隊列做翻譯（非同步）
+  await queue.enqueue({ type: "translate", lemma: key });
+
+  return doc;  // 先回英文
+}
+
+// 2) 隊列消費者：AI 翻譯並回填
+export async function translateWorker(job: { lemma: string }) {
+  const doc = await firestoreGet(`/words/${job.lemma}`);
+  if (!doc || doc.status.zhReady) return;
+
+  const payload = extractForTranslation(doc); // 只取 def_en / examples.en / collocations.phrase
+  const zh = await callLLMwithStrictSchema(payload); // 嚴格 JSON schema
+  const merged = mergeZhIntoDoc(doc, zh);     // 以 sense.id 對位
+  merged.status.zhReady = true;
+  merged.status.lastUpdated = Date.now();
+  await firestoreSet(`/words/${job.lemma}`, merged);
+}
+
+
+Firestore 規則（概念）
+
+words/* 只能由 Server/Functions 寫入（避免被亂寫）
+
+客戶端只能讀取
+
+若要提供「社群修正中文」：另開 /user_edits/{wordId}/{uid} 集合，需審核後合併
+
+七、UI 行為（好用又誠實）
+
+頭部：create + IPA + 發音鍵（英）
+
+義項卡片：英文立即顯示；中文區塊若未就緒，放骨架屏 中文釋義生成中…
+
+每個例句下行顯示中譯；collocation 旁顯示中譯 tag
+
+角落放微徽章：中文由 AI 翻譯 → 點可展開「回報有問題」
+
+一鍵加入 Deck / 加到 Mind Map（你 Wevro 的主路徑）
+
+八、品質把關（避免中文品質崩掉）
+
+驗證器：檢查回傳 JSON 是否：
+
+與 senses 長度匹配
+
+禁止空字串：「—」、「N/A」一律轉 null
+
+髒詞/不雅詞過濾：例句翻譯前後掃描
+
+自動測試：用 50 個常見多義字（set, run, get, take…）做 snapshot 測試
+
+黑名單詞庫：特定術語（法律/醫學）改用更嚴格 prompt 或人工審
+
+九、授權與法務注意
+
+保留來源（provider.name / licenseNote）
+
+遵守展示規範：有些 API 要顯示來源或 logo
+
+不要批量導出權威詞典全文（僅在你的 App 內呈現、有限度快取）
+
+AI 生成的中文通常不受第三方版權限制（但仍應標示「AI 翻譯」以示區隔）
