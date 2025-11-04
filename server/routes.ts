@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateRelatedWords, generateChineseDefinition, generateBatchDefinitions } from "./openai";
+import { generateRelatedWords } from "./openai";
+import { generateBatchDefinitions } from "./translator";
 import {
   generateWordsRequestSchema,
   generateDefinitionRequestSchema,
@@ -10,6 +11,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { lookupWord, getWordStatus, getQueueStatus } from "./dictionary-service";
 
 // Insert schemas (omit auto-generated fields)
 const insertMindMapSchema = mindMapSchema.omit({ id: true, createdAt: true });
@@ -51,13 +53,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate Traditional Chinese definition for a word
+  // Dictionary lookup - returns English immediately, queues Chinese translation
   app.post("/api/generate-definition", async (req, res) => {
     try {
       const validatedData = generateDefinitionRequestSchema.parse(req.body);
-      const result = await generateChineseDefinition(validatedData.word);
+      
+      // Use new dictionary service (returns English, queues translation)
+      const wordEntry = await lookupWord(validatedData.word, 8);  // High priority for direct lookups
+      
+      if (!wordEntry) {
+        return res.status(404).json({
+          error: "Word not found",
+          message: `"${validatedData.word}" not found in dictionary`,
+        });
+      }
 
-      res.json(result);
+      // Return the first sense for compatibility with old API
+      const firstSense = wordEntry.senses[0];
+      
+      if (!firstSense) {
+        return res.status(404).json({
+          error: "No definition found",
+          message: "Word has no definitions",
+        });
+      }
+
+      // Map to old API format for backward compatibility
+      res.json({
+        definition: firstSense.defZhTw || firstSense.defEn || "定義生成中...",
+        partOfSpeech: firstSense.pos === "verb" ? "動詞" :
+                      firstSense.pos === "noun" ? "名詞" :
+                      firstSense.pos === "adjective" ? "形容詞" :
+                      firstSense.pos === "adverb" ? "副詞" : "其他",
+        zhReady: wordEntry.zhReady,  // Indicates if Chinese is ready
+      });
     } catch (error: any) {
       console.error("Error in /api/generate-definition:", error);
       res.status(500).json({
@@ -65,6 +94,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: error.message,
       });
     }
+  });
+
+  // NEW: Full dictionary lookup endpoint
+  app.get("/api/dictionary/lookup/:word", async (req, res) => {
+    try {
+      const word = req.params.word;
+      
+      if (!word || word.trim().length === 0) {
+        return res.status(400).json({ error: "Word parameter required" });
+      }
+
+      const wordEntry = await lookupWord(word, 5);
+      
+      if (!wordEntry) {
+        return res.status(404).json({
+          error: "Word not found",
+          message: `"${word}" not found in dictionary`,
+        });
+      }
+
+      res.json(wordEntry);
+    } catch (error: any) {
+      console.error("Error in /api/dictionary/lookup:", error);
+      res.status(500).json({
+        error: "Dictionary lookup failed",
+        message: error.message,
+      });
+    }
+  });
+
+  // NEW: Check translation status (for polling)
+  app.get("/api/dictionary/status/:word", async (req, res) => {
+    try {
+      const word = req.params.word;
+      const status = await getWordStatus(word);
+      
+      if (!status) {
+        return res.status(404).json({ error: "Word not found" });
+      }
+
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error in /api/dictionary/status:", error);
+      res.status(500).json({ error: "Status check failed" });
+    }
+  });
+
+  // NEW: Translation queue status
+  app.get("/api/dictionary/queue-status", (req, res) => {
+    const status = getQueueStatus();
+    res.json(status);
   });
 
   // Query/translation endpoint

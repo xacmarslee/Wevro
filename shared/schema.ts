@@ -73,6 +73,21 @@ export const flashcards = pgTable("flashcards", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Dictionary cache table - stores English dictionary data + Chinese translations
+export const words = pgTable("words", {
+  lemma: varchar("lemma", { length: 200 }).primaryKey(),  // Normalized key (lowercase)
+  headword: varchar("headword", { length: 200 }).notNull(),  // Original word
+  phonetic: varchar("phonetic", { length: 100 }),  // IPA
+  audioUrl: varchar("audio_url", { length: 500 }),
+  origin: text("origin"),  // Etymology
+  senses: jsonb("senses").notNull(),  // Array of word senses
+  provider: jsonb("provider").notNull(),  // Source API info
+  enReady: boolean("en_ready").notNull().default(false),
+  zhReady: boolean("zh_ready").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [index("idx_words_zh_ready").on(table.zhReady)]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   mindMaps: many(mindMaps),
@@ -101,11 +116,14 @@ export const flashcardsRelations = relations(flashcards, ({ one }) => ({
   }),
 }));
 
+// No relations for words table (standalone cache)
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertMindMapSchema = createInsertSchema(mindMaps).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFlashcardDeckSchema = createInsertSchema(flashcardDecks).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertFlashcardSchema = createInsertSchema(flashcards).omit({ id: true, createdAt: true });
+export const insertWordSchema = createInsertSchema(words).omit({ createdAt: true, updatedAt: true });
 
 // Types
 export type User = typeof users.$inferSelect;
@@ -117,6 +135,58 @@ export type DbFlashcardDeck = typeof flashcardDecks.$inferSelect;
 export type InsertFlashcardDeck = z.infer<typeof insertFlashcardDeckSchema>;
 export type DbFlashcard = typeof flashcards.$inferSelect;
 export type InsertFlashcard = z.infer<typeof insertFlashcardSchema>;
+export type DbWord = typeof words.$inferSelect;
+export type InsertWord = z.infer<typeof insertWordSchema>;
+
+// ===== DICTIONARY TYPES =====
+
+// Word sense definition (multiple per word)
+export const wordSenseSchema = z.object({
+  id: z.string(),
+  pos: z.string(),  // part of speech (verb, noun, etc.)
+  labels: z.array(z.string()).optional(),  // formal, informal, etc.
+  defEn: z.string(),  // English definition (from dictionary API)
+  defZhTw: z.string().optional(),  // Traditional Chinese translation (AI generated)
+  examples: z.array(z.object({
+    en: z.string(),
+    zhTw: z.string().optional(),
+  })).optional(),
+  synonyms: z.array(z.string()).optional(),
+  antonyms: z.array(z.string()).optional(),
+  collocations: z.array(z.object({
+    phrase: z.string(),
+    zhTw: z.string().optional(),
+  })).optional(),
+  notesZhTw: z.string().optional(),  // Usage notes in Chinese
+});
+
+export type WordSense = z.infer<typeof wordSenseSchema>;
+
+// Provider information
+export const providerInfoSchema = z.object({
+  name: z.string(),  // "dictionaryapi.dev", "wordsapi", etc.
+  retrievedAt: z.number(),  // timestamp
+  licenseNote: z.string().optional(),
+});
+
+export type ProviderInfo = z.infer<typeof providerInfoSchema>;
+
+// Complete word entry (API response)
+export const wordEntrySchema = z.object({
+  lemma: z.string(),
+  headword: z.string(),
+  phonetic: z.string().optional(),
+  audioUrl: z.string().optional(),
+  origin: z.string().optional(),
+  senses: z.array(wordSenseSchema),
+  provider: providerInfoSchema,
+  enReady: z.boolean(),
+  zhReady: z.boolean(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+});
+
+export type WordEntry = z.infer<typeof wordEntrySchema>;
 
 // ===== LEGACY ZOD SCHEMAS (kept for API validation) =====
 
