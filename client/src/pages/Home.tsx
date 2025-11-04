@@ -531,16 +531,32 @@ export default function Home() {
     }
     
     try {
-      // Get the actual background color from the canvas element
-      const computedStyle = window.getComputedStyle(canvasElement);
-      const backgroundColor = computedStyle.backgroundColor || (theme === 'dark' ? '#14151a' : '#fafafa');
+      // Use theme-appropriate background color (hardcoded to avoid CSS parsing issues)
+      const backgroundColor = theme === 'dark' ? '#14151a' : '#ffffff';
+      
+      // Temporarily remove the background image to avoid CSS parsing issues
+      const originalBackgroundImage = canvasElement.style.backgroundImage;
+      canvasElement.style.backgroundImage = 'none';
       
       const canvas = await html2canvas(canvasElement, {
         backgroundColor,
         scale: 2,
         logging: false,
         useCORS: true,
+        allowTaint: true,
+        ignoreElements: (element) => {
+          // Skip elements that might have problematic CSS
+          const style = window.getComputedStyle(element);
+          // Check if any color property contains 'color('
+          const hasColorFunction = style.backgroundColor?.includes('color(') || 
+                                  style.color?.includes('color(') || 
+                                  style.borderColor?.includes('color(');
+          return hasColorFunction;
+        },
       });
+      
+      // Restore the original background image
+      canvasElement.style.backgroundImage = originalBackgroundImage;
       
       const link = document.createElement('a');
       const centerNode = nodes.find(n => n.isCenter);
