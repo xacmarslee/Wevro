@@ -3,8 +3,9 @@ import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { getCategoryColor } from "@shared/categoryColors";
+import { getCategoryColor, getCategoryLabel } from "@shared/categoryColors";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 interface MindMapCanvasProps {
   nodes: MindMapNode[];
@@ -25,6 +26,7 @@ export function MindMapCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const { theme } = useTheme();
+  const { language } = useLanguage();
   const isDark = theme === "dark";
 
   // Auto-center the center node when it's created
@@ -229,7 +231,7 @@ export function MindMapCanvas({
                       </div>
                       {node.category && !isCenter && (
                         <div className="text-xs text-muted-foreground text-center mt-1 font-normal">
-                          {node.category}
+                          {getCategoryLabel(node.category, language)}
                         </div>
                       )}
                     </div>

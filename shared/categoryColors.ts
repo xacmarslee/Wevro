@@ -1,5 +1,23 @@
 import { type WordCategory } from "./schema";
 
+// Category labels in English and Traditional Chinese
+export const categoryLabels: Record<WordCategory, { en: string; zh: string }> = {
+  derivatives: { en: "Derivatives", zh: "衍生詞" },
+  synonyms: { en: "Synonyms", zh: "同義詞" },
+  antonyms: { en: "Antonyms", zh: "反義詞" },
+  collocations: { en: "Collocations", zh: "搭配詞" },
+  idioms: { en: "Idioms", zh: "慣用語" },
+  root: { en: "Root", zh: "字根" },
+  prefix: { en: "Prefix", zh: "字首" },
+  suffix: { en: "Suffix", zh: "字尾" },
+  "topic-related": { en: "Topic-related", zh: "相關主題" },
+};
+
+// Get category label based on language
+export function getCategoryLabel(category: WordCategory, language: "en" | "zh"): string {
+  return categoryLabels[category][language];
+}
+
 // Category color definitions for both light and dark modes
 // Format: { light: "hsl(...)", dark: "hsl(...)" }
 export const categoryColors: Record<WordCategory, { light: string; dark: string; name: string }> = {

@@ -49,9 +49,9 @@ export default function Flashcards() {
 
   // Fetch user's flashcard decks (only when authenticated)
   const { data: decks = [], isLoading } = useQuery({
-    queryKey: ["/api/flashcard-decks"],
+    queryKey: ["/api/flashcards"],
     queryFn: async () => {
-      const response = await fetch("/api/flashcard-decks", {
+      const response = await fetch("/api/flashcards", {
         credentials: "include",
       });
       if (!response.ok) {
@@ -68,7 +68,7 @@ export default function Flashcards() {
       return await apiRequest("PATCH", `/api/flashcards/${id}`, { name });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flashcard-decks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       setEditingDeck(null);
       toast({
         title: language === "en" ? "Renamed" : "已重新命名",
@@ -90,7 +90,7 @@ export default function Flashcards() {
       return await apiRequest("DELETE", `/api/flashcards/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flashcard-decks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       setDeletingDeck(null);
       toast({
         title: language === "en" ? "Deleted" : "已刪除",
@@ -119,7 +119,7 @@ export default function Flashcards() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flashcard-decks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       setIsCreating(false);
       setDeckName("");
       setWordsList("");

@@ -13,6 +13,7 @@ import { useTranslation } from "@/lib/i18n";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Play, Loader2, Undo2, Redo2, Save, Download } from "lucide-react";
 import html2canvas from "html2canvas";
+import { getCategoryColor, getCategoryLabel } from "@shared/categoryColors";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -494,7 +495,7 @@ export default function Home() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flashcard-decks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       toast({
         title: language === "en" ? "Flashcards created" : "字卡已建立",
         description: language === "en" ? "Flashcard deck created successfully" : "字卡組已成功建立",
@@ -517,13 +518,12 @@ export default function Home() {
     createFlashcardsMutation.mutate();
   };
   
-  // Download as PNG function
+  // Download as PNG function - captures all nodes in the mind map
   const handleDownloadPNG = async () => {
-    const canvasElement = document.querySelector('[data-mindmap-canvas]') as HTMLElement;
-    if (!canvasElement) {
+    if (nodes.length === 0) {
       toast({
         title: language === "en" ? "Export failed" : "匯出失敗",
-        description: language === "en" ? "Canvas not found" : "找不到畫布",
+        description: language === "en" ? "No nodes to export" : "沒有節點可匯出",
         variant: "destructive",
         duration: 2000,
       });
@@ -531,35 +531,152 @@ export default function Home() {
     }
     
     try {
-      // Use theme-appropriate background color (hardcoded to avoid CSS parsing issues)
+      // Calculate bounding box of all nodes
+      const padding = 100; // Extra padding around nodes
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      
+      nodes.forEach(node => {
+        const nodeWidth = 120; // Approximate node width
+        const nodeHeight = 60; // Approximate node height
+        minX = Math.min(minX, node.x - nodeWidth / 2);
+        minY = Math.min(minY, node.y - nodeHeight / 2);
+        maxX = Math.max(maxX, node.x + nodeWidth / 2);
+        maxY = Math.max(maxY, node.y + nodeHeight / 2);
+      });
+      
+      const width = maxX - minX + padding * 2;
+      const height = maxY - minY + padding * 2;
       const backgroundColor = theme === 'dark' ? '#14151a' : '#ffffff';
       
-      // Temporarily remove the background image to avoid CSS parsing issues
-      const originalBackgroundImage = canvasElement.style.backgroundImage;
-      canvasElement.style.backgroundImage = 'none';
+      // Create a temporary container with all nodes positioned correctly
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'fixed';
+      tempContainer.style.top = '-99999px';
+      tempContainer.style.left = '-99999px';
+      tempContainer.style.width = `${width}px`;
+      tempContainer.style.height = `${height}px`;
+      tempContainer.style.backgroundColor = backgroundColor;
+      document.body.appendChild(tempContainer);
       
-      const canvas = await html2canvas(canvasElement, {
+      // Clone the canvas content
+      const canvasElement = document.querySelector('[data-mindmap-canvas]') as HTMLElement;
+      if (!canvasElement) {
+        document.body.removeChild(tempContainer);
+        toast({
+          title: language === "en" ? "Export failed" : "匯出失敗",
+          description: language === "en" ? "Canvas not found" : "找不到畫布",
+          variant: "destructive",
+          duration: 2000,
+        });
+        return;
+      }
+      
+      // Create SVG for connections
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', width.toString());
+      svg.setAttribute('height', height.toString());
+      svg.style.position = 'absolute';
+      svg.style.top = '0';
+      svg.style.left = '0';
+      
+      // Draw connection lines
+      const centerNode = nodes.find(n => n.isCenter);
+      if (centerNode) {
+        const categoryThreads = nodes.reduce((acc, node) => {
+          if (node.category && node.parentId === centerNode.id) {
+            if (!acc[node.category]) {
+              acc[node.category] = [];
+            }
+            acc[node.category].push(node);
+          }
+          return acc;
+        }, {} as Record<string, typeof nodes>);
+        
+        Object.entries(categoryThreads).forEach(([category, categoryNodes]) => {
+          if (categoryNodes.length === 0) return;
+          const sortedNodes = [...categoryNodes].sort((a, b) => {
+            const distA = Math.sqrt(Math.pow(a.x - centerNode.x, 2) + Math.pow(a.y - centerNode.y, 2));
+            const distB = Math.sqrt(Math.pow(b.x - centerNode.x, 2) + Math.pow(b.y - centerNode.y, 2));
+            return distB - distA;
+          });
+          const furthestNode = sortedNodes[0];
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', (centerNode.x - minX + padding).toString());
+          line.setAttribute('y1', (centerNode.y - minY + padding).toString());
+          line.setAttribute('x2', (furthestNode.x - minX + padding).toString());
+          line.setAttribute('y2', (furthestNode.y - minY + padding).toString());
+          line.setAttribute('stroke', getCategoryColor(category as any, theme === 'dark'));
+          line.setAttribute('stroke-width', '1.5');
+          line.setAttribute('opacity', '0.6');
+          svg.appendChild(line);
+        });
+      }
+      
+      tempContainer.appendChild(svg);
+      
+      // Add nodes
+      nodes.forEach(node => {
+        const nodeDiv = document.createElement('div');
+        nodeDiv.style.position = 'absolute';
+        nodeDiv.style.left = `${node.x - minX + padding}px`;
+        nodeDiv.style.top = `${node.y - minY + padding}px`;
+        nodeDiv.style.transform = 'translate(-50%, -50%)';
+        
+        const isCenter = node.id === centerNode?.id;
+        const categoryColor = node.category ? getCategoryColor(node.category, theme === 'dark') : undefined;
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.style.borderRadius = '12px';
+        contentDiv.style.fontWeight = '600';
+        contentDiv.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
+        contentDiv.style.border = '2px solid';
+        contentDiv.style.padding = '10px 16px';
+        contentDiv.style.fontSize = '18px';
+        contentDiv.style.minWidth = '100px';
+        contentDiv.style.textAlign = 'center';
+        
+        if (isCenter) {
+          contentDiv.style.backgroundColor = theme === 'dark' ? 'hsl(250, 75%, 50%)' : 'hsl(250, 75%, 60%)';
+          contentDiv.style.color = '#ffffff';
+          contentDiv.style.borderColor = theme === 'dark' ? 'hsl(250, 75%, 40%)' : 'hsl(250, 75%, 50%)';
+        } else {
+          contentDiv.style.backgroundColor = theme === 'dark' ? 'hsl(240, 10%, 10%)' : '#ffffff';
+          contentDiv.style.color = categoryColor || (theme === 'dark' ? '#ffffff' : '#000000');
+          contentDiv.style.borderColor = categoryColor || (theme === 'dark' ? 'hsl(240, 10%, 20%)' : 'hsl(240, 5%, 90%)');
+        }
+        
+        const wordSpan = document.createElement('div');
+        wordSpan.textContent = node.word;
+        wordSpan.style.whiteSpace = 'nowrap';
+        contentDiv.appendChild(wordSpan);
+        
+        if (node.category && !isCenter) {
+          const categorySpan = document.createElement('div');
+          categorySpan.textContent = getCategoryLabel(node.category, language);
+          categorySpan.style.fontSize = '12px';
+          categorySpan.style.marginTop = '4px';
+          categorySpan.style.opacity = '0.7';
+          contentDiv.appendChild(categorySpan);
+        }
+        
+        nodeDiv.appendChild(contentDiv);
+        tempContainer.appendChild(nodeDiv);
+      });
+      
+      // Capture with html2canvas
+      const canvas = await html2canvas(tempContainer, {
         backgroundColor,
         scale: 2,
         logging: false,
         useCORS: true,
         allowTaint: true,
-        ignoreElements: (element) => {
-          // Skip elements that might have problematic CSS
-          const style = window.getComputedStyle(element);
-          // Check if any color property contains 'color('
-          const hasColorFunction = style.backgroundColor?.includes('color(') || 
-                                  style.color?.includes('color(') || 
-                                  style.borderColor?.includes('color(');
-          return hasColorFunction;
-        },
       });
       
-      // Restore the original background image
-      canvasElement.style.backgroundImage = originalBackgroundImage;
+      // Clean up
+      document.body.removeChild(tempContainer);
       
+      // Download
       const link = document.createElement('a');
-      const centerNode = nodes.find(n => n.isCenter);
       const filename = centerNode ? `${centerNode.word}-mindmap.png` : 'mindmap.png';
       
       link.download = filename;

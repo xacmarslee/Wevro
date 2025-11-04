@@ -43,21 +43,26 @@ export async function generateRelatedWords(
       messages: [
         {
           role: "system",
-          content: `You are a vocabulary expert helping students learn English words. Always generate at least 5 related words. Be specific and helpful.`,
+          content: `You are a vocabulary expert helping students learn English words. Generate related words if they exist. If there are no appropriate related words for a category, return an empty array.`,
         },
         {
           role: "user",
-          content: `Task: Generate 5-7 ${categoryDescriptions[category]} for the word "${word}".
+          content: `Task: Generate ${categoryDescriptions[category]} for the word "${word}".
 
 Example: ${examples[category]}
 
-${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them.` : ""}
+${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them. If no idioms exist with this word, return an empty array.` : ""}
 
-Return a JSON object with a "words" array. IMPORTANT: You must include at least 5 words and at most 7 words. Do not include the original word "${word}" by itself.
+Instructions:
+- Generate as many ACCURATE ${categoryDescriptions[category]} as you can find (up to 7 words maximum)
+- Only include words that are truly related to "${word}" in the "${category}" category
+- If the word doesn't have a ${category === "prefix" || category === "suffix" ? category : `meaningful ${category} relationship`}, return an empty array
+- Do not include the original word "${word}" by itself
+- Quality over quantity - it's better to return fewer accurate words than to force irrelevant ones
 
-JSON format:
+Return a JSON object with a "words" array (can be empty if no related words exist):
 {
-  "words": ["word1", "word2", "word3", "word4", "word5"]
+  "words": ["word1", "word2", "word3"]
 }`,
         },
       ],
@@ -69,9 +74,9 @@ JSON format:
     const parsed = JSON.parse(content);
     const words = parsed.words || [];
     
-    console.log(`Generated ${words.length} ${category} for "${word}":`, words);
+    console.log(`Generated ${words.length} ${category} for "${word}":`, words.length > 0 ? words : "[No related words found]");
     
-    // Return up to 7 words
+    // Return up to 7 words, or empty array if none found
     return words.slice(0, 7);
   } catch (error) {
     console.error("Error generating related words:", error);
