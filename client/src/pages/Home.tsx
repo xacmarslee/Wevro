@@ -9,9 +9,19 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Play, Loader2, Undo2, Redo2, Save, Download } from "lucide-react";
 import html2canvas from "html2canvas";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Home() {
   // Check if we're editing an existing mind map
@@ -52,6 +62,7 @@ export default function Home() {
   const [history, setHistory] = useState<MindMapNode[][]>([[]]);
   const [historyIndex, setHistoryIndex] = useState(0);
   const [isSaved, setIsSaved] = useState(false);
+  const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState(false);
 
   const { toast } = useToast();
   const { language } = useLanguage();
@@ -434,11 +445,8 @@ export default function Home() {
       setHistory([nodes]);
       setHistoryIndex(0);
       
-      toast({
-        title: language === "en" ? "Saved successfully" : "儲存成功",
-        description: language === "en" ? "Your mind map has been saved" : "您的心智圖已儲存",
-        duration: 2000,
-      });
+      // Show confirmation dialog to ask about saving as flashcards
+      setShowSaveConfirmDialog(true);
     },
     onError: () => {
       toast({
@@ -453,6 +461,58 @@ export default function Home() {
   const handleSave = () => {
     if (nodes.length === 0) return;
     saveMindMapMutation.mutate();
+  };
+
+  // Create flashcards from mind map mutation
+  const createFlashcardsMutation = useMutation({
+    mutationFn: async () => {
+      const centerNode = nodes.find(n => n.isCenter);
+      const deckName = centerNode ? `${centerNode.word} - Mind Map` : "Mind Map Flashcards";
+      
+      // Get all unique words from the mind map (excluding center node)
+      const words = nodes
+        .filter(n => !n.isCenter && n.word)
+        .map(n => n.word.trim())
+        .filter((word, index, self) => self.indexOf(word) === index); // Remove duplicates
+      
+      if (words.length === 0) {
+        throw new Error(language === "en" ? "No words to create flashcards" : "沒有單字可以建立字卡");
+      }
+      
+      const response = await apiRequest("POST", "/api/flashcards/batch-create", { 
+        name: deckName, 
+        words 
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Failed to create deck" }));
+        throw new Error(errorData.message || "Failed to create deck");
+      }
+      
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/flashcard-decks"] });
+      toast({
+        title: language === "en" ? "Flashcards created" : "字卡已建立",
+        description: language === "en" ? "Flashcard deck created successfully" : "字卡組已成功建立",
+        duration: 2000,
+      });
+      setShowSaveConfirmDialog(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: language === "en" ? "Error" : "錯誤",
+        description: error.message || (language === "en" ? "Failed to create flashcards" : "建立字卡失敗"),
+        variant: "destructive",
+        duration: 5000,
+      });
+      setShowSaveConfirmDialog(false);
+    },
+  });
+
+  const handleCreateFlashcards = () => {
+    createFlashcardsMutation.mutate();
   };
   
   // Download as PNG function
@@ -615,6 +675,41 @@ export default function Home() {
             </>
           )}
       </>
+
+      {/* Save confirmation dialog */}
+      <AlertDialog open={showSaveConfirmDialog} onOpenChange={setShowSaveConfirmDialog}>
+        <AlertDialogContent data-testid="dialog-save-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "en" ? "Saved successfully!" : "儲存成功！"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en" 
+                ? "Your mind map has been saved. Would you also like to save these words as flashcards?" 
+                : "您的心智圖已儲存。是否也要將這些單字儲存為字卡？"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-flashcards">
+              {language === "en" ? "No, thanks" : "不用了"}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCreateFlashcards}
+              disabled={createFlashcardsMutation.isPending}
+              data-testid="button-confirm-flashcards"
+            >
+              {createFlashcardsMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  {language === "en" ? "Creating..." : "建立中..."}
+                </>
+              ) : (
+                language === "en" ? "Yes, create flashcards" : "是的，建立字卡"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
