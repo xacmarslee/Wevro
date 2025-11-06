@@ -30,7 +30,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Network, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, Network, Loader2, MoreVertical, Pencil, Trash2, Sparkles } from "lucide-react";
 import LogoText from "@/components/LogoText";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -71,10 +71,6 @@ export default function MindMaps() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
       setEditingMindMap(null);
-      toast({
-        title: language === "en" ? "Renamed" : "已重新命名",
-        description: language === "en" ? "Mind map renamed successfully" : "心智圖已成功重新命名",
-      });
     },
     onError: () => {
       toast({
@@ -93,10 +89,6 @@ export default function MindMaps() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
       setDeletingMindMap(null);
-      toast({
-        title: language === "en" ? "Deleted" : "已刪除",
-        description: language === "en" ? "Mind map deleted successfully" : "心智圖已成功刪除",
-      });
     },
     onError: () => {
       toast({
@@ -173,7 +165,7 @@ export default function MindMaps() {
         <>
           <Button onClick={handleCreateNew} data-testid="button-create-mindmap">
             <Plus className="h-4 w-4 mr-2" />
-            {language === "en" ? "Create Mind Map" : "建立心智圖"}
+            {language === "en" ? "New Mind Map" : "新建心智圖"}
           </Button>
           
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -236,7 +228,7 @@ export default function MindMaps() {
       
       {/* Create New Mind Map Dialog */}
       <Dialog open={isCreatingNew} onOpenChange={(open) => !open && setIsCreatingNew(false)}>
-        <DialogContent data-testid="dialog-create-mindmap">
+        <DialogContent data-testid="dialog-create-mindmap" className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Create Mind Map" : "建立心智圖"}</DialogTitle>
           </DialogHeader>
@@ -245,14 +237,13 @@ export default function MindMaps() {
             onChange={(e) => setNewWord(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && confirmCreateNew()}
             placeholder={language === "en" ? "Enter a word..." : "輸入單字..."}
+            autoComplete="off"
             autoFocus
             data-testid="input-create-mindmap"
           />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreatingNew(false)} data-testid="button-cancel-create">
-              {language === "en" ? "Cancel" : "取消"}
-            </Button>
-            <Button onClick={confirmCreateNew} disabled={!newWord.trim()} data-testid="button-confirm-create">
+            <Button onClick={confirmCreateNew} disabled={!newWord.trim()} data-testid="button-confirm-create" className="w-full">
+              <Sparkles className="h-4 w-4 mr-2" />
               {language === "en" ? "Create" : "建立"}
             </Button>
           </DialogFooter>
@@ -261,7 +252,7 @@ export default function MindMaps() {
       
       {/* Rename Dialog */}
       <Dialog open={!!editingMindMap} onOpenChange={(open) => !open && setEditingMindMap(null)}>
-        <DialogContent data-testid="dialog-rename-mindmap">
+        <DialogContent data-testid="dialog-rename-mindmap" className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Rename Mind Map" : "重新命名心智圖"}</DialogTitle>
             <DialogDescription>
@@ -288,7 +279,7 @@ export default function MindMaps() {
       
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingMindMap} onOpenChange={(open) => !open && setDeletingMindMap(null)}>
-        <AlertDialogContent data-testid="dialog-delete-mindmap">
+        <AlertDialogContent data-testid="dialog-delete-mindmap" className="max-w-sm rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{language === "en" ? "Delete Mind Map?" : "刪除心智圖？"}</AlertDialogTitle>
             <AlertDialogDescription>

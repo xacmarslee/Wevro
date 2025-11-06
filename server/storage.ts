@@ -2,12 +2,13 @@ import { randomUUID } from "crypto";
 import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "@shared/schema";
 import { db } from "./db";
 import { mindMaps, flashcardDecks, flashcards, users } from "@shared/schema";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Users (Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  deleteUser(id: string): Promise<boolean>;
 
   // Mind maps
   getMindMap(id: string, userId: string): Promise<MindMap | undefined>;
@@ -27,6 +28,8 @@ export interface IStorage {
   getFlashcard(id: string): Promise<Flashcard | undefined>;
   getFlashcardsByDeck(deckId: string): Promise<Flashcard[]>;
   updateFlashcard(id: string, flashcard: Partial<Flashcard>): Promise<Flashcard | undefined>;
+  addFlashcard(deckId: string, flashcard: Omit<Flashcard, "id" | "known">): Promise<Flashcard | undefined>;
+  deleteFlashcard(id: string): Promise<boolean>;
 }
 
 export class DbStorage implements IStorage {
@@ -49,6 +52,14 @@ export class DbStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async deleteUser(id: string): Promise<boolean> {
+    // Delete user (cascading deletes will handle related data)
+    const result = await db
+      .delete(users)
+      .where(eq(users.id, id));
+    return result.rowCount !== null && result.rowCount > 0;
   }
 
   // Mind map methods
@@ -161,29 +172,44 @@ export class DbStorage implements IStorage {
   }
 
   async getAllFlashcardDecks(userId: string): Promise<FlashcardDeck[]> {
+    // Fetch all decks for this user
     const decks = await db
       .select()
       .from(flashcardDecks)
       .where(eq(flashcardDecks.userId, userId))
       .orderBy(desc(flashcardDecks.updatedAt));
 
-    const result: FlashcardDeck[] = [];
-    for (const deck of decks) {
-      const cards = await db.select().from(flashcards).where(eq(flashcards.deckId, deck.id));
-      result.push({
-        id: deck.id,
-        name: deck.name,
-        cards: cards.map((c) => ({
-          id: c.id,
-          word: c.word,
-          definition: c.definition,
-          partOfSpeech: c.partOfSpeech,
-          known: c.known,
-        })),
-        createdAt: deck.createdAt.toISOString(),
-      });
+    if (decks.length === 0) return [];
+
+    // Fetch ALL cards for ALL decks in ONE query (performance optimization)
+    const deckIds = decks.map(d => d.id);
+    const allCardsOptimized = await db
+      .select()
+      .from(flashcards)
+      .where(inArray(flashcards.deckId, deckIds));
+
+    // Group cards by deckId
+    const cardsByDeck = new Map<string, typeof allCardsOptimized>();
+    for (const card of allCardsOptimized) {
+      if (!cardsByDeck.has(card.deckId)) {
+        cardsByDeck.set(card.deckId, []);
+      }
+      cardsByDeck.get(card.deckId)!.push(card);
     }
-    return result;
+
+    // Build result with cards grouped by deck
+    return decks.map((deck) => ({
+      id: deck.id,
+      name: deck.name,
+      cards: (cardsByDeck.get(deck.id) || []).map((c) => ({
+        id: c.id,
+        word: c.word,
+        definition: c.definition,
+        partOfSpeech: c.partOfSpeech,
+        known: c.known,
+      })),
+      createdAt: deck.createdAt.toISOString(),
+    }));
   }
 
   async createFlashcardDeck(
@@ -297,6 +323,7 @@ export class DbStorage implements IStorage {
       .update(flashcards)
       .set({
         ...(flashcard.known !== undefined && { known: flashcard.known }),
+        ...(flashcard.word && { word: flashcard.word }),
         ...(flashcard.definition && { definition: flashcard.definition }),
         ...(flashcard.partOfSpeech && { partOfSpeech: flashcard.partOfSpeech }),
       })
@@ -312,6 +339,42 @@ export class DbStorage implements IStorage {
       partOfSpeech: updated.partOfSpeech,
       known: updated.known,
     };
+  }
+
+  async addFlashcard(deckId: string, flashcard: Omit<Flashcard, "id" | "known">): Promise<Flashcard | undefined> {
+    // Check if deck exists
+    const [deck] = await db.select().from(flashcardDecks).where(eq(flashcardDecks.id, deckId));
+    if (!deck) return undefined;
+
+    const id = randomUUID();
+    const [created] = await db
+      .insert(flashcards)
+      .values({
+        id,
+        deckId,
+        word: flashcard.word,
+        definition: flashcard.definition,
+        partOfSpeech: flashcard.partOfSpeech,
+        known: false,
+        reviewCount: 0,
+        easeFactor: 2.5,
+        interval: 0,
+        nextReviewDate: null,
+      })
+      .returning();
+
+    return {
+      id: created.id,
+      word: created.word,
+      definition: created.definition,
+      partOfSpeech: created.partOfSpeech,
+      known: created.known,
+    };
+  }
+
+  async deleteFlashcard(id: string): Promise<boolean> {
+    const result = await db.delete(flashcards).where(eq(flashcards.id, id)).returning();
+    return result.length > 0;
   }
 }
 

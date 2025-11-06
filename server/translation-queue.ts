@@ -14,7 +14,7 @@
 import { db } from "./db";
 import { words } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { translateWordSenses } from "./translator";
+import { translateWordSenses } from "./ai-translator";
 
 interface TranslationJob {
   lemma: string;

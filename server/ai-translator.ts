@@ -19,6 +19,10 @@ const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 });
 
+// ============================================
+// DICTIONARY: Translate Word Senses
+// ============================================
+
 /**
  * Translate word senses to Traditional Chinese
  * 
@@ -44,11 +48,18 @@ export async function translateWordSenses(
 
 要求：
 1. 使用台灣繁體中文用詞（例：「電腦」而非「計算機」、「公司」而非「公司行號」）
-2. **定義要極度簡潔，用於字卡學習**：
+2. **定義要極度簡潔，用於字卡學習**（詞彙翻譯，不是定義解釋）：
    - 常見具體名詞（如動物、物品、人物）：只寫對應中文詞彙（例：frog → 青蛙；dog → 狗；computer → 電腦）
    - 常見動詞：只寫對應中文動詞（例：run → 跑；eat → 吃；sleep → 睡覺）
    - 常見形容詞：只寫對應中文形容詞（例：happy → 快樂的；big → 大的）
    - 抽象概念或複雜詞彙：用 1-2 個短句說明，不超過 15 字（例：democracy → 民主政治；photosynthesis → 植物利用光合成養分）
+   
+   重要：使用「詞彙翻譯」而非「定義解釋」
+   ✓ 正確：create → "創造；製造"
+   ✗ 錯誤：create → "製造或產生某物的行為"
+   ✓ 正確：traffic → "交通；車流"
+   ✗ 錯誤：traffic → "道路上的車輛移動"
+   
 3. 例句以直譯為主，必要時意譯使其自然、簡短
 4. 詞組搭配（collocations）翻成常用說法
 5. 不要加入你自己的新例句或新義項
@@ -120,68 +131,3 @@ ${JSON.stringify(translationInput, null, 2)}
   }
 }
 
-/**
- * Generate batch Chinese definitions for flashcards (legacy support)
- * This is a simplified version for when we don't have full dictionary data
- */
-export async function generateBatchDefinitions(
-  words: string[]
-): Promise<Array<{ word: string; definition: string; partOfSpeech: string }>> {
-  try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `你是英中雙語詞彙專家。提供準確的台灣繁體中文定義。`,
-        },
-        {
-          role: "user",
-          content: `為以下英文單字提供台灣繁體中文定義：${words.join(", ")}
-
-對每個單字返回：
-- "word": 原始英文單字
-- "definition": 簡潔的繁體中文定義（最多20字）
-- "partOfSpeech": 詞性（名詞、動詞、形容詞、副詞等）
-
-重要：定義保持簡潔（最多20個繁體中文字）。
-
-返回 JSON：
-{
-  "definitions": [
-    {
-      "word": "happy",
-      "definition": "快樂的；高興的",
-      "partOfSpeech": "形容詞"
-    }
-  ]
-}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-      max_completion_tokens: 1000,
-    });
-
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
-    const rawDefinitions = parsed.definitions || [];
-    
-    // Validate and sanitize
-    const validDefinitions = rawDefinitions
-      .filter((def: any) => def.word && def.definition && def.partOfSpeech)
-      .map((def: any) => ({
-        word: def.word,
-        definition: def.definition.length > 20 
-          ? def.definition.substring(0, 20)
-          : def.definition,
-        partOfSpeech: def.partOfSpeech || "未知",
-      }));
-    
-    console.log(`Generated ${validDefinitions.length} definitions out of ${words.length} words`);
-    
-    return validDefinitions;
-  } catch (error) {
-    console.error("Error generating batch definitions:", error);
-    throw new Error("Failed to generate batch definitions");
-  }
-}

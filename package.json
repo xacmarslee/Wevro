@@ -4,6 +4,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "check-config": "dotenv -e .env tsx check-config.js",
     "dev": "dotenv -e .env tsx server/index.ts",
     "dev:windows": "dotenv -e .env tsx server/index.ts",
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
@@ -56,6 +57,8 @@
     "embla-carousel-react": "^8.6.0",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
+    "firebase": "^12.5.0",
+    "firebase-admin": "^13.6.0",
     "framer-motion": "^11.18.2",
     "html2canvas": "^1.4.1",
     "input-otp": "^1.4.2",

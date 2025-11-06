@@ -44,10 +44,6 @@ export default function FlashcardPractice() {
   };
 
   const handleComplete = () => {
-    toast({
-      title: language === "en" ? "Practice complete!" : "練習完成！",
-      description: language === "en" ? "Great job! Keep up the good work." : "做得好！繼續保持。",
-    });
     setLocation("/flashcards");
   };
 
@@ -89,16 +85,13 @@ export default function FlashcardPractice() {
         >
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-primary">Wevro</h1>
-          <div className="h-6 w-px bg-border" />
-          <h2 className="text-2xl font-semibold">{deck.name}</h2>
-        </div>
+        <h2 className="text-2xl font-semibold">{deck.name}</h2>
       </div>
 
       {/* Flashcard View */}
       <FlashcardView
         cards={deck.cards}
+        deckId={deckId}
         onUpdateCard={handleUpdateCard}
         onComplete={handleComplete}
       />

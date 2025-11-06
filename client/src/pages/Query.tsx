@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
@@ -9,157 +9,183 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Search, Copy, Check, BookOpen, Languages } from "lucide-react";
+import { Loader2, Search, Copy, Check, BookOpen, Languages, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import LogoText from "@/components/LogoText";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import type {
+  ExamplesResponse,
+  SynonymComparisonResponse,
+} from "@shared/schema";
 
-// Types for dictionary and translation
-interface WordSense {
-  id: string;
-  pos: string;
-  defEn: string;
-  defZhTw?: string;
-  examples?: Array<{ en: string; zhTw?: string }>;
-  synonyms?: string[];
-  antonyms?: string[];
+// Cache management
+interface ExamplesCache {
+  [key: string]: ExamplesResponse;
 }
 
-interface DictionaryResult {
-  lemma: string;
-  headword: string;
-  senses: WordSense[];
-  enReady: boolean;
-  zhReady: boolean;
+interface SynonymsCache {
+  [key: string]: SynonymComparisonResponse;
 }
 
-interface SearchSuggestion {
-  word: string;
-}
+const examplesCache: ExamplesCache = {};
+const synonymsCache: SynonymsCache = {};
 
 export default function Query() {
-  const [mode, setMode] = useState<"dictionary" | "translation">("dictionary");
-  const [dictionaryInput, setDictionaryInput] = useState("");
-  const [translationInput, setTranslationInput] = useState("");
-  const [dictionaryResults, setDictionaryResults] = useState<DictionaryResult | null>(null);
-  const [translations, setTranslations] = useState<string[]>([]);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [mode, setMode] = useState<"examples" | "synonyms">("examples");
+  const [examplesInput, setExamplesInput] = useState("");
+  const [synonymsInput, setSynonymsInput] = useState("");
+  const [examplesResults, setExamplesResults] = useState<ExamplesResponse | null>(null);
+  const [synonymsResults, setSynonymsResults] = useState<SynonymComparisonResponse | null>(null);
+  const [expandedSenses, setExpandedSenses] = useState<Set<string>>(new Set());
+  const [expandedIdioms, setExpandedIdioms] = useState<Set<string>>(new Set());
+  const [expandedCollocations, setExpandedCollocations] = useState<Set<string>>(new Set());
   const { language } = useLanguage();
   const { toast } = useToast();
 
-  // Fetch search suggestions for autocomplete
-  const { data: suggestionsData } = useQuery<{ suggestions: SearchSuggestion[] }>({
-    queryKey: ["/api/dictionary/search", searchQuery],
-    queryFn: async () => {
-      const response = await fetch(`/api/dictionary/search?q=${encodeURIComponent(searchQuery)}`);
-      if (!response.ok) {
-        throw new Error("Search failed");
+  // Examples generation mutation
+  const examplesMutation = useMutation({
+    mutationFn: async ({ query, counts }: { query: string; counts?: { sense: number; phrase: number } }) => {
+      // Check cache first
+      const cacheKey = `${query}|${counts?.sense || 2}|${counts?.phrase || 1}`;
+      if (examplesCache[cacheKey]) {
+        return examplesCache[cacheKey];
       }
-      return await response.json();
+
+      const response = await apiRequest("POST", "/api/examples/generate", {
+        query,
+        counts,
+      });
+      const data = await response.json();
+      
+      // Save to cache
+      examplesCache[cacheKey] = data;
+      
+      return data;
     },
-    enabled: searchQuery.length > 0 && mode === "dictionary",
-    staleTime: 30000, // Cache for 30 seconds
+    onSuccess: (data: ExamplesResponse) => {
+      setExamplesResults(data);
+      // Reset expansion states
+      setExpandedSenses(new Set());
+      setExpandedIdioms(new Set());
+      setExpandedCollocations(new Set());
+    },
+    onError: () => {
+      toast({
+        title: language === "en" ? "Generation failed" : "生成失敗",
+        description: language === "en" ? "Failed to generate example sentences" : "無法生成例句",
+        variant: "destructive",
+      });
+    },
   });
 
-  const suggestions: SearchSuggestion[] = suggestionsData?.suggestions || [];
+  // Synonyms generation mutation
+  const synonymsMutation = useMutation({
+    mutationFn: async (query: string) => {
+      // Check cache first
+      if (synonymsCache[query]) {
+        return synonymsCache[query];
+      }
 
-  // Auto-open popover when suggestions are loaded and there's actual input
-  useEffect(() => {
-    // Only show popover if there's input AND suggestions exist
-    if (searchQuery.trim().length > 0 && suggestions.length > 0 && mode === "dictionary") {
-      setOpen(true);
+      const response = await apiRequest("POST", "/api/synonyms/generate", { query });
+      const data = await response.json();
+      
+      // Save to cache
+      synonymsCache[query] = data;
+      
+      return data;
+    },
+    onSuccess: (data: SynonymComparisonResponse) => {
+      setSynonymsResults(data);
+    },
+    onError: () => {
+      toast({
+        title: language === "en" ? "Generation failed" : "生成失敗",
+        description: language === "en" ? "Failed to generate synonyms" : "無法生成同義字",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleExamplesSearch = (query: string, counts?: { sense: number; phrase: number }) => {
+    if (!query.trim()) return;
+    setExamplesInput(query);
+    // Default: 3 examples per sense, 2 examples per idiom/collocation
+    const defaultCounts = counts || { sense: 3, phrase: 2 };
+    examplesMutation.mutate({ query: query.trim(), counts: defaultCounts });
+  };
+
+  const handleSynonymsSearch = (query: string) => {
+    if (!query.trim()) return;
+    setSynonymsInput(query);
+    synonymsMutation.mutate(query.trim());
+  };
+
+  // Toggle expansion for senses, idioms, and collocations
+  const toggleSenseExpansion = (senseId: string) => {
+    const newExpanded = new Set(expandedSenses);
+    if (newExpanded.has(senseId)) {
+      newExpanded.delete(senseId);
     } else {
-      // Don't show popover if no suggestions or no input
-      setOpen(false);
-    }
-  }, [suggestions.length, searchQuery, mode]);
-
-  // Dictionary lookup mutation
-  const dictionaryMutation = useMutation({
-    mutationFn: async (word: string) => {
-      setOpen(false);
-      const response = await fetch(`/api/dictionary/lookup/${encodeURIComponent(word)}`);
-      if (!response.ok) {
-        throw new Error("Dictionary lookup failed");
+      newExpanded.add(senseId);
+      // If not expanded yet, fetch more examples (6 instead of 3)
+      if (examplesResults) {
+        const sense = examplesResults.senses.find(s => s.sense_id === senseId);
+        if (sense && sense.examples.length < 6) {
+          handleExamplesSearch(examplesResults.query, { sense: 6, phrase: 2 });
+        }
       }
-      return await response.json();
-    },
-    onSuccess: (data: DictionaryResult) => {
-      setDictionaryResults(data);
-    },
-    onError: () => {
-      toast({
-        title: language === "en" ? "Lookup failed" : "查詢失敗",
-        description: language === "en" ? "Word not found in dictionary" : "字典中找不到此單字",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Translation mutation
-  const translationMutation = useMutation({
-    mutationFn: async (text: string) => {
-      const response = await apiRequest("POST", "/api/query", { text });
-      return await response.json();
-    },
-    onSuccess: (data) => {
-      setTranslations(data.translations || []);
-    },
-    onError: () => {
-      toast({
-        title: language === "en" ? "Translation failed" : "翻譯失敗",
-        description: language === "en" ? "Failed to translate text" : "翻譯文字失敗",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const handleDictionarySearch = (word: string) => {
-    if (!word.trim()) return;
-    setDictionaryInput(word);
-    dictionaryMutation.mutate(word.trim());
+    }
+    setExpandedSenses(newExpanded);
   };
 
-  const handleTranslationSearch = () => {
-    if (!translationInput.trim()) return;
-    translationMutation.mutate(translationInput.trim());
+  const toggleIdiomExpansion = (phrase: string) => {
+    const newExpanded = new Set(expandedIdioms);
+    if (newExpanded.has(phrase)) {
+      newExpanded.delete(phrase);
+    } else {
+      newExpanded.add(phrase);
+      // Fetch more examples if needed
+      if (examplesResults) {
+        const idiom = examplesResults.idioms.find(i => i.phrase === phrase);
+        if (idiom && idiom.examples.length < 4) {
+          handleExamplesSearch(examplesResults.query, { sense: 3, phrase: 4 });
+        }
+      }
+    }
+    setExpandedIdioms(newExpanded);
   };
 
-  const handleCopy = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    toast({
-      title: language === "en" ? "Copied" : "已複製",
-    });
-    setTimeout(() => setCopiedIndex(null), 2000);
+  const toggleCollocationExpansion = (phrase: string) => {
+    const newExpanded = new Set(expandedCollocations);
+    if (newExpanded.has(phrase)) {
+      newExpanded.delete(phrase);
+    } else {
+      newExpanded.add(phrase);
+      // Fetch more examples if needed
+      if (examplesResults) {
+        const collocation = examplesResults.collocations.find(c => c.phrase === phrase);
+        if (collocation && collocation.examples.length < 4) {
+          handleExamplesSearch(examplesResults.query, { sense: 3, phrase: 4 });
+        }
+      }
+    }
+    setExpandedCollocations(newExpanded);
   };
 
-  // Helper function to translate part of speech
+  // Helper function to get part of speech abbreviation (always English)
   const getPosLabel = (pos: string): string => {
-    const posMap: Record<string, { en: string; zh: string }> = {
-      noun: { en: "n.", zh: "名詞" },
-      verb: { en: "v.", zh: "動詞" },
-      adjective: { en: "adj.", zh: "形容詞" },
-      adverb: { en: "adv.", zh: "副詞" },
-      pronoun: { en: "pron.", zh: "代名詞" },
-      preposition: { en: "prep.", zh: "介系詞" },
-      conjunction: { en: "conj.", zh: "連接詞" },
-      interjection: { en: "int.", zh: "感嘆詞" },
+    const posMap: Record<string, string> = {
+      noun: "n.",
+      verb: "v.",
+      adjective: "adj.",
+      adverb: "adv.",
+      pronoun: "pron.",
+      preposition: "prep.",
+      conjunction: "conj.",
+      interjection: "int.",
+      phrase: "phr.",
+      "phr.v": "phr.v.",
+      other: "other",
     };
-    return language === "en" ? (posMap[pos]?.en || pos) : (posMap[pos]?.zh || pos);
+    return posMap[pos.toLowerCase()] || pos;
   };
 
   return (
@@ -176,247 +202,272 @@ export default function Query() {
       {/* Mode Toggle */}
       <Tabs
         value={mode}
-        onValueChange={(value) => setMode(value as "dictionary" | "translation")}
+        onValueChange={(value) => setMode(value as "examples" | "synonyms")}
         className="w-full"
       >
-        <TabsList className="grid w-full grid-cols-2 max-w-md">
-          <TabsTrigger value="dictionary" className="gap-2" data-testid="tab-dictionary">
-            <BookOpen className="h-4 w-4" />
-            {language === "en" ? "Dictionary" : "字典"}
+        <TabsList className="grid grid-cols-2 w-64 mx-auto">
+          <TabsTrigger value="examples" className="text-sm py-1.5" data-testid="tab-examples">
+            {language === "en" ? "Examples" : "例句"}
           </TabsTrigger>
-          <TabsTrigger value="translation" className="gap-2" data-testid="tab-translation">
-            <Languages className="h-4 w-4" />
-            {language === "en" ? "Translation" : "翻譯"}
+          <TabsTrigger value="synonyms" className="text-sm py-1.5" data-testid="tab-synonyms">
+            {language === "en" ? "Synonyms" : "同義字"}
           </TabsTrigger>
         </TabsList>
 
-        {/* Dictionary Mode */}
-        <TabsContent value="dictionary" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {language === "en" ? "Look up a word" : "查詢單字"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Popover open={open} onOpenChange={setOpen} modal={false}>
-                <PopoverTrigger asChild>
-                  <div className="relative">
-                    <Input
-                      placeholder={language === "en" ? "Enter a word..." : "輸入單字..."}
-                      value={dictionaryInput}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setDictionaryInput(value);
-                        setSearchQuery(value);
-                        // Close popover if input is empty
-                        if (value.trim().length === 0) {
-                          setOpen(false);
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          if (dictionaryInput.trim()) {
-                            handleDictionarySearch(dictionaryInput);
-                          }
-                        }
-                        // Close popover on Escape
-                        if (e.key === "Escape") {
-                          setOpen(false);
-                        }
-                      }}
-                      onFocus={() => {
-                        // Open popover if there's input AND suggestions
-                        if (dictionaryInput.trim().length > 0 && suggestions.length > 0) {
-                          setOpen(true);
-                        }
-                      }}
-                      className="h-10"
-                      data-testid="input-dictionary"
-                    />
-                  </div>
-                </PopoverTrigger>
-                {/* Only render popover content if there are suggestions */}
-                {suggestions.length > 0 && (
-                  <PopoverContent 
-                    className="w-[var(--radix-popover-trigger-width)] p-0" 
-                    align="start"
-                    onOpenAutoFocus={(e) => {
-                      // Prevent focus from moving to popover
-                      e.preventDefault();
-                    }}
-                  >
-                    <Command>
-                      <CommandList>
-                        <CommandGroup>
-                          {suggestions.map((suggestion) => (
-                          <CommandItem
-                            key={suggestion.word}
-                            value={suggestion.word}
-                            onSelect={(value) => {
-                              setDictionaryInput(value);
-                              handleDictionarySearch(value);
-                              setOpen(false);
-                              // Keep focus in input after selection
-                              const input = document.querySelector('[data-testid="input-dictionary"]') as HTMLInputElement;
-                              if (input) {
-                                setTimeout(() => input.focus(), 0);
-                              }
-                            }}
-                            data-testid={`suggestion-${suggestion.word}`}
-                          >
-                            {suggestion.word}
-                          </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                )}
-              </Popover>
+        {/* Examples Mode */}
+        <TabsContent value="examples" className="space-y-6">
+          <div className="space-y-4">
+            <Input
+              placeholder={language === "en" ? "Enter a word or phrase..." : "輸入單字或片語..."}
+              value={examplesInput}
+              onChange={(e) => setExamplesInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (examplesInput.trim()) {
+                    handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 });
+                  }
+                }
+              }}
+              className="h-10"
+              data-testid="input-examples"
+            />
 
-              <Button
-                onClick={() => handleDictionarySearch(dictionaryInput)}
-                disabled={!dictionaryInput.trim() || dictionaryMutation.isPending}
-                className="w-full"
-                data-testid="button-search-dictionary"
-              >
-                {dictionaryMutation.isPending ? (
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                ) : (
-                  <Search className="h-5 w-5 mr-2" />
-                )}
-                {language === "en" ? "Look Up" : "查詢"}
-              </Button>
-            </CardContent>
-          </Card>
+            <Button
+              onClick={() => handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 })}
+              disabled={!examplesInput.trim() || examplesMutation.isPending}
+              className="w-full"
+              data-testid="button-search-examples"
+            >
+              {examplesMutation.isPending ? (
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-5 w-5 mr-2" />
+              )}
+              {language === "en" ? "Generate Examples" : "生成例句"}
+            </Button>
+          </div>
 
-          {/* Dictionary Results */}
-          {dictionaryResults && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-2xl">{dictionaryResults.headword}</CardTitle>
-                  {!dictionaryResults.zhReady && (
-                    <Badge variant="secondary">
-                      {language === "en" ? "Translating..." : "翻譯中..."}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
+          {/* Examples Results */}
+          {examplesResults && (
+            <>
+              {/* Senses */}
+              {examplesResults.senses && examplesResults.senses.length > 0 && (
                 <div className="space-y-6">
-                  {dictionaryResults.senses.map((sense, index) => (
-                    <div
-                      key={sense.id}
-                      className="p-4 rounded-lg bg-muted/30 space-y-2"
-                      data-testid={`sense-${index}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <Badge variant="outline" className="shrink-0">
-                          {getPosLabel(sense.pos)}
-                        </Badge>
-                        <div className="flex-1 space-y-2">
-                          <p className="text-sm text-muted-foreground">{sense.defEn}</p>
-                          {sense.defZhTw && (
-                            <p className="text-base font-medium">{sense.defZhTw}</p>
-                          )}
-                          {sense.examples && sense.examples.length > 0 && (
-                            <div className="mt-3 space-y-1">
-                              {sense.examples.slice(0, 2).map((example, i) => (
-                                <div key={i} className="text-sm pl-3 border-l-2 border-border">
-                                  <p className="text-muted-foreground italic">{example.en}</p>
-                                  {example.zhTw && (
-                                    <p className="mt-1">{example.zhTw}</p>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                  <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Word Meanings" : "詞義"}</h3>
+                  {examplesResults.senses.map((sense) => {
+                    const isExpanded = expandedSenses.has(sense.sense_id);
+                    const displayExamples = isExpanded ? sense.examples : sense.examples.slice(0, 3);
+
+                    return (
+                      <div key={sense.sense_id} className="space-y-3">
+                        <div className="flex items-start gap-3">
+                          <span className="text-sm text-muted-foreground shrink-0">
+                            {getPosLabel(sense.pos)}
+                          </span>
+                          <div className="flex-1">
+                            <p className="text-base font-medium">{sense.gloss_zh}</p>
+                            <p className="text-sm text-muted-foreground italic">{sense.gloss}</p>
+                          </div>
                         </div>
+
+                        <div className="space-y-2 ml-0">
+                          {displayExamples.map((example, idx) => (
+                            <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
+                              <p className="text-sm">{example.en}</p>
+                              <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {sense.examples.length > 3 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleSenseExpansion(sense.sense_id)}
+                            className="w-full"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                {language === "en" ? "Show Less" : "收起"}
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                {language === "en" ? "Show More" : "展開更多"}
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-              </CardContent>
-            </Card>
+              )}
+
+              {/* Idioms - only show if there are idioms */}
+              {examplesResults.idioms && examplesResults.idioms.length > 0 && examplesResults.idioms.some(i => i.examples.length > 0) && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Idioms" : "慣用語"}</h3>
+                  {examplesResults.idioms.map((idiom) => {
+                    const isExpanded = expandedIdioms.has(idiom.phrase);
+                    const displayExamples = isExpanded ? idiom.examples : idiom.examples.slice(0, 2);
+
+                    return (
+                      <div key={idiom.phrase} className="space-y-3">
+                        <div>
+                          <p className="font-semibold">{idiom.phrase}</p>
+                          <p className="text-base font-medium">{idiom.gloss_zh}</p>
+                          <p className="text-sm text-muted-foreground italic">{idiom.gloss}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {displayExamples.map((example, idx) => (
+                            <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
+                              <p className="text-sm">{example.en}</p>
+                              <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {idiom.examples.length > 2 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleIdiomExpansion(idiom.phrase)}
+                            className="w-full"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                {language === "en" ? "Show Less" : "收起"}
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                {language === "en" ? "Show More" : "展開更多"}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Collocations - only show if there are collocations */}
+              {examplesResults.collocations && examplesResults.collocations.length > 0 && examplesResults.collocations.some(c => c.examples.length > 0) && (
+                <div className="space-y-6">
+                  <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Collocations" : "搭配詞"}</h3>
+                  {examplesResults.collocations.map((collocation) => {
+                    const isExpanded = expandedCollocations.has(collocation.phrase);
+                    const displayExamples = isExpanded ? collocation.examples : collocation.examples.slice(0, 2);
+
+                    return (
+                      <div key={collocation.phrase} className="space-y-3">
+                        <div>
+                          <p className="font-semibold">{collocation.phrase}</p>
+                          <p className="text-base font-medium">{collocation.gloss_zh}</p>
+                        </div>
+
+                        <div className="space-y-2">
+                          {displayExamples.map((example, idx) => (
+                            <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
+                              <p className="text-sm">{example.en}</p>
+                              <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        {collocation.examples.length > 2 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleCollocationExpansion(collocation.phrase)}
+                            className="w-full"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="h-4 w-4 mr-2" />
+                                {language === "en" ? "Show Less" : "收起"}
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="h-4 w-4 mr-2" />
+                                {language === "en" ? "Show More" : "展開更多"}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
-        {/* Translation Mode */}
-        <TabsContent value="translation" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {language === "en" ? "Translate text" : "翻譯文字"}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder={language === "en" ? "Enter text..." : "輸入文字..."}
-                value={translationInput}
-                onChange={(e) => setTranslationInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && e.ctrlKey) {
-                    handleTranslationSearch();
+        {/* Synonyms Mode */}
+        <TabsContent value="synonyms" className="space-y-6">
+          <div className="space-y-4">
+            <Input
+              placeholder={language === "en" ? "Enter a word..." : "輸入單字..."}
+              value={synonymsInput}
+              onChange={(e) => setSynonymsInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (synonymsInput.trim()) {
+                    handleSynonymsSearch(synonymsInput);
                   }
-                }}
-                className="min-h-[180px] resize-none"
-                data-testid="input-translation"
-              />
-              <Button
-                onClick={handleTranslationSearch}
-                disabled={!translationInput.trim() || translationMutation.isPending}
-                className="w-full"
-                size="lg"
-                data-testid="button-translate"
-              >
-                {translationMutation.isPending ? (
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                ) : (
-                  <Languages className="h-5 w-5 mr-2" />
-                )}
-                {language === "en" ? "Translate" : "翻譯"}
-              </Button>
-            </CardContent>
-          </Card>
+                }
+              }}
+              className="h-10"
+              data-testid="input-synonyms"
+            />
 
-          {/* Translation Results */}
-          {translations.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {language === "en" ? "Translation Options" : "翻譯選項"}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {translations.map((translation, index) => (
-                    <div
-                      key={index}
-                      className="flex items-start justify-between gap-3 p-4 rounded-lg bg-muted/30 hover-elevate group"
-                      data-testid={`translation-option-${index}`}
-                    >
-                      <div className="flex-1 text-base leading-relaxed">{translation}</div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0"
-                        onClick={() => handleCopy(translation, index)}
-                        data-testid={`button-copy-${index}`}
-                      >
-                        {copiedIndex === index ? (
-                          <Check className="h-4 w-4" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
+            <Button
+              onClick={() => handleSynonymsSearch(synonymsInput)}
+              disabled={!synonymsInput.trim() || synonymsMutation.isPending}
+              className="w-full"
+              data-testid="button-search-synonyms"
+            >
+              {synonymsMutation.isPending ? (
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-5 w-5 mr-2" />
+              )}
+              {language === "en" ? "Find Synonyms" : "查找同義字"}
+            </Button>
+          </div>
+
+          {/* Synonyms Results */}
+          {synonymsResults && synonymsResults.synonyms && synonymsResults.synonyms.length > 0 && (
+            <div className="space-y-6">
+              {synonymsResults.synonyms.map((synonym) => (
+                <div key={synonym.word} className="space-y-3">
+                  <div>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-lg font-semibold text-primary">{synonym.word}</p>
+                      <span className="text-sm text-muted-foreground">{synonym.pos}</span>
                     </div>
-                  ))}
+                    <p className="text-sm text-muted-foreground mt-1">{synonym.difference_zh}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {synonym.examples.map((example, idx) => (
+                      <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
+                        <p className="text-sm">{example.en}</p>
+                        <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
           )}
         </TabsContent>
       </Tabs>

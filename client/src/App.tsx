@@ -12,8 +12,10 @@ import Query from "@/pages/Query";
 import Flashcards from "@/pages/Flashcards";
 import FlashcardPractice from "@/pages/FlashcardPractice";
 import MindMaps from "@/pages/MindMaps";
-import MindMapEditor from "@/pages/Home";
+import MindMapEditor from "@/pages/MindMapEditor";
 import Settings from "@/pages/Settings";
+import Pricing from "@/pages/Pricing";
+import Account from "@/pages/Account";
 import Landing from "@/pages/Landing";
 import NotFound from "@/pages/not-found";
 
@@ -35,6 +37,7 @@ function Router() {
     <div className="flex flex-col h-screen">
       <div className="flex-1 overflow-hidden">
         <Switch>
+          <Route path="/landing" component={Landing} />
           <Route path="/query" component={Query} />
           <Route path="/flashcards/:id" component={FlashcardPractice} />
           <Route path="/flashcards" component={Flashcards} />
@@ -42,6 +45,8 @@ function Router() {
           <Route path="/mindmap/new" component={MindMapEditor} />
           <Route path="/mindmap/:id" component={MindMapEditor} />
           <Route path="/settings" component={Settings} />
+          <Route path="/pricing" component={Pricing} />
+          <Route path="/account" component={Account} />
           <Route path="/" component={StartPageRedirect} />
           <Route component={NotFound} />
         </Switch>

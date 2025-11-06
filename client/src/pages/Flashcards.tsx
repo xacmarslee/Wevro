@@ -30,12 +30,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, BookOpen, Loader2, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Plus, BookOpen, Loader2, MoreVertical, Pencil, Trash2, Sparkles, Edit, X } from "lucide-react";
 import LogoText from "@/components/LogoText";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import type { FlashcardDeck } from "@shared/schema";
 
 export default function Flashcards() {
   const { language } = useLanguage();
@@ -43,12 +44,15 @@ export default function Flashcards() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
-  const [editingDeck, setEditingDeck] = useState<any>(null);
-  const [newName, setNewName] = useState("");
   const [deletingDeck, setDeletingDeck] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [editingCards, setEditingCards] = useState<FlashcardDeck | null>(null);
   const [deckName, setDeckName] = useState("");
+  const [editedDeckName, setEditedDeckName] = useState("");
   const [wordsList, setWordsList] = useState("");
+  const [editedCards, setEditedCards] = useState<any[]>([]);
+  const [newCard, setNewCard] = useState({ word: "", definition: "" });
+  const [deletingCard, setDeletingCard] = useState<{ deckId: string; cardId: string; word: string } | null>(null);
 
   // Fetch user's flashcard decks (only when authenticated)
   const { data: decks = [], isLoading } = useQuery({
@@ -65,27 +69,6 @@ export default function Flashcards() {
     enabled: isAuthenticated,
   });
 
-  // Rename mutation
-  const renameMutation = useMutation({
-    mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      return await apiRequest("PATCH", `/api/flashcards/${id}`, { name });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
-      setEditingDeck(null);
-      toast({
-        title: language === "en" ? "Renamed" : "已重新命名",
-        description: language === "en" ? "Deck renamed successfully" : "字卡組已成功重新命名",
-      });
-    },
-    onError: () => {
-      toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description: language === "en" ? "Failed to rename deck" : "重新命名字卡組失敗",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Delete mutation
   const deleteMutation = useMutation({
@@ -95,10 +78,6 @@ export default function Flashcards() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       setDeletingDeck(null);
-      toast({
-        title: language === "en" ? "Deleted" : "已刪除",
-        description: language === "en" ? "Deck deleted successfully" : "字卡組已成功刪除",
-      });
     },
     onError: () => {
       toast({
@@ -126,10 +105,6 @@ export default function Flashcards() {
       setIsCreating(false);
       setDeckName("");
       setWordsList("");
-      toast({
-        title: language === "en" ? "Created" : "已建立",
-        description: language === "en" ? "Deck created successfully with AI-generated definitions" : "字卡組已成功建立並生成AI翻譯",
-      });
     },
     onError: (error: Error) => {
       toast({
@@ -141,9 +116,11 @@ export default function Flashcards() {
     },
   });
   
-  const handleRename = (deck: any) => {
-    setEditingDeck(deck);
-    setNewName(deck.name || "");
+  const handleEditCards = (deck: FlashcardDeck) => {
+    setEditingCards(deck);
+    setEditedDeckName(deck.name);
+    setEditedCards(deck.cards.map((c: any) => ({ ...c })));
+    setNewCard({ word: "", definition: "" });
   };
   
   const handleDelete = (deck: any) => {
@@ -163,15 +140,22 @@ export default function Flashcards() {
         .map(w => w.trim())
         .filter(w => w.length > 0);
       
-      if (words.length > 0) {
-        createMutation.mutate({ name: deckName.trim(), words });
+      if (words.length === 0) {
+        return;
       }
-    }
-  };
-  
-  const confirmRename = () => {
-    if (editingDeck && newName.trim()) {
-      renameMutation.mutate({ id: editingDeck.id, name: newName.trim() });
+      
+      if (words.length > 10) {
+        toast({
+          title: language === "en" ? "Too many words" : "單字過多",
+          description: language === "en" 
+            ? "Maximum 10 words per batch. Please remove some words."
+            : "每次最多 10 個單字，請減少單字數量。",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      createMutation.mutate({ name: deckName.trim(), words });
     }
   };
   
@@ -214,7 +198,7 @@ export default function Flashcards() {
         <>
           <Button onClick={handleCreateNew} data-testid="button-create-deck">
             <Plus className="h-4 w-4 mr-2" />
-            {language === "en" ? "Create Deck" : "建立字卡組"}
+            {language === "en" ? "New Deck" : "新建字卡組"}
           </Button>
           
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -243,9 +227,9 @@ export default function Flashcards() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleRename(deck); }} data-testid={`button-rename-${deck.id}`}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          {language === "en" ? "Rename" : "重新命名"}
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCards(deck); }} data-testid={`button-edit-cards-${deck.id}`}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          {language === "en" ? "Edit Deck" : "編輯字卡組"}
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={(e) => { e.stopPropagation(); handleDelete(deck); }}
@@ -277,7 +261,7 @@ export default function Flashcards() {
 
       {/* Create Dialog */}
       <Dialog open={isCreating} onOpenChange={(open) => !open && setIsCreating(false)}>
-        <DialogContent data-testid="dialog-create-deck" className="max-w-lg">
+        <DialogContent data-testid="dialog-create-deck" className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Create Flashcard Deck" : "建立字卡組"}</DialogTitle>
           </DialogHeader>
@@ -289,36 +273,53 @@ export default function Flashcards() {
                 value={deckName}
                 onChange={(e) => setDeckName(e.target.value)}
                 placeholder={language === "en" ? "Deck name" : "字卡組名稱"}
+                autoComplete="off"
                 data-testid="input-deck-name"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="words-list">
-                {language === "en" ? "Words (one per line)" : "單字列表（每行一個）"}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="words-list">
+                  {language === "en" ? "Words (one per line)" : "單字列表（每行一個）"}
+                </Label>
+                <div className="text-xs text-muted-foreground">
+                  {(() => {
+                    const count = wordsList.split('\n').filter(w => w.trim()).length;
+                    const isOverLimit = count > 10;
+                    return (
+                      <span className={isOverLimit ? "text-destructive font-semibold" : ""}>
+                        {count}/10
+                      </span>
+                    );
+                  })()}
+                </div>
+              </div>
               <Textarea
                 id="words-list"
                 value={wordsList}
                 onChange={(e) => setWordsList(e.target.value)}
                 placeholder={language === "en" ? "happy\nsad\nexcited" : "happy\nsad\nexcited"}
                 className="min-h-[200px] font-mono"
+                autoComplete="off"
                 data-testid="input-words-list"
+                rows={10}
               />
-              <p className="text-xs text-muted-foreground">
-                {language === "en" 
-                  ? "AI will generate concise Traditional Chinese definitions (max 20 characters) for each word."
-                  : "AI 將為每個單字生成簡潔的繁體中文翻譯（最多20字）。"}
-              </p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Sparkles className="h-3 w-3" />
+                <span>
+                  {language === "en" 
+                    ? "10 words will cost 1 token" 
+                    : "10 個單字消耗 1 點"}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreating(false)} data-testid="button-cancel-create">
-              {language === "en" ? "Cancel" : "取消"}
-            </Button>
             <Button 
               onClick={confirmCreate} 
               disabled={!deckName.trim() || !wordsList.trim() || createMutation.isPending} 
               data-testid="button-confirm-create"
+              className="w-full"
             >
               {createMutation.isPending ? (
                 <>
@@ -326,43 +327,193 @@ export default function Flashcards() {
                   {language === "en" ? "Creating..." : "建立中..."}
                 </>
               ) : (
-                language === "en" ? "Create Deck" : "建立字卡組"
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  {language === "en" ? "Create Deck" : "建立字卡組"}
+                </>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
       
-      {/* Rename Dialog */}
-      <Dialog open={!!editingDeck} onOpenChange={(open) => !open && setEditingDeck(null)}>
-        <DialogContent data-testid="dialog-rename-deck">
-          <DialogHeader>
-            <DialogTitle>{language === "en" ? "Rename Deck" : "重新命名字卡組"}</DialogTitle>
-            <DialogDescription>
-              {language === "en" ? "Enter a new name for this deck" : "輸入字卡組的新名稱"}
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && confirmRename()}
-            placeholder={language === "en" ? "New name" : "新名稱"}
-            data-testid="input-rename-deck"
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingDeck(null)} data-testid="button-cancel-rename">
-              {language === "en" ? "Cancel" : "取消"}
+      {/* Edit Cards Dialog */}
+      <Dialog open={!!editingCards} onOpenChange={(open) => !open && setEditingCards(null)}>
+        <DialogContent data-testid="dialog-edit-cards" className="max-w-sm rounded-2xl p-0 gap-0">
+          <div className="px-6 pt-6">
+            <DialogHeader>
+              <DialogTitle>{language === "en" ? "Edit Deck" : "編輯字卡組"}</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="space-y-4 px-6 py-4 max-h-[60vh] overflow-y-auto">
+            {/* Deck Name */}
+            <div className="space-y-2">
+              <Label>{language === "en" ? "Deck Name" : "字卡組名稱"}</Label>
+              <Input
+                value={editedDeckName}
+                onChange={(e) => setEditedDeckName(e.target.value)}
+                placeholder={language === "en" ? "Deck name" : "字卡組名稱"}
+                autoComplete="off"
+              />
+            </div>
+            {/* Existing Cards */}
+            <div className="space-y-3">
+              {editedCards.map((card, index) => (
+                <div key={card.id} className="p-4 border rounded-lg space-y-3">
+                  {/* Header: Number and Delete Button */}
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg text-muted-foreground font-semibold">
+                      {index + 1}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (editingCards) {
+                          setDeletingCard({
+                            deckId: editingCards.id,
+                            cardId: card.id,
+                            word: card.word,
+                          });
+                        }
+                      }}
+                      className="h-8 w-8"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {/* Word Input */}
+                  <Input
+                    value={card.word}
+                    onChange={(e) => {
+                      const newCards = [...editedCards];
+                      newCards[index].word = e.target.value;
+                      setEditedCards(newCards);
+                    }}
+                    placeholder={language === "en" ? "Word" : "單字"}
+                    className="font-mono"
+                    autoComplete="off"
+                  />
+                  {/* Definition Textarea */}
+                  <Textarea
+                    value={card.definition}
+                    onChange={(e) => {
+                      const newCards = [...editedCards];
+                      newCards[index].definition = e.target.value;
+                      setEditedCards(newCards);
+                    }}
+                    placeholder={language === "en" ? "Definition" : "定義"}
+                    className="min-h-[80px] resize-none font-mono"
+                    autoComplete="off"
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Add New Card Form */}
+            <div className="p-4 border-2 border-dashed rounded-lg space-y-3">
+              <p className="text-sm font-medium">{language === "en" ? "Add New Card" : "新增字卡"}</p>
+              <Input
+                value={newCard.word}
+                onChange={(e) => setNewCard({ ...newCard, word: e.target.value })}
+                placeholder={language === "en" ? "Word" : "單字"}
+                className="font-mono"
+                autoComplete="off"
+              />
+              <Textarea
+                value={newCard.definition}
+                onChange={(e) => setNewCard({ ...newCard, definition: e.target.value })}
+                placeholder={language === "en" ? "Definition" : "定義"}
+                className="min-h-[80px] resize-none font-mono"
+                autoComplete="off"
+              />
+              <Button
+                onClick={() => {
+                  if (newCard.word.trim() && newCard.definition.trim()) {
+                    setEditedCards([...editedCards, { 
+                      ...newCard, 
+                      id: `temp-${Date.now()}`, 
+                      known: false,
+                      partOfSpeech: "n." // Default, will be parsed from definition
+                    }]);
+                    setNewCard({ word: "", definition: "" });
+                  }
+                }}
+                disabled={!newCard.word.trim() || !newCard.definition.trim()}
+                variant="outline"
+                size="sm"
+                className="w-full"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {language === "en" ? "Add Card" : "新增字卡"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="px-6 pb-6">
+            <DialogFooter className="justify-end">
+              <Button
+              onClick={async () => {
+                if (!editingCards) return;
+                
+                // Save changes via API
+                try {
+                  // Update deck name if changed
+                  if (editedDeckName !== editingCards.name) {
+                    await apiRequest("PATCH", `/api/flashcards/${editingCards.id}`, {
+                      name: editedDeckName,
+                    });
+                  }
+                  
+                  // Update existing cards
+                  for (const card of editedCards) {
+                    if (!card.id.startsWith('temp-')) {
+                      await apiRequest("PATCH", `/api/flashcards/${editingCards.id}/cards/${card.id}`, {
+                        word: card.word,
+                        definition: card.definition,
+                        partOfSpeech: card.partOfSpeech || "n.", // Keep existing or default
+                      });
+                    } else {
+                      // New card - extract first pos from definition
+                      const firstPos = card.definition.match(/^(n\.|v\.|adj\.|adv\.|prep\.|pron\.|aux\.|phr\.)/)?.[0] || "n.";
+                      await apiRequest("POST", `/api/flashcards/${editingCards.id}/cards`, {
+                        word: card.word,
+                        definition: card.definition,
+                        partOfSpeech: firstPos,
+                      });
+                    }
+                  }
+                  
+                  // Delete removed cards
+                  const removedCards = editingCards.cards.filter(
+                    (originalCard: any) => !editedCards.some(ec => ec.id === originalCard.id)
+                  );
+                  for (const card of removedCards) {
+                    await apiRequest("DELETE", `/api/flashcards/${editingCards.id}/cards/${card.id}`);
+                  }
+                  
+                  queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
+                  setEditingCards(null);
+                } catch (error) {
+                  toast({
+                    title: language === "en" ? "Error" : "錯誤",
+                    description: language === "en" ? "Failed to update flashcards" : "更新字卡失敗",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              {language === "en" ? "Save Changes" : "儲存變更"}
             </Button>
-            <Button onClick={confirmRename} disabled={!newName.trim() || renameMutation.isPending} data-testid="button-confirm-rename">
-              {renameMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === "en" ? "Rename" : "確定")}
-            </Button>
-          </DialogFooter>
+            </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
       
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deletingDeck} onOpenChange={(open) => !open && setDeletingDeck(null)}>
-        <AlertDialogContent data-testid="dialog-delete-deck">
+        <AlertDialogContent data-testid="dialog-delete-deck" className="max-w-sm rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{language === "en" ? "Delete Deck?" : "刪除字卡組？"}</AlertDialogTitle>
             <AlertDialogDescription>
@@ -380,6 +531,37 @@ export default function Flashcards() {
               data-testid="button-confirm-delete"
             >
               {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : (language === "en" ? "Delete" : "刪除")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Card Confirmation Dialog */}
+      <AlertDialog open={!!deletingCard} onOpenChange={(open) => !open && setDeletingCard(null)}>
+        <AlertDialogContent data-testid="dialog-delete-card" className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{language === "en" ? "Delete Card?" : "刪除字卡？"}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en" 
+                ? `Are you sure you want to delete "${deletingCard?.word || 'this card'}"?`
+                : `確定要刪除「${deletingCard?.word || '此字卡'}」嗎？`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-card">
+              {language === "en" ? "Cancel" : "取消"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deletingCard) {
+                  setEditedCards(editedCards.filter(c => c.id !== deletingCard.cardId));
+                  setDeletingCard(null);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-card"
+            >
+              {language === "en" ? "Delete" : "刪除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

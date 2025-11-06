@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { type Flashcard } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -22,14 +22,68 @@ export function SpellingTest({ cards, onComplete }: SpellingTestProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [input, setInput] = useState("");
   const [showResult, setShowResult] = useState<"correct" | "incorrect" | null>(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [incorrectCount, setIncorrectCount] = useState(0);
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [timerStarted, setTimerStarted] = useState(false);
   const { language } = useLanguage();
   const t = useTranslation(language);
 
+  // Timer effect
+  useEffect(() => {
+    if (!timerStarted || currentIndex >= cards.length) return;
+    
+    const interval = setInterval(() => {
+      setTimeElapsed(prev => prev + 1);
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [timerStarted, currentIndex, cards.length]);
+
+  // Convert part of speech to English abbreviation
+  const getPosAbbr = (pos: string): string => {
+    const posMap: Record<string, string> = {
+      noun: "n.",
+      verb: "v.",
+      adjective: "adj.",
+      adverb: "adv.",
+      pronoun: "pron.",
+      preposition: "prep.",
+      conjunction: "conj.",
+      interjection: "int.",
+      phrase: "phr.",
+      "名詞": "n.",
+      "動詞": "v.",
+      "形容詞": "adj.",
+      "副詞": "adv.",
+      "代名詞": "pron.",
+      "介系詞": "prep.",
+      "連接詞": "conj.",
+      "感嘆詞": "int.",
+      "片語": "phr.",
+    };
+    return posMap[pos.toLowerCase()] || pos;
+  };
+
   const currentCard = cards[currentIndex];
-  const progress = ((currentIndex + 1) / cards.length) * 100;
+  const answeredCount = correctCount + incorrectCount;
+  const progress = (answeredCount / cards.length) * 100;
+
+  // Format time as MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
 
   const handleKeyPress = (key: string) => {
     if (showResult) return;
+    
+    // Start timer on first key press
+    if (!timerStarted) {
+      setTimerStarted(true);
+    }
+    
     setInput((prev) => prev + key.toLowerCase());
   };
 
@@ -39,8 +93,20 @@ export function SpellingTest({ cards, onComplete }: SpellingTestProps) {
   };
 
   const handleSubmit = () => {
+    // Start timer on first submit
+    if (!timerStarted) {
+      setTimerStarted(true);
+    }
+    
     const isCorrect = input.toLowerCase() === currentCard.word.toLowerCase();
     setShowResult(isCorrect ? "correct" : "incorrect");
+    
+    // Update counters
+    if (isCorrect) {
+      setCorrectCount(prev => prev + 1);
+    } else {
+      setIncorrectCount(prev => prev + 1);
+    }
 
     setTimeout(() => {
       if (currentIndex < cards.length - 1) {
@@ -48,7 +114,9 @@ export function SpellingTest({ cards, onComplete }: SpellingTestProps) {
         setInput("");
         setShowResult(null);
       } else {
-        onComplete();
+        // All cards completed
+        setInput("");
+        setShowResult(null);
       }
     }, 1500);
   };
@@ -56,10 +124,37 @@ export function SpellingTest({ cards, onComplete }: SpellingTestProps) {
   if (!currentCard) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <p className="text-2xl font-semibold mb-4">{t.finish}</p>
+        <div className="w-full max-w-md text-center space-y-8">
+          <h2 className="text-3xl font-bold">
+            {language === "en" ? "Practice Complete!" : "練習完成！"}
+          </h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-center gap-8">
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {language === "en" ? "Incorrect" : "答錯"}
+                </span>
+                <span className="text-5xl font-bold text-destructive">{incorrectCount}</span>
+              </div>
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {language === "en" ? "Correct" : "答對"}
+                </span>
+                <span className="text-5xl font-bold text-green-600 dark:text-green-500">{correctCount}</span>
+              </div>
+            </div>
+            
+            <div className="flex flex-col items-center gap-2 pt-4">
+              <span className="text-sm font-medium text-muted-foreground">
+                {language === "en" ? "Time" : "時間"}
+              </span>
+              <span className="text-4xl font-mono font-bold text-primary">{formatTime(timeElapsed)}</span>
+            </div>
+          </div>
+
           <Button onClick={onComplete} data-testid="button-finish-spelling">
-            {t.backToMap}
+            {language === "en" ? "Back to Decks" : "返回字卡組"}
           </Button>
         </div>
       </div>
@@ -75,10 +170,33 @@ export function SpellingTest({ cards, onComplete }: SpellingTestProps) {
             {t.progress}
           </span>
           <span className="text-sm font-semibold">
-            {currentIndex + 1} / {cards.length}
+            {answeredCount} / {cards.length}
           </span>
         </div>
         <Progress value={progress} className="h-2" data-testid="progress-spelling" />
+      </div>
+
+      {/* Timer and counters */}
+      <div className="px-6 py-3 border-b flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-destructive">{incorrectCount}</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {language === "en" ? "Incorrect" : "答錯"}
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <span className="text-2xl font-bold text-green-600 dark:text-green-500">{correctCount}</span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {language === "en" ? "Correct" : "答對"}
+            </span>
+          </div>
+        </div>
+        
+        {/* Timer display */}
+        <div className="text-xl font-mono font-semibold text-muted-foreground">
+          {formatTime(timeElapsed)}
+        </div>
       </div>
 
       {/* Definition display */}
@@ -88,7 +206,7 @@ export function SpellingTest({ cards, onComplete }: SpellingTestProps) {
           <div className="bg-card border rounded-2xl p-8 shadow-lg">
             <div className="text-center space-y-4">
               <div className="inline-flex items-center px-4 py-2 rounded-full bg-secondary text-sm font-medium">
-                {currentCard.partOfSpeech}
+                {getPosAbbr(currentCard.partOfSpeech)}
               </div>
               <p className="text-3xl font-semibold text-card-foreground leading-relaxed">
                 {currentCard.definition}

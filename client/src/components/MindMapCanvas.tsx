@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut, Maximize2, X } from "lucide-react";
+import { ZoomIn, ZoomOut, Maximize2, X, Plus } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getCategoryColor, getCategoryLabel } from "@shared/categoryColors";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -11,14 +11,20 @@ interface MindMapCanvasProps {
   nodes: MindMapNode[];
   onNodeClick: (nodeId: string) => void;
   onNodeDelete: (nodeId: string) => void;
+  onNodeAdd?: (parentNodeId: string, category: WordCategory) => void;
   centerNodeId?: string;
+  focusNodeId?: string;
+  maxNodes?: number;
 }
 
 export function MindMapCanvas({
   nodes,
   onNodeClick,
   onNodeDelete,
+  onNodeAdd,
   centerNodeId,
+  focusNodeId,
+  maxNodes = 60,
 }: MindMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
@@ -29,12 +35,13 @@ export function MindMapCanvas({
   const { language } = useLanguage();
   const isDark = theme === "dark";
 
-  // Auto-center the center node when it's created
+  // Auto-center the center node when it's created, or focus on a specific node
   useEffect(() => {
-    if (!centerNodeId || !containerRef.current) return;
+    const targetNodeId = focusNodeId || centerNodeId;
+    if (!targetNodeId || !containerRef.current) return;
     
-    const centerNode = nodes.find((n) => n.id === centerNodeId);
-    if (!centerNode) return;
+    const targetNode = nodes.find((n) => n.id === targetNodeId);
+    if (!targetNode) return;
 
     // Calculate the center of the viewport
     const rect = containerRef.current.getBoundingClientRect();
@@ -43,10 +50,10 @@ export function MindMapCanvas({
 
     // Calculate the pan needed to center the node
     setPan({
-      x: viewportCenterX - centerNode.x * zoom,
-      y: viewportCenterY - centerNode.y * zoom,
+      x: viewportCenterX - targetNode.x * zoom,
+      y: viewportCenterY - targetNode.y * zoom,
     });
-  }, [centerNodeId, nodes, zoom]);
+  }, [centerNodeId, focusNodeId, nodes, zoom]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
@@ -221,6 +228,74 @@ export function MindMapCanvas({
             transformOrigin: "0 0",
           }}
         >
+          {/* Add buttons at the end of each category thread */}
+          {onNodeAdd && spiderThreads.map((thread) => {
+            if (!thread) return null;
+            const { category, from, to } = thread;
+            const categoryColor = getCategoryColor(category as WordCategory, isDark) || "#999";
+            
+            // Calculate button position: same distance as node spacing (boundaryGap = 80px)
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const unitX = dx / distance;
+            const unitY = dy / distance;
+            
+            // Estimate the furthest node's width
+            const estimateNodeWidth = (text: string) => {
+              const charWidth = 12;
+              const padding = 32;
+              const minWidth = 100;
+              return Math.max(minWidth, text.length * charWidth + padding);
+            };
+            
+            const toNodeWidth = estimateNodeWidth(to.word);
+            const buttonWidth = 40; // w-10 = 40px
+            const boundaryGap = 80; // Same gap as between nodes
+            
+            // Position button: furthest node center + half its width + gap + half button width
+            const buttonDistance = toNodeWidth / 2 + boundaryGap + buttonWidth / 2;
+            const buttonX = to.x + unitX * buttonDistance;
+            const buttonY = to.y + unitY * buttonDistance;
+            
+            return (
+              <div
+                key={`add-btn-${category}`}
+                className="absolute"
+                style={{
+                  left: buttonX,
+                  top: buttonY,
+                  transform: "translate(-50%, -50%)",
+                }}
+              >
+                <motion.button
+                  data-node
+                  data-add-button
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 0.3 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  whileHover={{ scale: 1.1, opacity: 0.7 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    onNodeAdd(from.id, category as WordCategory);
+                  }}
+                  className="w-10 h-10 rounded-full border-2 transition-all flex items-center justify-center shadow-md"
+                  style={{
+                    borderColor: categoryColor,
+                    backgroundColor: isDark ? 'hsl(240, 10%, 10%)' : '#ffffff',
+                    color: categoryColor,
+                  }}
+                  aria-label={`Add ${category} node`}
+                >
+                  <Plus className="w-5 h-5" />
+                </motion.button>
+              </div>
+            );
+          })}
+          
           <AnimatePresence>
             {nodes.map((node) => {
               const isCenter = node.id === centerNodeId;
@@ -294,6 +369,21 @@ export function MindMapCanvas({
               );
             })}
           </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Node count indicator - fixed in bottom right */}
+      <div className="absolute bottom-4 right-4 z-50 pointer-events-none">
+        <div className={`
+          font-mono text-xs
+          ${nodes.length >= maxNodes 
+            ? 'text-destructive/70' 
+            : nodes.length >= maxNodes * 0.8
+            ? 'text-yellow-600/70 dark:text-yellow-500/70'
+            : 'text-muted-foreground/50'
+          }
+        `}>
+          {nodes.length}/{maxNodes}
         </div>
       </div>
     </div>

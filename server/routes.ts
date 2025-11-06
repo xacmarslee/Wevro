@@ -1,17 +1,19 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { generateRelatedWords } from "./openai";
-import { generateBatchDefinitions } from "./translator";
+import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators";
 import {
   generateWordsRequestSchema,
   generateDefinitionRequestSchema,
+  generateExamplesRequestSchema,
+  generateSynonymsRequestSchema,
   mindMapSchema,
   flashcardDeckSchema,
 } from "@shared/schema";
 import { z } from "zod";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { firebaseAuthMiddleware, getFirebaseUserId } from "./firebaseAuth";
 import { lookupWord, getWordStatus, getQueueStatus } from "./dictionary-service";
+import { getUserByUid, deleteUser as deleteFirebaseUser } from "./firebaseAdmin";
 
 // Insert schemas (omit auto-generated fields)
 const insertMindMapSchema = mindMapSchema.omit({ id: true, userId: true, createdAt: true });
@@ -19,44 +21,56 @@ const insertFlashcardDeckSchema = flashcardDeckSchema.omit({ id: true, createdAt
 const updateMindMapSchema = mindMapSchema.partial();
 const updateFlashcardDeckSchema = flashcardDeckSchema.partial();
 
-// Helper function to get user ID (works in both Replit and local dev mode)
+// Helper function to get user ID from Firebase
 function getUserId(req: any): string {
-  if (!process.env.REPL_ID) {
-    // Local development mode - use mock user ID
-    return 'local-dev-user';
-  }
-  // Replit mode - get from auth
-  return req.user.claims.sub;
+  return getFirebaseUserId(req);
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup Replit Auth (only in Replit environment)
-  if (process.env.REPL_ID) {
-    await setupAuth(app);
-  } else {
-    console.log('ℹ️  Skipping Replit Auth (local development mode)');
-  }
+  console.log('✅ Using Firebase Authentication');
 
   // Auth route: Get current user
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', firebaseAuthMiddleware, async (req: any, res) => {
     try {
-      // In local development mode, return a mock user
-      if (!process.env.REPL_ID) {
-        return res.json({
-          id: 'local-dev-user',
-          email: 'developer@local.dev',
-          firstName: 'Local',
-          lastName: 'Developer',
-          profileImageUrl: null
+      const userId = getUserId(req);
+      
+      // Try to get user from database
+      let user = await storage.getUser(userId);
+      
+      // If user doesn't exist in database, create from Firebase data
+      if (!user && req.firebaseUser) {
+        const firebaseUser = await getUserByUid(userId);
+        user = await storage.upsertUser({
+          id: userId,
+          email: firebaseUser.email,
+          firstName: firebaseUser.displayName?.split(' ')[0],
+          lastName: firebaseUser.displayName?.split(' ').slice(1).join(' '),
+          profileImageUrl: firebaseUser.photoURL,
         });
       }
       
-      const userId = getUserId(req);
-      const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Auth route: Delete user account
+  app.delete('/api/auth/user', firebaseAuthMiddleware, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      
+      // Delete user from database (cascading delete via foreign keys)
+      await storage.deleteUser(userId);
+      
+      // Delete user from Firebase
+      await deleteFirebaseUser(userId);
+      
+      res.json({ success: true, message: "Account deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      res.status(500).json({ message: "Failed to delete account" });
     }
   });
   // Generate related words for a category
@@ -172,6 +186,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(status);
   });
 
+  // NEW: Generate example sentences for a word/phrase
+  app.post("/api/examples/generate", async (req, res) => {
+    try {
+      const validatedData = generateExamplesRequestSchema.parse(req.body);
+      const { query, counts } = validatedData;
+      
+      console.log(`📝 Generating examples for "${query}"...`);
+      
+      // Default counts if not provided
+      const sensesCount = counts?.sense || 2;
+      const phraseCount = counts?.phrase || 1;
+      
+      // Check if OpenAI API key is configured
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        console.error("❌ OpenAI API key not configured");
+        return res.status(500).json({
+          error: "Configuration error",
+          message: "OpenAI API 金鑰未設定，請在 .env 檔案中設定 AI_INTEGRATIONS_OPENAI_API_KEY",
+        });
+      }
+      
+      // Generate examples using OpenAI
+      const examples = await generateExampleSentences(query, sensesCount, phraseCount);
+      
+      console.log(`✅ Successfully generated examples for "${query}"`);
+      res.json(examples);
+    } catch (error: any) {
+      console.error("❌ Error in /api/examples/generate:", error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid request data",
+          details: error.errors,
+        });
+      }
+      
+      res.status(500).json({
+        error: "Failed to generate examples",
+        message: error.message || "無法生成例句，請稍後再試",
+      });
+    }
+  });
+
+  // NEW: Generate synonym comparison for a word
+  app.post("/api/synonyms/generate", async (req, res) => {
+    try {
+      const validatedData = generateSynonymsRequestSchema.parse(req.body);
+      const { query } = validatedData;
+      
+      console.log(`📝 Generating synonyms for "${query}"...`);
+      
+      // Check if OpenAI API key is configured
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        console.error("❌ OpenAI API key not configured");
+        return res.status(500).json({
+          error: "Configuration error",
+          message: "OpenAI API 金鑰未設定，請在 .env 檔案中設定 AI_INTEGRATIONS_OPENAI_API_KEY",
+        });
+      }
+      
+      // Generate synonym comparison using OpenAI
+      const synonyms = await generateSynonymComparison(query);
+      
+      console.log(`✅ Successfully generated synonyms for "${query}"`);
+      res.json(synonyms);
+    } catch (error: any) {
+      console.error("❌ Error in /api/synonyms/generate:", error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          error: "Invalid request data",
+          details: error.errors,
+        });
+      }
+      
+      res.status(500).json({
+        error: "Failed to generate synonyms",
+        message: error.message || "無法生成同義字，請稍後再試",
+      });
+    }
+  });
+
   // NEW: Dictionary search suggestions (autocomplete)
   app.get("/api/dictionary/search", async (req, res) => {
     try {
@@ -233,87 +329,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Query/translation endpoint
-  app.post("/api/query", isAuthenticated, async (req: any, res) => {
-    try {
-      const schema = z.object({
-        text: z.string().min(1),
-      });
-
-      const { text } = schema.parse(req.body);
-
-      // Use OpenAI to process query or translation
-      const OpenAI = (await import("openai")).default;
-      const openai = new OpenAI({
-        apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-        baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
-      });
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are a bilingual translation assistant. Provide 2-4 different translation options.
-            
-For English words or phrases, translate to Traditional Chinese with different levels of formality/style.
-For Chinese phrases/sentences, translate to English with different nuances.
-
-Return ONLY a JSON array of translation strings, no explanations, no labels. Each translation should be a complete, standalone option.
-
-Example for "hello":
-["你好", "您好", "哈囉", "嗨"]
-
-Example for "How are you?":
-["你好嗎？", "您好嗎？", "近來可好？", "最近怎麼樣？"]`
-          },
-          {
-            role: "user",
-            content: text
-          }
-        ],
-        temperature: 0.8,
-        max_tokens: 500,
-        response_format: { type: "json_object" }
-      });
-
-      const responseContent = completion.choices[0]?.message?.content || "{}";
-      
-      // Parse the JSON response
-      let translations: string[] = [];
-      try {
-        const parsed = JSON.parse(responseContent);
-        // Handle different possible response formats
-        if (Array.isArray(parsed)) {
-          translations = parsed;
-        } else if (parsed.translations && Array.isArray(parsed.translations)) {
-          translations = parsed.translations;
-        } else if (parsed.options && Array.isArray(parsed.options)) {
-          translations = parsed.options;
-        } else {
-          // If we get an object, extract all string values
-          translations = Object.values(parsed).filter(v => typeof v === 'string') as string[];
-        }
-      } catch (parseError) {
-        console.error("Failed to parse translations:", parseError);
-        translations = [responseContent];
-      }
-
-      // Ensure we have at least 1 and at most 4 translations
-      if (translations.length === 0) {
-        translations = ["Translation not available"];
-      }
-      translations = translations.slice(0, 4);
-
-      res.json({ translations });
-    } catch (error: any) {
-      console.error("Query error:", error);
-      res.status(500).json({ message: "Failed to process query" });
-    }
-  });
+  // ===== QUERY/TRANSLATION ENDPOINT REMOVED =====
+  // This endpoint was not being used by the frontend and has been removed.
+  // If needed in the future, consider implementing a simpler translation service.
 
   // Mind map CRUD endpoints (protected)
-  app.get("/api/mindmaps", isAuthenticated, async (req: any, res) => {
+  app.get("/api/mindmaps", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const mindMaps = await storage.getAllMindMaps(userId);
@@ -324,7 +345,7 @@ Example for "How are you?":
     }
   });
 
-  app.get("/api/mindmaps/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/mindmaps/:id", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const mindMap = await storage.getMindMap(req.params.id, userId);
@@ -339,7 +360,7 @@ Example for "How are you?":
     }
   });
 
-  app.post("/api/mindmaps", isAuthenticated, async (req: any, res) => {
+  app.post("/api/mindmaps", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const validatedData = insertMindMapSchema.parse(req.body);
@@ -355,7 +376,7 @@ Example for "How are you?":
     }
   });
 
-  app.patch("/api/mindmaps/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/mindmaps/:id", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const validatedData = updateMindMapSchema.parse(req.body);
@@ -375,7 +396,7 @@ Example for "How are you?":
     }
   });
 
-  app.delete("/api/mindmaps/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/mindmaps/:id", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const success = await storage.deleteMindMap(req.params.id, userId);
@@ -391,7 +412,7 @@ Example for "How are you?":
   });
 
   // Flashcard deck CRUD endpoints (protected)
-  app.get("/api/flashcards", isAuthenticated, async (req: any, res) => {
+  app.get("/api/flashcards", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const decks = await storage.getAllFlashcardDecks(userId);
@@ -402,7 +423,7 @@ Example for "How are you?":
     }
   });
 
-  app.get("/api/flashcards/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/flashcards/:id", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const deck = await storage.getFlashcardDeck(req.params.id, userId);
@@ -418,7 +439,7 @@ Example for "How are you?":
   });
 
   // Batch create flashcard deck with AI-generated definitions
-  app.post("/api/flashcards/batch-create", isAuthenticated, async (req: any, res) => {
+  app.post("/api/flashcards/batch-create", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const schema = z.object({
@@ -493,7 +514,7 @@ Example for "How are you?":
     }
   });
 
-  app.post("/api/flashcards", isAuthenticated, async (req: any, res) => {
+  app.post("/api/flashcards", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const validatedData = insertFlashcardDeckSchema.parse(req.body);
@@ -509,7 +530,7 @@ Example for "How are you?":
     }
   });
 
-  app.patch("/api/flashcards/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/flashcards/:id", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const validatedData = updateFlashcardDeckSchema.parse(req.body);
@@ -529,7 +550,73 @@ Example for "How are you?":
     }
   });
 
-  app.delete("/api/flashcards/:id", isAuthenticated, async (req: any, res) => {
+  // Update individual flashcard
+  app.patch("/api/flashcards/:deckId/cards/:cardId", firebaseAuthMiddleware, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        word: z.string().optional(),
+        definition: z.string().optional(),
+        partOfSpeech: z.string().optional(),
+        known: z.boolean().optional(),
+      });
+      const validatedData = schema.parse(req.body);
+      const card = await storage.updateFlashcard(req.params.cardId, validatedData);
+      if (!card) {
+        res.status(404).json({ error: "Flashcard not found" });
+        return;
+      }
+      res.json(card);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid request data", details: error.errors });
+        return;
+      }
+      console.error("Error in PATCH /api/flashcards/:deckId/cards/:cardId:", error);
+      res.status(500).json({ error: "Failed to update flashcard" });
+    }
+  });
+
+  // Add new flashcard to deck
+  app.post("/api/flashcards/:deckId/cards", firebaseAuthMiddleware, async (req: any, res) => {
+    try {
+      const schema = z.object({
+        word: z.string().min(1),
+        definition: z.string().min(1),
+        partOfSpeech: z.string().min(1),
+      });
+      const validatedData = schema.parse(req.body);
+      const card = await storage.addFlashcard(req.params.deckId, validatedData);
+      if (!card) {
+        res.status(404).json({ error: "Flashcard deck not found" });
+        return;
+      }
+      res.json(card);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ error: "Invalid request data", details: error.errors });
+        return;
+      }
+      console.error("Error in POST /api/flashcards/:deckId/cards:", error);
+      res.status(500).json({ error: "Failed to add flashcard" });
+    }
+  });
+
+  // Delete individual flashcard
+  app.delete("/api/flashcards/:deckId/cards/:cardId", firebaseAuthMiddleware, async (req: any, res) => {
+    try {
+      const success = await storage.deleteFlashcard(req.params.cardId);
+      if (!success) {
+        res.status(404).json({ error: "Flashcard not found" });
+        return;
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error in DELETE /api/flashcards/:deckId/cards/:cardId:", error);
+      res.status(500).json({ error: "Failed to delete flashcard" });
+    }
+  });
+
+  app.delete("/api/flashcards/:id", firebaseAuthMiddleware, async (req: any, res) => {
     try {
       const userId = getUserId(req);
       const success = await storage.deleteFlashcardDeck(req.params.id, userId);
@@ -543,6 +630,11 @@ Example for "How are you?":
       res.status(500).json({ error: "Failed to delete flashcard deck" });
     }
   });
+
+  // ===== BILLING & SUBSCRIPTION ENDPOINTS =====
+  // 注意：App 版本使用 Apple IAP 和 Google Play Billing
+  // 這些端點將在 App 上架後由原生支付系統處理
+  // Web 版本如需支付功能，可考慮整合 Stripe
 
   const httpServer = createServer(app);
   return httpServer;

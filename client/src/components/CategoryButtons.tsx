@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { wordCategories, type WordCategory } from "@shared/schema";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -23,11 +23,24 @@ export function CategoryButtons({
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [isOpen, setIsOpen] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Handle horizontal scroll with mouse wheel
+  const handleWheel = (e: React.WheelEvent) => {
+    if (scrollContainerRef.current) {
+      e.preventDefault();
+      scrollContainerRef.current.scrollLeft += e.deltaY;
+    }
+  };
 
   return (
     <div className="sticky top-16 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container px-4 py-4">
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+        <div 
+          ref={scrollContainerRef}
+          onWheel={handleWheel}
+          className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide"
+        >
           <div className="flex items-center gap-1.5 text-sm text-muted-foreground whitespace-nowrap pr-2">
             <Sparkles className="h-4 w-4" />
             <span className="font-medium">

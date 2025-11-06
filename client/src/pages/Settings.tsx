@@ -1,6 +1,7 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useStartPage } from "@/contexts/StartPageContext";
+import { useAuth } from "@/hooks/useAuth";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,11 +11,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Separator } from "@/components/ui/separator";
+import { useMutation } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { ChevronRight, CreditCard, User2 } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Settings() {
   const { language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { startPage, setStartPage } = useStartPage();
+  const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
@@ -95,6 +116,56 @@ export default function Settings() {
             </SelectContent>
           </Select>
         </div>
+
+        <Separator />
+
+        {/* Pricing Section */}
+        <button
+          onClick={() => setLocation("/pricing")}
+          className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
+          data-testid="button-pricing"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <CreditCard className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <div className="font-medium">
+                {language === "en" ? "Pricing & Subscription" : "訂閱方案"}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {language === "en" ? "View plans and upgrade" : "查看方案與升級"}
+              </div>
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        </button>
+
+        <Separator />
+
+        {/* Account Section */}
+        {isAuthenticated && user ? (
+          <button
+            onClick={() => setLocation("/account")}
+            className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
+            data-testid="button-account"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <User2 className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="font-medium">
+                  {language === "en" ? "Account" : "帳號管理"}
+                </div>
+                <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                  {user.email}
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
+        ) : null}
       </div>
     </div>
   );

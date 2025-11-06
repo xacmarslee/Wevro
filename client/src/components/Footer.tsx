@@ -42,6 +42,14 @@ export default function Footer() {
       // Mind maps is the default route, so "/" should also activate it
       return location === path || location === "/" || location.startsWith("/mindmap/");
     }
+    if (path === "/flashcards") {
+      // Flashcards includes practice pages with IDs
+      return location === path || location.startsWith("/flashcards/");
+    }
+    if (path === "/settings") {
+      // Settings includes pricing and account sub-pages
+      return location === path || location === "/pricing" || location === "/account";
+    }
     return location === path;
   };
 
