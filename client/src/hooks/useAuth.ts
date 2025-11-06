@@ -19,17 +19,20 @@ export function useAuth() {
       // If user is authenticated, sync with backend
       if (user) {
         try {
-          const idToken = await user.getIdToken();
+          // Force refresh token to ensure it's valid
+          const idToken = await user.getIdToken(true);
           // Store token in localStorage for API requests
           localStorage.setItem('firebaseToken', idToken);
           // Invalidate user query to refetch from backend
           queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
         } catch (error) {
-          console.error('Error getting ID token:', error);
+          console.error('❌ Auth error:', error);
         }
       } else {
         localStorage.removeItem('firebaseToken');
         queryClient.setQueryData(["/api/auth/user"], null);
+        queryClient.setQueryData(["/api/quota"], null);
       }
     });
 
@@ -39,6 +42,24 @@ export function useAuth() {
   // Fetch user data from backend (includes database info)
   const { data: user } = useQuery<User>({
     queryKey: ["/api/auth/user"],
+    queryFn: async () => {
+      const token = localStorage.getItem('firebaseToken');
+      const headers: Record<string, string> = {};
+      
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch("/api/auth/user", {
+        credentials: "include",
+        headers,
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch user");
+      }
+      return await response.json();
+    },
     enabled: !!firebaseUser,
     retry: false,
   });

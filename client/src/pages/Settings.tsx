@@ -27,6 +27,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { ChevronRight, CreditCard, User2 } from "lucide-react";
 import { useLocation } from "wouter";
+import TokenDisplay from "@/components/TokenDisplay";
 
 export default function Settings() {
   const { language, setLanguage } = useLanguage();
@@ -116,6 +117,11 @@ export default function Settings() {
             </SelectContent>
           </Select>
         </div>
+
+        <Separator />
+
+        {/* Token Display */}
+        <TokenDisplay variant="full" />
 
         <Separator />
 

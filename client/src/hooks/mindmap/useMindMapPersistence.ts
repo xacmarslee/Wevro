@@ -24,13 +24,32 @@ export function useMindMapPersistence(mindMapId?: string) {
     queryKey: ["/api/mindmaps", mindMapId],
     queryFn: async () => {
       if (!mindMapId) return null;
+      
+      console.log("[MindMap] Loading mind map:", mindMapId);
+      
+      // Get Firebase token from localStorage
+      const token = localStorage.getItem('firebaseToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      
       const response = await fetch(`/api/mindmaps/${mindMapId}`, {
         credentials: "include",
+        headers,
       });
+      
+      console.log("[MindMap] Load response:", { status: response.status, ok: response.ok });
+      
       if (!response.ok) {
+        const error = await response.text();
+        console.error("[MindMap] Load failed:", error);
         throw new Error("Failed to load mind map");
       }
-      return await response.json();
+      
+      const data = await response.json();
+      console.log("[MindMap] Mind map loaded:", data);
+      return data;
     },
     enabled: !!mindMapId,
   });
@@ -43,28 +62,40 @@ export function useMindMapPersistence(mindMapId?: string) {
       const centerNode = nodes.find(n => n.isCenter);
       const name = centerNode ? centerNode.word : "Untitled Mind Map";
       
+      console.log("[MindMap] Saving mind map:", { mindMapId, name, nodeCount: nodes.length });
+
       if (mindMapId) {
         // 更新現有心智圖
         const response = await apiRequest("PATCH", `/api/mindmaps/${mindMapId}`, {
           name,
           nodes,
         });
-        return await response.json();
+        const data = await response.json();
+        console.log("[MindMap] Updated successfully:", data);
+        return data;
       } else {
         // 建立新心智圖
         const response = await apiRequest("POST", "/api/mindmaps", {
           name,
           nodes,
         });
-        return await response.json();
+        const data = await response.json();
+        console.log("[MindMap] Created successfully:", data);
+        return data;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("[MindMap] onSuccess triggered, invalidating queries");
       setIsSaved(true);
       queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
       setShowSaveConfirmDialog(true);
+      toast({
+        title: language === "en" ? "Success" : "成功",
+        description: language === "en" ? "Mind map saved successfully" : "心智圖儲存成功",
+      });
     },
-    onError: () => {
+    onError: (error: Error) => {
+      console.error("[MindMap] Save failed:", error);
       toast({
         title: language === "en" ? "Save failed" : "儲存失敗",
         description: language === "en" ? "Failed to save mind map" : "儲存心智圖失敗",

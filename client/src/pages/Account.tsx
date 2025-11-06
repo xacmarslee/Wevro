@@ -84,10 +84,7 @@ export default function Account() {
     try {
       const { signOut } = await import("@/lib/firebase");
       await signOut();
-      toast({
-        title: language === "en" ? "Signed out" : "已登出",
-        description: language === "en" ? "You have been signed out successfully" : "您已成功登出",
-      });
+      // 成功登出不顯示 toast
     } catch (error) {
       toast({
         title: language === "en" ? "Error" : "錯誤",
@@ -268,7 +265,7 @@ export default function Account() {
             )}
 
             {/* Account Created */}
-            {user.createdAt && (
+            {'createdAt' in user && user.createdAt && (
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
                   <Calendar className="h-5 w-5 text-muted-foreground" />

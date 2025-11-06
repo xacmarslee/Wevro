@@ -22,14 +22,14 @@ const openai = new OpenAI({
 // Category descriptions for better AI prompts
 const categoryDescriptions: Record<WordCategory, string> = {
   derivatives: "word forms and derivatives (noun, verb, adjective, adverb forms)",
-  synonyms: "words with similar meanings",
+  synonyms: "words with similar meanings (can be used interchangeably)",
   antonyms: "words with opposite meanings",
-  collocations: "common word combinations and phrases",
+  collocations: "common word combinations - for verbs: preposition partners (intransitive) or typical objects (transitive); for nouns: common adjectives and verbs that take this noun as object",
   idioms: "idiomatic expressions and phrases",
   root: "root words and etymological origins",
   prefix: "words with the same prefix",
   suffix: "words with the same suffix",
-  "topic-related": "related words from the same topic or semantic field",
+  "topic-related": "related words from the same topic or semantic field (NOT synonyms, but words commonly discussed together in the same context)",
 };
 
 export async function generateRelatedWords(
@@ -39,14 +39,14 @@ export async function generateRelatedWords(
   try {
     const examples: Record<WordCategory, string> = {
       derivatives: `For "happy": ["happiness", "happily", "happier", "happiest", "unhappy"]`,
-      synonyms: `For "happy": ["joyful", "cheerful", "content", "pleased", "delighted"]`,
+      synonyms: `For "happy": ["joyful", "cheerful", "content", "pleased", "delighted"] ← CAN replace "happy". For "sad": ["unhappy", "miserable", "sorrowful", "dejected", "gloomy"] ← CAN replace "sad"`,
       antonyms: `For "happy": ["sad", "unhappy", "miserable", "depressed", "gloomy"]`,
-      collocations: `For "make": ["make a decision", "make progress", "make sense", "make time", "make an effort"]`,
+      collocations: `For "make" (transitive verb): ["make a decision", "make progress", "make sense", "make time", "make an effort"]. For "look" (intransitive): ["look at", "look for", "look after", "look into"]. For "decision" (noun): ["make a decision", "tough decision", "final decision"]`,
       idioms: `For "happy": ["happy as a clam", "happy camper", "happy medium", "trigger happy", "happy hour"]`,
       root: `For "dictionary": ["diction", "dictate", "dictator", "predict", "verdict"]`,
       prefix: `For "unhappy": ["unable", "uncertain", "unfair", "unkind", "unusual"]`,
       suffix: `For "happiness": ["kindness", "sadness", "darkness", "weakness", "fitness"]`,
-      "topic-related": `For "computer": ["keyboard", "mouse", "monitor", "software", "hardware", "internet"]`,
+      "topic-related": `For "happy": ["emotion", "mood", "feeling", "smile", "laughter"] ← CANNOT replace "happy", just related topic. For "sad": ["emotion", "tear", "cry", "depression", "grief"] ← CANNOT replace "sad". For "computer": ["keyboard", "mouse", "monitor", "technology", "internet"]`,
     };
 
     const response = await openai.chat.completions.create({
@@ -54,7 +54,15 @@ export async function generateRelatedWords(
       messages: [
         {
           role: "system",
-          content: `You are a vocabulary expert helping students learn English words. Generate related words if they exist. If there are no appropriate related words for a category, return an empty array.`,
+          content: `You are a vocabulary expert helping students learn English words. 
+
+CRITICAL DISTINCTION between categories:
+- SYNONYMS: Words that can SUBSTITUTE the target word in sentences (same meaning, interchangeable)
+- TOPIC-RELATED: Words from the same semantic field but CANNOT substitute the target word (related concepts, not interchangeable)
+
+Always use the substitution test to verify if a word is a synonym or just topic-related.
+
+Generate related words if they exist. If there are no appropriate related words for a category, return an empty array.`,
         },
         {
           role: "user",
@@ -64,9 +72,32 @@ Example: ${examples[category]}
 
 ${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them. If no idioms exist with this word, return an empty array.` : ""}
 
+${category === "synonyms" ? `CRITICAL for synonyms - Use the SUBSTITUTION TEST:
+- ✓ CORRECT: Words that can REPLACE "${word}" in sentences. Test: "I feel ${word}" → "I feel [synonym]" should work.
+- ✗ WRONG: Topic-related words that describe the same theme but CANNOT replace the word.
+- Example for "happy": ✓ "joyful", "cheerful" (can say "I feel joyful") ✗ "emotion", "smile" (cannot say "I feel emotion")
+- Example for "sad": ✓ "unhappy", "miserable", "sorrowful" (can say "I feel miserable") ✗ "tear", "cry", "depression" (cannot say "I feel tear")` : ""}
+
+${category === "topic-related" ? `CRITICAL for topic-related words - OPPOSITE of synonyms:
+- ✓ CORRECT: Words from the same topic/field that CANNOT replace "${word}" but are discussed together.
+- ✗ WRONG: Synonyms that can replace the word.
+- Example for "happy": ✓ "emotion", "mood", "feeling", "smile", "laughter" (related concepts) ✗ "joyful", "cheerful" (these are synonyms)
+- Example for "sad": ✓ "emotion", "tear", "cry", "depression", "grief" (related concepts) ✗ "unhappy", "miserable" (these are synonyms)
+- Example for "computer": ✓ "keyboard", "mouse", "monitor", "internet", "technology" (related devices/concepts)` : ""}
+
+${category === "collocations" ? `IMPORTANT for collocations:
+- If "${word}" is a VERB:
+  * INTRANSITIVE VERB: Return common preposition combinations (e.g., "look at", "look for", "look after")
+  * TRANSITIVE VERB: Return common object combinations (e.g., "make a decision", "take action", "give advice")
+- If "${word}" is a NOUN:
+  * Return common adjective + noun combinations (e.g., "tough decision", "final decision")
+  * Return common verb + noun combinations where this noun is the object (e.g., "make a decision", "reach a decision")` : ""}
+
 Instructions:
 - Generate as many ACCURATE ${categoryDescriptions[category]} as you can find (up to 7 words maximum)
 - Only include words that are truly related to "${word}" in the "${category}" category
+${category === "synonyms" ? `- VERIFY each synonym: Can you say "I am/feel ${word}" → "I am/feel [word]"? If NO, it's NOT a synonym.` : ""}
+${category === "topic-related" ? `- VERIFY each word: Can it REPLACE "${word}" in sentences? If YES, it's a synonym (WRONG category). Only include words that CANNOT replace "${word}".` : ""}
 - If the word doesn't have a ${category === "prefix" || category === "suffix" ? category : `meaningful ${category} relationship`}, return an empty array
 - Do not include the original word "${word}" by itself
 - Quality over quantity - it's better to return fewer accurate words than to force irrelevant ones
@@ -171,6 +202,14 @@ export async function generateExampleSentences(
 - 找出該詞的 2-3 個**真正不同的**詞義，每個詞義生成 ${sensesCount} 個例句
 - 找出 2-3 個常見慣用語（idiom），每個生成 ${phraseCount} 個例句
 - 找出 2-3 個常見搭配詞（collocation），每個生成 ${phraseCount} 個例句
+
+搭配詞（collocation）定義：
+- 如果「${query}」是**動詞**：
+  * 不及物動詞：返回常用的「介系詞搭配」（如 look at, look for, look after）
+  * 及物動詞：返回常搭配的「受詞」（如 make a decision, take action, give advice）
+- 如果「${query}」是**名詞**：
+  * 返回常搭配的「形容詞」（如 tough decision, final decision）
+  * 返回「以此名詞為受詞的動詞」（如 make a decision, reach a decision）
 
 如果該詞沒有常見的慣用語或搭配詞，可以返回空陣列。
 

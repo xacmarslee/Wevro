@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "@shared/schema";
 import { db } from "./db";
-import { mindMaps, flashcardDecks, flashcards, users } from "@shared/schema";
+import { mindMaps, flashcardDecks, flashcards, users, userQuotas } from "@shared/schema";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
@@ -9,6 +9,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
+  getUserQuota(userId: string): Promise<any>;
 
   // Mind maps
   getMindMap(id: string, userId: string): Promise<MindMap | undefined>;
@@ -51,6 +52,19 @@ export class DbStorage implements IStorage {
         },
       })
       .returning();
+    
+    // 同時確保 quota 記錄存在（新用戶送 30 點）
+    await db
+      .insert(userQuotas)
+      .values({
+        userId: user.id,
+        plan: "free",
+        tokenBalance: 30,
+        monthlyTokens: 0,
+        quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      })
+      .onConflictDoNothing(); // 如果已存在就忽略
+    
     return user;
   }
 
@@ -60,6 +74,31 @@ export class DbStorage implements IStorage {
       .delete(users)
       .where(eq(users.id, id));
     return result.rowCount !== null && result.rowCount > 0;
+  }
+
+  async getUserQuota(userId: string): Promise<any> {
+    const [quota] = await db
+      .select()
+      .from(userQuotas)
+      .where(eq(userQuotas.userId, userId))
+      .limit(1);
+    
+    // 如果用戶沒有 quota 記錄，創建預設值
+    if (!quota) {
+      const [newQuota] = await db
+        .insert(userQuotas)
+        .values({
+          userId,
+          plan: "free",
+          tokenBalance: 30, // 註冊送 30 點
+          monthlyTokens: 0,
+          quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 明天
+        })
+        .returning();
+      return newQuota;
+    }
+    
+    return quota;
   }
 
   // Mind map methods

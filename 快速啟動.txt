@@ -1,0 +1,75 @@
+Wevro 本地啟動指南
+=====================
+
+【方式 1】最簡單 - 雙擊檔案
+---------------------------------
+1. 找到並雙擊：START_HERE.bat
+2. 等待視窗顯示 "serving on port 5000"
+3. 開啟瀏覽器訪問：http://localhost:5000
+
+
+【方式 2】手動啟動 - 使用終端機
+---------------------------------
+1. 按 Win + R
+2. 輸入：powershell
+3. 複製貼上以下指令（一次一行）：
+
+   cd E:\Projects\Wevro
+   $env:NODE_ENV="development"
+   npx tsx server/index.ts
+
+4. 看到 "serving on port 5000" 後
+5. 開啟瀏覽器訪問：http://localhost:5000
+
+
+【方式 3】使用 VS Code
+---------------------------------
+1. 開啟 VS Code
+2. 開啟專案資料夾：E:\Projects\Wevro
+3. 按 Ctrl + ` 開啟終端機
+4. 輸入：
+
+   $env:NODE_ENV="development"
+   npx tsx server/index.ts
+
+5. 開啟瀏覽器訪問：http://localhost:5000
+
+
+【如果看到錯誤】
+---------------------------------
+❌ "DATABASE_URL environment variable is not set"
+   → 檢查 .env 檔案是否存在且包含 DATABASE_URL
+
+❌ "EADDRINUSE: address already in use"
+   → 端口 5000 被占用，執行：
+     Get-NetTCPConnection -LocalPort 5000 | % { Stop-Process -Id $_.OwningProcess -Force }
+
+❌ 其他錯誤
+   → 截圖錯誤訊息並回報
+
+
+【停止伺服器】
+---------------------------------
+在終端機視窗按：Ctrl + C
+
+
+【重要提示】
+---------------------------------
+✓ 伺服器啟動需要 10-30 秒（第一次會更久）
+✓ 看到 "serving on port 5000" 才是真正啟動
+✓ 不要關閉終端機視窗，否則伺服器會停止
+✓ OpenAI API 需要付費才能使用 AI 功能
+
+
+【目前可用功能】
+---------------------------------
+✓ 查看完整介面
+✓ 手動建立心智圖
+✓ 建立和管理字卡
+✓ 深色/淺色主題切換
+✓ 中文/英文語言切換
+
+⚠ AI 自動生成（需 OpenAI 付費）
+⚠ 翻譯功能（需 OpenAI 付費）
+⚠ 字典查詢（需 OpenAI 付費）
+

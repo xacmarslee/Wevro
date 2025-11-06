@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { CategoryButtons } from "@/components/CategoryButtons";
 import { MindMapCanvas } from "@/components/MindMapCanvas";
@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
-import { Play, Loader2, Undo2, Redo2, Save, Download, Sparkles, Plus } from "lucide-react";
+import { Loader2, Undo2, Redo2, Save, Download, Sparkles, Plus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +43,7 @@ import { LIMITS } from "@/utils/mindmap/constants";
 export default function MindMapEditor() {
   // 路由參數
   const [, params] = useRoute("/mindmap/:id");
+  const [, setLocation] = useLocation();
   const mindMapId = params?.id !== "new" ? params?.id : undefined;
   
   // 語言和翻譯
@@ -80,9 +81,12 @@ export default function MindMapEditor() {
           history.updateNodesWithHistory(() => [newNode]);
           setCenterNodeId(newNode.id);
         }, 100);
+      } else {
+        // 沒有初始單字，返回心智圖列表
+        setLocation('/mindmaps');
       }
     }
-  }, [mindMapId]);
+  }, [mindMapId, setLocation]);
   
   // 載入現有心智圖
   useEffect(() => {
@@ -97,22 +101,6 @@ export default function MindMapEditor() {
     }
   }, [persistence.existingMindMap]);
 
-  // 開始學習（輸入初始單字）
-  const handleStartLearning = () => {
-    if (!initialWord.trim()) return;
-
-    const newNode: MindMapNode = {
-      id: crypto.randomUUID(),
-      word: initialWord.trim(),
-      x: 0,
-      y: 0,
-      isCenter: true,
-    };
-
-    history.updateNodesWithHistory(() => [newNode]);
-    setCenterNodeId(newNode.id);
-    setInitialWord("");
-  };
 
   // Undo
   const handleUndo = () => {
@@ -172,13 +160,10 @@ export default function MindMapEditor() {
     }
   };
 
-  // 確認刪除節點
-  const handleConfirmDeleteNode = () => {
-    if (!nodeOps.deletingNodeId) return;
-
-    const newNodes = nodeOps.deleteNode(history.currentNodes, nodeOps.deletingNodeId);
+  // 刪除節點（直接執行，不需要確認）
+  const handleDeleteNode = (nodeId: string) => {
+    const newNodes = nodeOps.deleteNode(history.currentNodes, nodeId);
     history.updateNodesWithHistory(() => newNodes);
-    nodeOps.closeDeleteDialog();
   };
 
   // 儲存心智圖
@@ -251,72 +236,33 @@ export default function MindMapEditor() {
         </div>
       )}
       
-      {/* 主內容區 */}
-      {history.currentNodes.length === 0 ? (
-        // 空狀態
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="w-full max-w-md space-y-6 text-center">
-            <div>
-              <h2 className="text-4xl font-bold mb-3">{t.appName}</h2>
-              <p className="text-xl text-muted-foreground">{t.tagline}</p>
+      {/* 心智圖編輯區 */}
+      <CategoryButtons
+        onSelectCategory={handleCategorySelect}
+        disabled={!centerNodeId}
+        loading={generation.isGenerating}
+      />
+
+      <div className="flex-1 relative">
+        {generation.isGenerating && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="text-lg font-medium">{t.generating}</p>
             </div>
-
-            <div className="flex gap-2">
-              <Input
-                placeholder={t.enterWord}
-                value={initialWord}
-                onChange={(e) => setInitialWord(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleStartLearning();
-                }}
-                data-testid="input-initial-word"
-                className="text-lg"
-              />
-              <Button
-                onClick={handleStartLearning}
-                disabled={!initialWord.trim()}
-                size="lg"
-                data-testid="button-start-learning"
-              >
-                <Play className="h-5 w-5 mr-2" />
-                {t.startLearning}
-              </Button>
-            </div>
-
-            <p className="text-sm text-muted-foreground">{t.emptyMap}</p>
           </div>
-        </div>
-      ) : (
-        // 心智圖編輯區
-        <>
-          <CategoryButtons
-            onSelectCategory={handleCategorySelect}
-            disabled={!centerNodeId}
-            loading={generation.isGenerating}
-          />
+        )}
 
-          <div className="flex-1 relative">
-            {generation.isGenerating && (
-              <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-                <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                  <p className="text-lg font-medium">{t.generating}</p>
-                </div>
-              </div>
-            )}
-
-            <MindMapCanvas
-              nodes={history.currentNodes}
-              onNodeClick={handleNodeClick}
-              onNodeDelete={nodeOps.openDeleteDialog}
-              onNodeAdd={nodeOps.openAddDialog}
-              centerNodeId={centerNodeId}
-              focusNodeId={focusNodeId}
-              maxNodes={LIMITS.MAX_TOTAL_NODES}
-            />
-          </div>
-        </>
-      )}
+        <MindMapCanvas
+          nodes={history.currentNodes}
+          onNodeClick={handleNodeClick}
+          onNodeDelete={handleDeleteNode}
+          onNodeAdd={nodeOps.openAddDialog}
+          centerNodeId={centerNodeId}
+          focusNodeId={focusNodeId}
+          maxNodes={LIMITS.MAX_TOTAL_NODES}
+        />
+      </div>
 
       {/* 新增節點對話框 */}
       <Dialog 
@@ -355,34 +301,6 @@ export default function MindMapEditor() {
           </div>
         </DialogContent>
       </Dialog>
-      
-      {/* 刪除節點確認對話框 */}
-      <AlertDialog open={!!nodeOps.deletingNodeId} onOpenChange={(open) => !open && nodeOps.closeDeleteDialog()}>
-        <AlertDialogContent data-testid="dialog-delete-node" className="max-w-sm rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {language === "en" ? "Delete Node?" : "刪除節點？"}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {language === "en" 
-                ? `Are you sure you want to delete "${history.currentNodes.find(n => n.id === nodeOps.deletingNodeId)?.word || ''}"? This action cannot be undone.`
-                : `確定要刪除「${history.currentNodes.find(n => n.id === nodeOps.deletingNodeId)?.word || ''}」嗎？此操作無法復原。`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-node">
-              {language === "en" ? "Cancel" : "取消"}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDeleteNode}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-node"
-            >
-              {language === "en" ? "Delete" : "刪除"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       
       {/* 儲存成功確認對話框 */}
       <AlertDialog open={persistence.showSaveConfirmDialog} onOpenChange={persistence.setShowSaveConfirmDialog}>

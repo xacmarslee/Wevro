@@ -4,7 +4,6 @@ import { storage } from "./storage";
 import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators";
 import {
   generateWordsRequestSchema,
-  generateDefinitionRequestSchema,
   generateExamplesRequestSchema,
   generateSynonymsRequestSchema,
   mindMapSchema,
@@ -12,7 +11,6 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { firebaseAuthMiddleware, getFirebaseUserId } from "./firebaseAuth";
-import { lookupWord, getWordStatus, getQueueStatus } from "./dictionary-service";
 import { getUserByUid, deleteUser as deleteFirebaseUser } from "./firebaseAdmin";
 
 // Insert schemas (omit auto-generated fields)
@@ -37,15 +35,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Try to get user from database
       let user = await storage.getUser(userId);
       
-      // If user doesn't exist in database, create from Firebase data
+      // If user doesn't exist in database, create from Firebase token data
       if (!user && req.firebaseUser) {
-        const firebaseUser = await getUserByUid(userId);
+        // Use data from decoded token (no need for getUserByUid which requires Service Account)
         user = await storage.upsertUser({
           id: userId,
-          email: firebaseUser.email,
-          firstName: firebaseUser.displayName?.split(' ')[0],
-          lastName: firebaseUser.displayName?.split(' ').slice(1).join(' '),
-          profileImageUrl: firebaseUser.photoURL,
+          email: req.firebaseUser.email || null,
+          firstName: req.firebaseUser.name?.split(' ')[0] || null,
+          lastName: req.firebaseUser.name?.split(' ').slice(1).join(' ') || null,
+          profileImageUrl: req.firebaseUser.picture || null,
         });
       }
       
@@ -53,6 +51,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Get user quota (tokens and plan)
+  app.get('/api/quota', firebaseAuthMiddleware, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      const quota = await storage.getUserQuota(userId);
+      res.json(quota);
+    } catch (error) {
+      console.error("Error fetching quota:", error);
+      res.status(500).json({ message: "Failed to fetch quota" });
     }
   });
 
@@ -92,101 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Dictionary lookup - returns English immediately, queues Chinese translation
-  app.post("/api/generate-definition", async (req, res) => {
-    try {
-      const validatedData = generateDefinitionRequestSchema.parse(req.body);
-      
-      // Use new dictionary service (returns English, queues translation)
-      const wordEntry = await lookupWord(validatedData.word, 8);  // High priority for direct lookups
-      
-      if (!wordEntry) {
-        return res.status(404).json({
-          error: "Word not found",
-          message: `"${validatedData.word}" not found in dictionary`,
-        });
-      }
-
-      // Return the first sense for compatibility with old API
-      const firstSense = wordEntry.senses[0];
-      
-      if (!firstSense) {
-        return res.status(404).json({
-          error: "No definition found",
-          message: "Word has no definitions",
-        });
-      }
-
-      // Map to old API format for backward compatibility
-      res.json({
-        definition: firstSense.defZhTw || firstSense.defEn || "定義生成中...",
-        partOfSpeech: firstSense.pos === "verb" ? "動詞" :
-                      firstSense.pos === "noun" ? "名詞" :
-                      firstSense.pos === "adjective" ? "形容詞" :
-                      firstSense.pos === "adverb" ? "副詞" : "其他",
-        zhReady: wordEntry.zhReady,  // Indicates if Chinese is ready
-      });
-    } catch (error: any) {
-      console.error("Error in /api/generate-definition:", error);
-      res.status(500).json({
-        error: "Failed to generate definition",
-        message: error.message,
-      });
-    }
-  });
-
-  // NEW: Full dictionary lookup endpoint
-  app.get("/api/dictionary/lookup/:word", async (req, res) => {
-    try {
-      const word = req.params.word;
-      
-      if (!word || word.trim().length === 0) {
-        return res.status(400).json({ error: "Word parameter required" });
-      }
-
-      const wordEntry = await lookupWord(word, 5);
-      
-      if (!wordEntry) {
-        return res.status(404).json({
-          error: "Word not found",
-          message: `"${word}" not found in dictionary`,
-        });
-      }
-
-      res.json(wordEntry);
-    } catch (error: any) {
-      console.error("Error in /api/dictionary/lookup:", error);
-      res.status(500).json({
-        error: "Dictionary lookup failed",
-        message: error.message,
-      });
-    }
-  });
-
-  // NEW: Check translation status (for polling)
-  app.get("/api/dictionary/status/:word", async (req, res) => {
-    try {
-      const word = req.params.word;
-      const status = await getWordStatus(word);
-      
-      if (!status) {
-        return res.status(404).json({ error: "Word not found" });
-      }
-
-      res.json(status);
-    } catch (error: any) {
-      console.error("Error in /api/dictionary/status:", error);
-      res.status(500).json({ error: "Status check failed" });
-    }
-  });
-
-  // NEW: Translation queue status
-  app.get("/api/dictionary/queue-status", (req, res) => {
-    const status = getQueueStatus();
-    res.json(status);
-  });
-
-  // NEW: Generate example sentences for a word/phrase
+  // Generate example sentences for a word/phrase
   app.post("/api/examples/generate", async (req, res) => {
     try {
       const validatedData = generateExamplesRequestSchema.parse(req.body);
@@ -268,67 +184,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // NEW: Dictionary search suggestions (autocomplete)
-  app.get("/api/dictionary/search", async (req, res) => {
-    try {
-      const query = req.query.q as string;
-      
-      if (!query || query.trim().length === 0) {
-        return res.json({ suggestions: [] });
-      }
-
-      const normalizedQuery = query.toLowerCase().trim();
-
-      // Common English words database for suggestions
-      const commonWords = [
-        "abandon", "ability", "able", "about", "above", "abroad", "absence", "absolute", "accept", "access",
-        "accident", "account", "achieve", "acquire", "across", "action", "active", "actual", "add", "address",
-        "admit", "adult", "advance", "advantage", "advice", "affect", "afford", "afraid", "after", "again",
-        "against", "agency", "agent", "agree", "ahead", "allow", "almost", "alone", "along", "already",
-        "also", "alter", "alternative", "although", "always", "amazing", "among", "amount", "analysis", "ancient",
-        "angry", "animal", "announce", "annual", "another", "answer", "anxious", "anybody", "anymore", "anyone",
-        "anything", "anyway", "anywhere", "apart", "apparent", "appear", "apple", "application", "apply", "approach",
-        "appropriate", "approve", "area", "argue", "arise", "around", "arrange", "arrest", "arrive", "article",
-        "artist", "aside", "aspect", "assess", "assign", "assist", "assume", "assure", "attach", "attack",
-        "attempt", "attend", "attention", "attitude", "attract", "audience", "author", "authority", "automatic", "available",
-        "average", "avoid", "aware", "away", "background", "balance", "ball", "band", "bank", "base",
-        "basic", "basis", "battle", "beautiful", "beauty", "because", "become", "before", "begin", "behavior",
-        "behind", "belief", "believe", "belong", "below", "benefit", "beside", "best", "better", "between",
-        "beyond", "bind", "birth", "black", "blame", "blank", "block", "blood", "blow", "blue",
-        "board", "boat", "body", "book", "border", "born", "borrow", "both", "bother", "bottom",
-        "boundary", "brain", "branch", "brave", "break", "brief", "bright", "bring", "broad", "brother",
-        "brown", "budget", "build", "building", "bunch", "burden", "burn", "burst", "business", "busy",
-        "button", "cabinet", "calculate", "call", "camera", "campaign", "campus", "cancel", "cancer", "candidate",
-        "capable", "capacity", "capital", "capture", "carbon", "card", "care", "career", "careful", "carefully",
-        "carry", "case", "cash", "cast", "category", "cause", "celebrate", "cell", "center", "central",
-        "century", "ceremony", "certain", "certainly", "chain", "chair", "challenge", "chamber", "champion", "chance",
-        "change", "channel", "chapter", "character", "charge", "charity", "chart", "chase", "cheap", "check",
-        "chemical", "chest", "chief", "child", "childhood", "choice", "choose", "Christian", "church", "circle",
-        "citizen", "city", "civil", "claim", "class", "classic", "classroom", "clean", "clear", "clearly",
-        "client", "climate", "climb", "clinic", "clock", "close", "closed", "closely", "clothes", "cloud",
-        "club", "coach", "coal", "coast", "coat", "code", "coffee", "cold", "collapse", "colleague",
-        "collect", "collection", "college", "color", "column", "combination", "combine", "come", "comfort", "comfortable",
-        "command", "comment", "commercial", "commission", "commit", "commitment", "committee", "common", "communicate", "communication",
-        "community", "company", "compare", "comparison", "compete", "competition", "competitive", "complain", "complaint", "complete",
-        "create", "creative", "creature", "credit", "crime", "criminal", "crisis", "criterion", "critical", "criticism"
-      ];
-
-      // Filter words that start with the query
-      const suggestions = commonWords
-        .filter(word => word.startsWith(normalizedQuery))
-        .slice(0, 10) // Return top 10 matches
-        .map(word => ({
-          word,
-          // You could add more metadata here from your database if needed
-        }));
-
-      res.json({ suggestions });
-    } catch (error: any) {
-      console.error("Error in /api/dictionary/search:", error);
-      res.status(500).json({ error: "Search failed" });
-    }
-  });
-
   // ===== QUERY/TRANSLATION ENDPOINT REMOVED =====
   // This endpoint was not being used by the frontend and has been removed.
   // If needed in the future, consider implementing a simpler translation service.
@@ -364,7 +219,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = getUserId(req);
       const validatedData = insertMindMapSchema.parse(req.body);
-      const mindMap = await storage.createMindMap(validatedData, userId);
+      const mindMap = await storage.createMindMap({ ...validatedData, userId }, userId);
       res.json(mindMap);
     } catch (error: any) {
       if (error instanceof z.ZodError) {

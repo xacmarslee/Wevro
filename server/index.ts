@@ -63,8 +63,8 @@ app.use((req, res, next) => {
         profileImageUrl: null,
       });
       log('✓ Local dev user ensured');
-    } catch (error) {
-      log('Warning: Could not create local dev user:', error);
+    } catch (error: any) {
+      log('Warning: Could not create local dev user:', error?.message || error);
     }
   }
 

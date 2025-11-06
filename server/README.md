@@ -28,23 +28,7 @@
 
 ---
 
-### `ai-translator.ts` - AI 翻譯器
-**用途：** 翻譯現有內容（不創造新內容）
-
-**函數：**
-1. 🌐 `translateWordSenses(headword, senses)` - 字典義項翻譯
-   - 用於：字典查詢的後台翻譯佇列
-   - 只翻譯從字典 API 獲得的英文內容
-   - 不杜撰新的義項或例句
-
----
-
 ## 📁 其他服務檔案
-
-### 字典相關
-- `dictionary-api.ts` - 外部字典 API 串接
-- `dictionary-service.ts` - 字典查詢服務（快取 + 佇列）
-- `translation-queue.ts` - 翻譯佇列管理
 
 ### 資料庫相關
 - `db.ts` - 資料庫連線
@@ -54,7 +38,8 @@
 - `index.ts` - 主程式進入點
 - `routes.ts` - API 路由定義
 - `vite.ts` - Vite 開發伺服器
-- `replitAuth.ts` - Replit 認證
+- `firebaseAuth.ts` - Firebase 認證中間件
+- `firebaseAdmin.ts` - Firebase Admin SDK
 
 ---
 
@@ -66,14 +51,8 @@
   - 使用者直接觸發
   - 需要較高的創造性
 
-- **翻譯器（Translator）** → `ai-translator.ts`
-  - 翻譯現有內容
-  - 背景自動執行
-  - 忠實翻譯，不創造
-
 ### 命名規範
 - 生成類函數：`generate[功能]`
-- 翻譯類函數：`translate[對象]`
 
 ---
 
@@ -95,10 +74,6 @@ const definitions = await generateBatchDefinitions(["happy", "sad", "excited"]);
 // 同義字比較
 import { generateSynonymComparison } from "./ai-generators";
 const synonyms = await generateSynonymComparison("happy");
-
-// 字典翻譯
-import { translateWordSenses } from "./ai-translator";
-const translations = await translateWordSenses("happy", englishSenses);
 ```
 
 ---
@@ -109,12 +84,20 @@ const translations = await translateWordSenses("happy", englishSenses);
 - ❌ 刪除 `openai.ts`（功能分散，職責不清）
 - ❌ 刪除 `translator.ts`（功能分散）
 - ✅ 創建 `ai-generators.ts`（生成類功能）
-- ✅ 創建 `ai-translator.ts`（翻譯類功能）
 - ✅ 移除重複的 `generateBatchDefinitions`（只保留一個）
 - ✅ 移除未使用的 `generateChineseDefinition`
+
+**2024 年底精簡：**
+- ❌ 移除 `dictionary-api.ts`（字典功能已改為例句查詢）
+- ❌ 移除 `dictionary-service.ts`（字典服務不再使用）
+- ❌ 移除 `translation-queue.ts`（翻譯隊列不再需要）
+- ❌ 移除 `ai-translator.ts`（翻譯功能不再使用）
+- ❌ 移除 `replitAuth.ts`（改用 Firebase Auth）
+- ❌ 移除未使用的 UI 元件（30+ 個）
+- ❌ 移除臨時檔案和資料夾
 
 **優點：**
 - 📦 職責單一，易於維護
 - 🔍 快速找到特定功能的 Prompt
-- 🚀 未來擴展容易（例如：同義字比較功能）
+- 🚀 專注於核心功能：心智圖、字卡、例句、同義字
 

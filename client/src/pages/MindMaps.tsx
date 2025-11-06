@@ -30,8 +30,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Network, Loader2, MoreVertical, Pencil, Trash2, Sparkles } from "lucide-react";
+import { Plus, Loader2, MoreVertical, Pencil, Trash2, Sparkles } from "lucide-react";
 import LogoText from "@/components/LogoText";
+import TokenDisplay from "@/components/TokenDisplay";
 import { format } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -52,13 +53,26 @@ export default function MindMaps() {
   const { data: mindMaps = [], isLoading } = useQuery({
     queryKey: ["/api/mindmaps"],
     queryFn: async () => {
+      console.log("[MindMaps] Fetching mind maps list, isAuthenticated:", isAuthenticated);
+      const token = localStorage.getItem('firebaseToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/mindmaps", {
         credentials: "include",
+        headers,
       });
+      console.log("[MindMaps] Fetch response:", { status: response.status, ok: response.ok });
       if (!response.ok) {
+        const error = await response.text();
+        console.error("[MindMaps] Fetch failed:", error);
         throw new Error("Failed to load mind maps");
       }
-      return await response.json();
+      const data = await response.json();
+      console.log("[MindMaps] Mind maps loaded:", data);
+      return data;
     },
     enabled: isAuthenticated,
   });
@@ -134,12 +148,15 @@ export default function MindMaps() {
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div className="flex items-center gap-3">
-        <LogoText className="text-2xl font-bold text-primary" />
-        <div className="h-6 w-px bg-border" />
-        <h2 className="text-2xl font-semibold">
-          {language === "en" ? "Mind Maps" : "心智圖"}
-        </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <LogoText className="text-2xl font-bold text-primary" />
+          <div className="h-6 w-px bg-border" />
+          <h2 className="text-2xl font-semibold">
+            {language === "en" ? "Mind Maps" : "心智圖"}
+          </h2>
+        </div>
+        <TokenDisplay variant="header" />
       </div>
 
       {isLoading ? (
@@ -147,20 +164,12 @@ export default function MindMaps() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : mindMaps.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Network className="h-5 w-5" />
-              {language === "en" ? "No mind maps yet" : "尚無心智圖"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleCreateNew} data-testid="button-create-first-mindmap">
-              <Plus className="h-4 w-4 mr-2" />
-              {language === "en" ? "Create Mind Map" : "建立心智圖"}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <Button onClick={handleCreateNew} data-testid="button-create-first-mindmap">
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "en" ? "Create Mind Map" : "建立心智圖"}
+          </Button>
+        </div>
       ) : (
         <>
           <Button onClick={handleCreateNew} data-testid="button-create-mindmap">

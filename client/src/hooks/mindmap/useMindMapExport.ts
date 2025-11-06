@@ -31,6 +31,11 @@ export function useMindMapExport() {
     }
     
     try {
+      // 確保字體就緒，避免 fallback 字體導致度量變化
+      if ('fonts' in document) {
+        try { await (document as any).fonts.ready; } catch {}
+      }
+      
       const { PADDING, SCALE, NODE_WIDTH_APPROX, NODE_HEIGHT_APPROX } = EXPORT;
       
       // 計算所有節點的邊界框
@@ -141,10 +146,13 @@ export function useMindMapExport() {
         contentDiv.style.fontWeight = '600';
         contentDiv.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
         contentDiv.style.border = '2px solid';
-        contentDiv.style.padding = '10px 16px';
+        contentDiv.style.padding = '14px 20px';  // 增加上下 padding
         contentDiv.style.fontSize = '18px';
         contentDiv.style.minWidth = '100px';
         contentDiv.style.textAlign = 'center';
+        contentDiv.style.display = 'grid';
+        (contentDiv.style as any).placeItems = 'center';
+        contentDiv.style.rowGap = (node.category && !isCenter) ? '2px' : '0';
         
         if (isCenter) {
           // 中心節點樣式
@@ -170,16 +178,27 @@ export function useMindMapExport() {
         const wordSpan = document.createElement('div');
         wordSpan.textContent = node.word;
         wordSpan.style.whiteSpace = 'nowrap';
+        wordSpan.style.lineHeight = '1.15';  // 略放鬆，更接近視覺置中
+        wordSpan.style.marginTop = '0';
         contentDiv.appendChild(wordSpan);
         
-        // 類別標籤（非中心節點）
+        // 類別標籤（非中心節點）或透明佔位符（中心節點）
         if (node.category && !isCenter) {
           const categorySpan = document.createElement('div');
           categorySpan.textContent = getCategoryLabel(node.category, language);
           categorySpan.style.fontSize = '12px';
-          categorySpan.style.marginTop = '4px';
           categorySpan.style.opacity = '0.7';
+          categorySpan.style.lineHeight = '1.15';
           contentDiv.appendChild(categorySpan);
+        } else if (isCenter) {
+          // 中心節點：添加透明的第二行作為佔位符
+          const placeholderSpan = document.createElement('div');
+          placeholderSpan.textContent = '中心字';
+          placeholderSpan.style.fontSize = '12px';
+          placeholderSpan.style.lineHeight = '1.15';
+          placeholderSpan.style.opacity = '0';  // 完全透明
+          placeholderSpan.style.pointerEvents = 'none';
+          contentDiv.appendChild(placeholderSpan);
         }
         
         nodeDiv.appendChild(contentDiv);
@@ -201,7 +220,7 @@ export function useMindMapExport() {
       // 下載圖片
       const link = document.createElement('a');
       const filename = centerNode 
-        ? `${centerNode.word}-mindmap.png` 
+        ? `${centerNode.word}-Wevro-mindmap.png` 
         : 'mindmap.png';
       
       link.download = filename;

@@ -30,8 +30,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, BookOpen, Loader2, MoreVertical, Pencil, Trash2, Sparkles, Edit, X } from "lucide-react";
+import { Plus, Loader2, MoreVertical, Pencil, Trash2, Sparkles, Edit, X } from "lucide-react";
 import LogoText from "@/components/LogoText";
+import TokenDisplay from "@/components/TokenDisplay";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,13 +59,26 @@ export default function Flashcards() {
   const { data: decks = [], isLoading } = useQuery({
     queryKey: ["/api/flashcards"],
     queryFn: async () => {
+      console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated);
+      const token = localStorage.getItem('firebaseToken');
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       const response = await fetch("/api/flashcards", {
         credentials: "include",
+        headers,
       });
+      console.log("[Flashcards] Fetch response:", { status: response.status, ok: response.ok });
       if (!response.ok) {
+        const error = await response.text();
+        console.error("[Flashcards] Fetch failed:", error);
         throw new Error("Failed to load flashcard decks");
       }
-      return await response.json();
+      const data = await response.json();
+      console.log("[Flashcards] Decks loaded:", data);
+      return data;
     },
     enabled: isAuthenticated,
   });
@@ -91,6 +105,7 @@ export default function Flashcards() {
   // Create mutation
   const createMutation = useMutation({
     mutationFn: async ({ name, words }: { name: string; words: string[] }) => {
+      console.log("[Flashcards] Creating deck:", { name, words });
       const response = await apiRequest("POST", "/api/flashcards/batch-create", { name, words });
       
       if (!response.ok) {
@@ -98,15 +113,23 @@ export default function Flashcards() {
         throw new Error(errorData.message || "Failed to create deck");
       }
       
-      return await response.json();
+      const data = await response.json();
+      console.log("[Flashcards] Deck created successfully:", data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("[Flashcards] onSuccess triggered, invalidating queries");
       queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       setIsCreating(false);
       setDeckName("");
       setWordsList("");
+      toast({
+        title: language === "en" ? "Success" : "成功",
+        description: language === "en" ? "Deck created successfully" : "字卡組建立成功",
+      });
     },
     onError: (error: Error) => {
+      console.error("[Flashcards] Create failed:", error);
       toast({
         title: language === "en" ? "Error" : "錯誤",
         description: error.message || (language === "en" ? "Failed to create deck" : "建立字卡組失敗"),
@@ -167,12 +190,15 @@ export default function Flashcards() {
 
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div className="flex items-center gap-3">
-        <LogoText className="text-2xl font-bold text-primary" />
-        <div className="h-6 w-px bg-border" />
-        <h2 className="text-2xl font-semibold">
-          {language === "en" ? "Flashcards" : "字卡"}
-        </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <LogoText className="text-2xl font-bold text-primary" />
+          <div className="h-6 w-px bg-border" />
+          <h2 className="text-2xl font-semibold">
+            {language === "en" ? "Flashcards" : "字卡"}
+          </h2>
+        </div>
+        <TokenDisplay variant="header" />
       </div>
 
       {isLoading ? (
@@ -180,20 +206,12 @@ export default function Flashcards() {
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : decks.length === 0 ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              {language === "en" ? "No decks yet" : "尚無字卡組"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={handleCreateNew} data-testid="button-create-first-deck">
-              <Plus className="h-4 w-4 mr-2" />
-              {language === "en" ? "Create Deck" : "建立字卡組"}
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <Button onClick={handleCreateNew} data-testid="button-create-first-deck">
+            <Plus className="h-4 w-4 mr-2" />
+            {language === "en" ? "Create Deck" : "建立字卡組"}
+          </Button>
+        </div>
       ) : (
         <>
           <Button onClick={handleCreateNew} data-testid="button-create-deck">

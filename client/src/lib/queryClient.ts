@@ -3,6 +3,7 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
+    console.error(`[API Error] ${res.status}: ${text}`);
     throw new Error(`${res.status}: ${text}`);
   }
 }
@@ -23,11 +24,19 @@ export async function apiRequest(
     headers["Authorization"] = `Bearer ${token}`;
   }
 
+  console.log(`[API Request] ${method} ${url}`, data ? { data } : '');
+
   const res = await fetch(url, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
+  });
+
+  console.log(`[API Response] ${method} ${url}`, {
+    status: res.status,
+    statusText: res.statusText,
+    ok: res.ok,
   });
 
   await throwIfResNotOk(res);
@@ -40,6 +49,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const url = queryKey.join("/") as string;
+    console.log(`[Query] Fetching ${url}`);
+
     // Get Firebase token from localStorage
     const token = localStorage.getItem('firebaseToken');
     
@@ -48,9 +60,15 @@ export const getQueryFn: <T>(options: {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    const res = await fetch(queryKey.join("/") as string, {
+    const res = await fetch(url, {
       credentials: "include",
       headers,
+    });
+
+    console.log(`[Query Response] ${url}`, {
+      status: res.status,
+      statusText: res.statusText,
+      ok: res.ok,
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
@@ -58,7 +76,9 @@ export const getQueryFn: <T>(options: {
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    const data = await res.json();
+    console.log(`[Query Data] ${url}`, data);
+    return data;
   };
 
 export const queryClient = new QueryClient({

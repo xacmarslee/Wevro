@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Search, Copy, Check, BookOpen, Languages, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import LogoText from "@/components/LogoText";
+import TokenDisplay from "@/components/TokenDisplay";
 import type {
   ExamplesResponse,
   SynonymComparisonResponse,
@@ -191,12 +192,15 @@ export default function Query() {
   return (
     <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <LogoText className="text-2xl font-bold text-primary" />
-        <div className="h-6 w-px bg-border" />
-        <h2 className="text-2xl font-semibold">
-          {language === "en" ? "Query" : "查詢"}
-        </h2>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <LogoText className="text-2xl font-bold text-primary" />
+          <div className="h-6 w-px bg-border" />
+          <h2 className="text-2xl font-semibold">
+            {language === "en" ? "Query" : "查詢"}
+          </h2>
+        </div>
+        <TokenDisplay variant="header" />
       </div>
 
       {/* Mode Toggle */}
