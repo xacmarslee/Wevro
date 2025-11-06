@@ -1,5 +1,13 @@
 # Dependencies
-node_modules/
+node_modules
+
+# Android 簽名相關（重要！不要提交）
+*.keystore
+*.jks
+key.properties
+android/key.properties
+android/app/release/
+android/app/build/outputs//
 
 # Build outputs
 dist/

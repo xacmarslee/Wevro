@@ -17,6 +17,8 @@ import Settings from "@/pages/Settings";
 import Pricing from "@/pages/Pricing";
 import Account from "@/pages/Account";
 import Landing from "@/pages/Landing";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
 import NotFound from "@/pages/not-found";
 
 function StartPageRedirect() {
@@ -26,33 +28,52 @@ function StartPageRedirect() {
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
-
-  // Show landing page while loading or not authenticated
-  if (isLoading || !isAuthenticated) {
-    return <Landing />;
-  }
-
-  // Authenticated routes with footer navigation
+  
+  // Public routes accessible without authentication
   return (
-    <div className="flex flex-col h-screen">
-      <div className="flex-1 overflow-hidden">
-        <Switch>
-          <Route path="/landing" component={Landing} />
-          <Route path="/query" component={Query} />
-          <Route path="/flashcards/:id" component={FlashcardPractice} />
-          <Route path="/flashcards" component={Flashcards} />
-          <Route path="/mindmaps" component={MindMaps} />
-          <Route path="/mindmap/new" component={MindMapEditor} />
-          <Route path="/mindmap/:id" component={MindMapEditor} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/pricing" component={Pricing} />
-          <Route path="/account" component={Account} />
-          <Route path="/" component={StartPageRedirect} />
-          <Route component={NotFound} />
-        </Switch>
-      </div>
-      <Footer />
+    <Switch>
+      {/* Public routes */}
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-of-service" component={TermsOfService} />
+      
+      {/* Protected routes */}
+      <Route>
+        {() => {
+          // Show landing page while loading or not authenticated
+          if (isLoading || !isAuthenticated) {
+            return <Landing />;
+          }
+          
+          // Authenticated routes with footer navigation
+          return <AuthenticatedRoutes />;
+        }}
+      </Route>
+    </Switch>
+  );
+}
+
+function AuthenticatedRoutes() {
+  return (
+
+  <div className="flex flex-col h-screen">
+    <div className="flex-1 overflow-hidden">
+      <Switch>
+        <Route path="/landing" component={Landing} />
+        <Route path="/query" component={Query} />
+        <Route path="/flashcards/:id" component={FlashcardPractice} />
+        <Route path="/flashcards" component={Flashcards} />
+        <Route path="/mindmaps" component={MindMaps} />
+        <Route path="/mindmap/new" component={MindMapEditor} />
+        <Route path="/mindmap/:id" component={MindMapEditor} />
+        <Route path="/settings" component={Settings} />
+        <Route path="/pricing" component={Pricing} />
+        <Route path="/account" component={Account} />
+        <Route path="/" component={StartPageRedirect} />
+        <Route component={NotFound} />
+      </Switch>
     </div>
+    <Footer />
+  </div>
   );
 }
 
