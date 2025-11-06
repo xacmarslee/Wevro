@@ -64,56 +64,70 @@ function EnglishPolicy() {
       <h3>2.1 Account Information</h3>
       <p>When you create an account, we collect:</p>
       <ul>
-        <li>Email address</li>
-        <li>Name (optional)</li>
-        <li>Profile information</li>
-        <li>Authentication credentials</li>
+        <li><strong>Email address</strong> (required for login)</li>
+        <li><strong>Password</strong> (encrypted, only if using email registration)</li>
+        <li><strong>Google profile data</strong> (only if signing in with Google):
+          <ul>
+            <li>Display name (optional, automatically provided by Google)</li>
+            <li>Profile photo (optional, automatically provided by Google)</li>
+          </ul>
+        </li>
+      </ul>
+      <p><em>Note: We do NOT ask you to provide your name separately. Name information only comes from Google sign-in if you choose that option.</em></p>
+
+      <h3>2.2 Learning Content</h3>
+      <p>We store the content you create:</p>
+      <ul>
+        <li>Mind maps (words and their relationships)</li>
+        <li>Flashcard decks (words and definitions)</li>
+        <li>Learning progress (which cards you've marked as known)</li>
       </ul>
 
-      <h3>2.2 Usage Data</h3>
-      <p>We collect information about how you use Wevro:</p>
+      <h3>2.3 Usage Data</h3>
+      <p>We track feature usage for token management:</p>
       <ul>
-        <li>Mind maps you create</li>
-        <li>Flashcards you generate and practice</li>
-        <li>Words you look up</li>
-        <li>AI features you use (example sentences, synonyms)</li>
-        <li>Learning progress and statistics</li>
+        <li>Number of AI queries (example sentences, synonym comparisons, flashcard generation)</li>
+        <li>Token balance and usage history</li>
+        <li>Subscription plan (free or pro)</li>
       </ul>
 
-      <h3>2.3 Device Information</h3>
-      <p>We automatically collect certain device information:</p>
+      <h3>2.4 Technical Information</h3>
+      <p>We automatically collect minimal technical data:</p>
       <ul>
-        <li>Device type and model</li>
-        <li>Operating system version</li>
-        <li>App version</li>
-        <li>Language preference</li>
-        <li>Error logs and crash reports</li>
+        <li>Error logs (only when errors occur, for debugging)</li>
+        <li>Language preference setting</li>
+        <li>Theme preference (light/dark mode)</li>
       </ul>
+      <p><em>We do NOT collect device IDs, location data, or browsing history.</em></p>
 
       <h2>3. How We Use Your Information</h2>
-      <p>We use your information to:</p>
+      <p>We use your information ONLY to:</p>
       <ul>
-        <li><strong>Provide Services:</strong> Enable core features like mind maps, flashcards, and AI-generated content</li>
-        <li><strong>Personalization:</strong> Customize your learning experience and track your progress</li>
-        <li><strong>Improvement:</strong> Analyze usage patterns to improve our app and features</li>
-        <li><strong>Communication:</strong> Send important updates, notifications, and support messages</li>
-        <li><strong>Security:</strong> Detect and prevent fraud, abuse, and security issues</li>
+        <li><strong>Provide Services:</strong> Enable mind maps, flashcards, and AI-generated content (definitions, examples, synonyms)</li>
+        <li><strong>Save Your Work:</strong> Store your mind maps and flashcards so you can access them anytime</li>
+        <li><strong>Manage Tokens:</strong> Track your token usage and balance for AI features</li>
+        <li><strong>Authentication:</strong> Verify your identity when you sign in</li>
+        <li><strong>Support:</strong> Help you if you contact us with issues</li>
       </ul>
+      <p><em>We do NOT use your data for advertising, marketing, or selling to third parties.</em></p>
 
       <h2>4. Third-Party Services</h2>
       <p>We use the following third-party services:</p>
       
       <h3>4.1 Firebase (Google)</h3>
       <ul>
-        <li><strong>Purpose:</strong> Authentication, database, and analytics</li>
-        <li><strong>Data Shared:</strong> Email, usage data, device information</li>
+        <li><strong>Purpose:</strong> User authentication only</li>
+        <li><strong>Data Shared:</strong> Email address and authentication tokens</li>
+        <li><strong>NOT Used:</strong> Firebase Analytics, Firebase Crashlytics, or other tracking services</li>
         <li><strong>Privacy Policy:</strong> <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase Privacy</a></li>
       </ul>
 
       <h3>4.2 OpenAI</h3>
       <ul>
-        <li><strong>Purpose:</strong> AI-powered content generation (definitions, examples, synonyms)</li>
-        <li><strong>Data Shared:</strong> Words and phrases you query (no personal information)</li>
+        <li><strong>Purpose:</strong> Generate AI content (word definitions, example sentences, synonym comparisons)</li>
+        <li><strong>Data Shared:</strong> ONLY the English words/phrases you query (e.g., "happy", "accomplish")</li>
+        <li><strong>NOT Shared:</strong> Your email, profile data, or any other personal information</li>
+        <li><strong>Data Retention:</strong> OpenAI does not store the words we send after processing</li>
         <li><strong>Privacy Policy:</strong> <a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI Privacy</a></li>
       </ul>
 
@@ -233,56 +247,70 @@ function ChinesePolicy() {
       <h3>2.1 帳號資訊</h3>
       <p>當您建立帳號時，我們會收集：</p>
       <ul>
-        <li>電子郵件地址</li>
-        <li>姓名（選填）</li>
-        <li>個人資料</li>
-        <li>身份驗證憑證</li>
+        <li><strong>電子郵件地址</strong>（用於登入，必需）</li>
+        <li><strong>密碼</strong>（已加密，僅在使用 Email 註冊時）</li>
+        <li><strong>Google 個人資料</strong>（僅在使用 Google 登入時）：
+          <ul>
+            <li>顯示名稱（選用，由 Google 自動提供）</li>
+            <li>大頭照（選用，由 Google 自動提供）</li>
+          </ul>
+        </li>
+      </ul>
+      <p><em>注意：我們「不會」要求您填寫姓名。姓名資訊僅在您選擇 Google 登入時由 Google 自動提供。</em></p>
+
+      <h3>2.2 學習內容</h3>
+      <p>我們儲存您建立的內容：</p>
+      <ul>
+        <li>心智圖（單字及其關聯）</li>
+        <li>字卡組（單字和定義）</li>
+        <li>學習進度（您標記為已知的字卡）</li>
       </ul>
 
-      <h3>2.2 使用數據</h3>
-      <p>我們收集您如何使用 Wevro 的資訊：</p>
+      <h3>2.3 使用數據</h3>
+      <p>我們追蹤功能使用情況以管理點數：</p>
       <ul>
-        <li>您建立的心智圖</li>
-        <li>您生成和練習的字卡</li>
-        <li>您查詢的單字</li>
-        <li>您使用的 AI 功能（例句、同義詞）</li>
-        <li>學習進度和統計數據</li>
+        <li>AI 查詢次數（例句生成、同義詞比較、字卡生成）</li>
+        <li>點數餘額和使用歷史</li>
+        <li>訂閱方案（免費或 Pro）</li>
       </ul>
 
-      <h3>2.3 設備資訊</h3>
-      <p>我們自動收集某些設備資訊：</p>
+      <h3>2.4 技術資訊</h3>
+      <p>我們自動收集最少量的技術資料：</p>
       <ul>
-        <li>設備類型和型號</li>
-        <li>作業系統版本</li>
-        <li>應用程式版本</li>
-        <li>語言偏好</li>
-        <li>錯誤日誌和崩潰報告</li>
+        <li>錯誤日誌（僅在發生錯誤時，用於除錯）</li>
+        <li>語言偏好設定</li>
+        <li>主題偏好（亮色/暗色模式）</li>
       </ul>
+      <p><em>我們「不會」收集裝置 ID、位置資訊或瀏覽歷史。</em></p>
 
       <h2>3. 我們如何使用您的資訊</h2>
-      <p>我們使用您的資訊來：</p>
+      <p>我們「僅」將您的資訊用於：</p>
       <ul>
-        <li><strong>提供服務：</strong>啟用核心功能，如心智圖、字卡和 AI 生成內容</li>
-        <li><strong>個人化：</strong>自訂您的學習體驗並追蹤您的進度</li>
-        <li><strong>改進：</strong>分析使用模式以改進我們的應用程式和功能</li>
-        <li><strong>通訊：</strong>發送重要更新、通知和支援訊息</li>
-        <li><strong>安全：</strong>偵測和防止詐騙、濫用和安全問題</li>
+        <li><strong>提供服務：</strong>啟用心智圖、字卡和 AI 生成內容（定義、例句、同義詞）</li>
+        <li><strong>保存您的作品：</strong>儲存您的心智圖和字卡，讓您隨時可以存取</li>
+        <li><strong>管理點數：</strong>追蹤您的點數使用情況和餘額</li>
+        <li><strong>身份驗證：</strong>在您登入時驗證您的身份</li>
+        <li><strong>客戶支援：</strong>在您聯繫我們時協助解決問題</li>
       </ul>
+      <p><em>我們「不會」將您的資料用於廣告、行銷或販售給第三方。</em></p>
 
       <h2>4. 第三方服務</h2>
       <p>我們使用以下第三方服務：</p>
       
       <h3>4.1 Firebase (Google)</h3>
       <ul>
-        <li><strong>用途：</strong>身份驗證、資料庫和分析</li>
-        <li><strong>共享數據：</strong>電子郵件、使用數據、設備資訊</li>
+        <li><strong>用途：</strong>僅用於使用者身份驗證</li>
+        <li><strong>共享數據：</strong>電子郵件地址和身份驗證令牌</li>
+        <li><strong>未使用：</strong>Firebase Analytics、Firebase Crashlytics 或其他追蹤服務</li>
         <li><strong>隱私政策：</strong><a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase 隱私</a></li>
       </ul>
 
       <h3>4.2 OpenAI</h3>
       <ul>
-        <li><strong>用途：</strong>AI 驅動的內容生成（定義、例句、同義詞）</li>
-        <li><strong>共享數據：</strong>您查詢的單字和短語（不包含個人資訊）</li>
+        <li><strong>用途：</strong>生成 AI 內容（單字定義、例句、同義詞比較）</li>
+        <li><strong>共享數據：</strong>「僅」您查詢的英文單字/短語（例如：「happy」、「accomplish」）</li>
+        <li><strong>不會共享：</strong>您的電子郵件、個人資料或任何其他個人資訊</li>
+        <li><strong>資料保留：</strong>OpenAI 處理完畢後不會儲存我們發送的單字</li>
         <li><strong>隱私政策：</strong><a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI 隱私</a></li>
       </ul>
 
