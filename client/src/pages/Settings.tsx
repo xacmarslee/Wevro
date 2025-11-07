@@ -129,8 +129,8 @@ export default function Settings() {
             data-testid="button-pricing"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                <CreditCard className="h-4 w-4 text-primary" />
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <CreditCard className="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
                 <div className="font-medium">
