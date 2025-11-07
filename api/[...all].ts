@@ -10,3 +10,8 @@ export default async function handler(req: any, res: any) {
   return app(req, res);
 }
 
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
