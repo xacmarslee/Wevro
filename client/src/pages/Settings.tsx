@@ -120,11 +120,6 @@ export default function Settings() {
 
         <Separator />
 
-        {/* Token Display */}
-        <TokenDisplay variant="full" />
-
-        <Separator />
-
         {/* Navigation Items */}
         <div className="space-y-3">
           {/* Pricing */}
@@ -218,7 +213,7 @@ export default function Settings() {
         {/* Version Info */}
         <div className="pt-6 text-center text-xs text-muted-foreground">
           <div>Wevro v1.0.0</div>
-          <div className="mt-1">© 2024 Wevro. All rights reserved.</div>
+          <div className="mt-1">© 2025 Wevro. All rights reserved.</div>
         </div>
       </div>
     </div>
