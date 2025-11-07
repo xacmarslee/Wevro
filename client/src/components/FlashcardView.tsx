@@ -172,6 +172,17 @@ export function FlashcardView({
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  // Get dynamic font size based on word length
+  const getWordFontSize = (word: string): string => {
+    const length = word.length;
+    if (length <= 8) return "text-6xl"; // Very large for short words
+    if (length <= 12) return "text-5xl"; // Large
+    if (length <= 16) return "text-4xl"; // Medium-large
+    if (length <= 20) return "text-3xl"; // Medium
+    if (length <= 25) return "text-2xl"; // Medium-small
+    return "text-xl"; // Small for very long words
+  };
+
   // Reset current mode's progress
   const handleReset = () => {
     setCurrentIndex(0);
@@ -579,26 +590,26 @@ export function FlashcardView({
                     style={{ backfaceVisibility: "hidden" }}
                     data-testid="flashcard-front"
                   >
-                    <div className="text-center">
+                    <div className="text-center w-full px-4">
                       {!reverseMode ? (
-                        <p className="text-5xl font-bold text-card-foreground">
+                        <p className={`${getWordFontSize(currentCard.word)} font-bold text-card-foreground break-words hyphens-auto`}>
                           {currentCard.word}
                         </p>
                       ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-4 w-full px-4">
                           {/* Check if definition already has pos labels (new format) */}
                           {currentCard.definition.includes('n.') || currentCard.definition.includes('v.') || 
                            currentCard.definition.includes('adj.') || currentCard.definition.includes('adv.') ? (
                             // New format: definition already has pos labels, split by newline
                             currentCard.definition.split('\n').map((line, idx) => (
-                              <p key={idx} className="text-3xl font-semibold leading-relaxed text-card-foreground">
+                              <p key={idx} className="text-2xl md:text-3xl font-semibold leading-relaxed text-card-foreground break-words">
                                 {line}
                               </p>
                             ))
                           ) : (
                             // Old format: add pos label manually
                             <div className="space-y-2">
-                              <p className="text-3xl font-semibold leading-relaxed text-card-foreground">
+                              <p className="text-2xl md:text-3xl font-semibold leading-relaxed text-card-foreground break-words">
                                 {getPosAbbr(currentCard.partOfSpeech)} {currentCard.definition}
                               </p>
                             </div>
@@ -622,29 +633,29 @@ export function FlashcardView({
                     } : {}}
                     data-testid="flashcard-back"
                   >
-                    <div className="text-center space-y-6">
+                    <div className="text-center space-y-6 w-full px-4">
                       {(mode === "spelling" || !reverseMode) ? (
-                        <div className="space-y-4">
+                        <div className="space-y-4 w-full">
                           {/* Check if definition already has pos labels (new format) */}
                           {currentCard.definition.includes('n.') || currentCard.definition.includes('v.') || 
                            currentCard.definition.includes('adj.') || currentCard.definition.includes('adv.') ? (
                             // New format: definition already has pos labels, split by newline
                             currentCard.definition.split('\n').map((line, idx) => (
-                              <p key={idx} className={`text-3xl font-semibold leading-relaxed ${mode === "spelling" ? "text-card-foreground" : ""}`}>
+                              <p key={idx} className={`text-2xl md:text-3xl font-semibold leading-relaxed break-words ${mode === "spelling" ? "text-card-foreground" : ""}`}>
                                 {line}
                               </p>
                             ))
                           ) : (
                             // Old format: add pos label manually
                             <div className="space-y-2">
-                              <p className={`text-3xl font-semibold leading-relaxed ${mode === "spelling" ? "text-card-foreground" : ""}`}>
+                              <p className={`text-2xl md:text-3xl font-semibold leading-relaxed break-words ${mode === "spelling" ? "text-card-foreground" : ""}`}>
                                 {getPosAbbr(currentCard.partOfSpeech)} {currentCard.definition}
                               </p>
                             </div>
                           )}
                         </div>
                       ) : (
-                        <p className="text-5xl font-bold">
+                        <p className={`${getWordFontSize(currentCard.word)} font-bold break-words hyphens-auto`}>
                           {currentCard.word}
                         </p>
                       )}
