@@ -1,5 +1,4 @@
 import type { Express } from "express";
-import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators";
 import {
@@ -24,7 +23,7 @@ function getUserId(req: any): string {
   return getFirebaseUserId(req);
 }
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export async function registerRoutes(app: Express): Promise<void> {
   console.log('✅ Using Firebase Authentication');
 
   // Auth route: Get current user
@@ -491,6 +490,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 這些端點將在 App 上架後由原生支付系統處理
   // Web 版本如需支付功能，可考慮整合 Stripe
 
-  const httpServer = createServer(app);
-  return httpServer;
 }
