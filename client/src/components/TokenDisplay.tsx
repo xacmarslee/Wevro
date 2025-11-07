@@ -19,7 +19,10 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
   const { data: quota, isLoading, error } = useQuery({
     queryKey: ["/api/quota"],
     queryFn: async () => {
+      console.log('[TokenDisplay] Fetching quota, isAuthenticated:', isAuthenticated);
       const token = localStorage.getItem('firebaseToken');
+      console.log('[TokenDisplay] Has token:', !!token);
+      
       const headers: Record<string, string> = {};
       
       if (token) {
@@ -31,25 +34,39 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
         headers,
       });
       
+      console.log('[TokenDisplay] Quota response:', { status: response.status, ok: response.ok });
+      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Quota error:', errorText);
+        console.error('[TokenDisplay] Quota error:', errorText);
         throw new Error(`Failed to load quota: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('[TokenDisplay] Quota data:', data);
       return data;
     },
     enabled: isAuthenticated,
     refetchInterval: 30000, // 每 30 秒更新一次
   });
 
+  console.log('[TokenDisplay] State:', { isAuthenticated, isLoading, hasQuota: !!quota, error });
+
   if (!isAuthenticated) {
+    console.log('[TokenDisplay] Not authenticated, hiding');
     return null;
   }
 
-  // 載入中時不顯示
-  if (isLoading || !quota) {
+  // 載入中時顯示載入狀態（避免閃爍）
+  if (isLoading) {
+    console.log('[TokenDisplay] Loading...');
+    return variant === "header" ? (
+      <div className="w-16 h-8 bg-muted/50 animate-pulse rounded" />
+    ) : null;
+  }
+
+  if (!quota) {
+    console.log('[TokenDisplay] No quota data, error:', error);
     return null;
   }
 
