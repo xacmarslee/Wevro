@@ -2,7 +2,7 @@ import { config } from "dotenv";
 config();
 
 import { createServer } from "http";
-import { createApp } from "./app";
+import { createApp } from "../api/_lib/create-app";
 import { setupVite, serveStatic, log } from "./vite";
 
 (async () => {

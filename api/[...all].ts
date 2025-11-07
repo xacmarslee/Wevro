@@ -1,7 +1,7 @@
 import { config as loadEnv } from "dotenv";
 loadEnv();
 
-import { createApp } from "../server/app";
+import { createApp } from "./_lib/create-app";
 
 const appPromise = createApp();
 
