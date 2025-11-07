@@ -125,53 +125,54 @@ export default function Settings() {
 
         <Separator />
 
-        {/* Pricing Section */}
-        <button
-          onClick={() => setLocation("/pricing")}
-          className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
-          data-testid="button-pricing"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <CreditCard className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <div className="font-medium">
-                {language === "en" ? "Pricing & Subscription" : "訂閱方案"}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {language === "en" ? "View plans and upgrade" : "查看方案與升級"}
-              </div>
-            </div>
-          </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
-        </button>
-
-        <Separator />
-
-        {/* Account Section */}
-        {isAuthenticated && user ? (
+        {/* Navigation Items */}
+        <div className="space-y-3">
+          {/* Pricing */}
           <button
-            onClick={() => setLocation("/account")}
+            onClick={() => setLocation("/pricing")}
             className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
-            data-testid="button-account"
+            data-testid="button-pricing"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
-                <User2 className="h-4 w-4 text-muted-foreground" />
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                <CreditCard className="h-4 w-4 text-primary" />
               </div>
               <div>
                 <div className="font-medium">
-                  {language === "en" ? "Account" : "帳號管理"}
+                  {language === "en" ? "Pricing & Subscription" : "訂閱方案"}
                 </div>
-                <div className="text-xs text-muted-foreground truncate max-w-[200px]">
-                  {user.email}
+                <div className="text-xs text-muted-foreground">
+                  {language === "en" ? "View plans and upgrade" : "查看方案與升級"}
                 </div>
               </div>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
-        ) : null}
+
+          {/* Account */}
+          {isAuthenticated && user ? (
+            <button
+              onClick={() => setLocation("/account")}
+              className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
+              data-testid="button-account"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                  <User2 className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div>
+                  <div className="font-medium">
+                    {language === "en" ? "Account" : "帳號管理"}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+                    {user.email}
+                  </div>
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            </button>
+          ) : null}
+        </div>
 
         <Separator />
 
@@ -212,6 +213,12 @@ export default function Settings() {
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
+        </div>
+
+        {/* Version Info */}
+        <div className="pt-6 text-center text-xs text-muted-foreground">
+          <div>Wevro v1.0.0</div>
+          <div className="mt-1">© 2024 Wevro. All rights reserved.</div>
         </div>
       </div>
     </div>
