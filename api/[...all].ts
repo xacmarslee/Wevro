@@ -1,5 +1,5 @@
-import { config } from "dotenv";
-config();
+import { config as loadEnv } from "dotenv";
+loadEnv();
 
 import { createApp } from "../server/app";
 
