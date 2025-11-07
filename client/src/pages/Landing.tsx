@@ -72,9 +72,7 @@ export default function Landing() {
           <div className="relative">
             <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse" />
             <div className="w-32 h-32 flex items-center justify-center relative z-10">
-              <div className="text-7xl font-bold" style={{ fontFamily: 'Quicksand, sans-serif' }}>
-                <span className="text-primary">W</span>
-              </div>
+              <img src="/logo.png" alt="Wevro Logo" className="w-full h-full object-contain" />
             </div>
           </div>
         </div>
