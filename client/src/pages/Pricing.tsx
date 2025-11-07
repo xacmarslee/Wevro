@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, Sparkles, Zap, ChevronLeft, Coins, Gift } from "lucide-react";
+import { Check, Sparkles, Zap, ChevronLeft, Coins } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
