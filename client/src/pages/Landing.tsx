@@ -252,6 +252,23 @@ export default function Landing() {
               </form>
             </div>
           )}
+
+          {/* Legal Links */}
+          <div className="pt-4 flex items-center justify-center gap-4 text-xs text-muted-foreground animate-in fade-in duration-700 delay-500">
+            <button
+              onClick={() => setLocation("/privacy-policy")}
+              className="hover:text-primary transition-colors underline-offset-4 hover:underline"
+            >
+              {language === "en" ? "Privacy Policy" : "隱私政策"}
+            </button>
+            <span>•</span>
+            <button
+              onClick={() => setLocation("/terms-of-service")}
+              className="hover:text-primary transition-colors underline-offset-4 hover:underline"
+            >
+              {language === "en" ? "Terms of Service" : "使用條款"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

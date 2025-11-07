@@ -25,7 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronRight, CreditCard, User2 } from "lucide-react";
+import { ChevronRight, CreditCard, User2, FileText, Shield } from "lucide-react";
 import { useLocation } from "wouter";
 import TokenDisplay from "@/components/TokenDisplay";
 
@@ -172,6 +172,47 @@ export default function Settings() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
         ) : null}
+
+        <Separator />
+
+        {/* Legal Section */}
+        <div className="space-y-3">
+          <button
+            onClick={() => setLocation("/privacy-policy")}
+            className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
+            data-testid="button-privacy-policy"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <Shield className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="font-medium">
+                  {language === "en" ? "Privacy Policy" : "隱私政策"}
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
+
+          <button
+            onClick={() => setLocation("/terms-of-service")}
+            className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"
+            data-testid="button-terms"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </div>
+              <div>
+                <div className="font-medium">
+                  {language === "en" ? "Terms of Service" : "使用條款"}
+                </div>
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          </button>
+        </div>
       </div>
     </div>
   );
