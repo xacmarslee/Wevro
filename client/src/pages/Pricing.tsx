@@ -101,12 +101,6 @@ export default function Pricing() {
               <span className="text-sm">{language === "en" ? "Mind Map expansion" : "心智圖擴展"}</span>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-semibold text-green-600">
-                {language === "en" ? "FREE" : "免費"}
-              </Badge>
-              <span className="text-sm">{language === "en" ? "Dictionary lookup" : "字典查詢"}</span>
-            </div>
-            <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs font-semibold">1 {language === "en" ? "token" : "點"}</Badge>
               <span className="text-sm">{language === "en" ? "Flashcards (10 cards)" : "字卡生成（10 張）"}</span>
             </div>
@@ -158,8 +152,8 @@ export default function Pricing() {
                 <Check className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <span className="text-sm">
                   {language === "en" 
-                    ? "Unlimited mind maps & dictionary" 
-                    : "無限制心智圖與字典查詢"}
+                    ? "Unlimited mind map expansion" 
+                    : "無限制心智圖擴展"}
                 </span>
               </div>
               <div className="flex items-start gap-2">
