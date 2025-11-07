@@ -198,8 +198,8 @@ function EnglishPolicy() {
         contact us:
       </p>
       <ul>
-        <li><strong>Email:</strong> privacy@wevro.app</li>
-        <li><strong>App:</strong> Settings → Help & Support</li>
+        <li><strong>Email:</strong> xacmarslee@gmail.com</li>
+        <li><strong>App:</strong> Settings → Account</li>
       </ul>
 
       <h2>12. GDPR Compliance (For EU Users)</h2>
@@ -373,8 +373,8 @@ function ChinesePolicy() {
       <h2>11. 聯繫我們</h2>
       <p>如果您對本隱私政策或您的數據有疑問或疑慮，請聯繫我們：</p>
       <ul>
-        <li><strong>電子郵件：</strong>privacy@wevro.app</li>
-        <li><strong>應用程式：</strong>設定 → 幫助與支援</li>
+        <li><strong>電子郵件：</strong>xacmarslee@gmail.com</li>
+        <li><strong>應用程式：</strong>設定 → 帳號管理</li>
       </ul>
 
       <h2>12. GDPR 合規（歐盟用戶）</h2>
