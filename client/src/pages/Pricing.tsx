@@ -150,7 +150,7 @@ export default function Pricing() {
                     {language === "en" ? "30 tokens on signup" : "註冊送 30 點"}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {language === "en" ? "Plus 1 token per day for daily login" : "每日登入額外送 1 點"}
+                    {language === "en" ? "Get started immediately" : "立即開始使用"}
                   </div>
                 </div>
               </div>
@@ -390,8 +390,8 @@ export default function Pricing() {
               <div className="font-semibold">{language === "en" ? "Free Plan" : "免費方案"}</div>
               <div className="text-muted-foreground">
                 {language === "en" 
-                  ? "Start with 30 tokens + 1 daily. Perfect for trying out features."
-                  : "30 點註冊禮 + 每日 1 點，適合探索功能。"}
+                  ? "Start with 30 tokens. Perfect for trying out features."
+                  : "30 點註冊禮，適合探索功能。"}
               </div>
             </div>
             
