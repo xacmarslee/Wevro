@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, Sparkles, Zap, ChevronLeft, Coins } from "lucide-react";
+import { Check, Sparkles, Zap, ChevronLeft, Coins, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -306,7 +306,7 @@ export default function Pricing() {
             <Card className="shadow-md border-slate-200">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Gift className="h-5 w-5 text-slate-500" />
+                  <Package className="h-5 w-5 text-slate-500" />
                   S
                 </CardTitle>
                 <CardDescription className="text-2xl font-bold text-foreground">
@@ -331,7 +331,7 @@ export default function Pricing() {
             <Card className="border-primary shadow-lg border-2">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Gift className="h-5 w-5 text-primary" />
+                  <Package className="h-5 w-5 text-primary" />
                   M
                 </CardTitle>
                 <CardDescription className="text-2xl font-bold text-foreground">
@@ -356,7 +356,7 @@ export default function Pricing() {
             <Card className="border-amber-500 shadow-md border-2">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                  <Gift className="h-5 w-5 text-amber-600" />
+                  <Package className="h-5 w-5 text-amber-600" />
                   L
                 </CardTitle>
                 <CardDescription className="text-2xl font-bold text-foreground">
