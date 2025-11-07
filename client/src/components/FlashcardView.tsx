@@ -180,7 +180,8 @@ export function FlashcardView({
     if (length <= 16) return "text-4xl"; // Medium-large
     if (length <= 20) return "text-3xl"; // Medium
     if (length <= 25) return "text-2xl"; // Medium-small
-    return "text-xl"; // Small for very long words
+    if (length <= 30) return "text-xl"; // Small
+    return "text-lg"; // Very small for extremely long words
   };
 
   // Reset current mode's progress
@@ -592,7 +593,7 @@ export function FlashcardView({
                   >
                     <div className="text-center w-full px-4">
                       {!reverseMode ? (
-                        <p className={`${getWordFontSize(currentCard.word)} font-bold text-card-foreground break-words hyphens-auto`}>
+                        <p className={`${getWordFontSize(currentCard.word)} font-bold text-card-foreground whitespace-normal break-normal`}>
                           {currentCard.word}
                         </p>
                       ) : (
@@ -602,14 +603,14 @@ export function FlashcardView({
                            currentCard.definition.includes('adj.') || currentCard.definition.includes('adv.') ? (
                             // New format: definition already has pos labels, split by newline
                             currentCard.definition.split('\n').map((line, idx) => (
-                              <p key={idx} className="text-2xl md:text-3xl font-semibold leading-relaxed text-card-foreground break-words">
+                              <p key={idx} className="text-2xl md:text-3xl font-semibold leading-relaxed text-card-foreground whitespace-normal break-normal">
                                 {line}
                               </p>
                             ))
                           ) : (
                             // Old format: add pos label manually
                             <div className="space-y-2">
-                              <p className="text-2xl md:text-3xl font-semibold leading-relaxed text-card-foreground break-words">
+                              <p className="text-2xl md:text-3xl font-semibold leading-relaxed text-card-foreground whitespace-normal break-normal">
                                 {getPosAbbr(currentCard.partOfSpeech)} {currentCard.definition}
                               </p>
                             </div>
@@ -641,21 +642,21 @@ export function FlashcardView({
                            currentCard.definition.includes('adj.') || currentCard.definition.includes('adv.') ? (
                             // New format: definition already has pos labels, split by newline
                             currentCard.definition.split('\n').map((line, idx) => (
-                              <p key={idx} className={`text-2xl md:text-3xl font-semibold leading-relaxed break-words ${mode === "spelling" ? "text-card-foreground" : ""}`}>
+                              <p key={idx} className={`text-2xl md:text-3xl font-semibold leading-relaxed whitespace-normal break-normal ${mode === "spelling" ? "text-card-foreground" : ""}`}>
                                 {line}
                               </p>
                             ))
                           ) : (
                             // Old format: add pos label manually
                             <div className="space-y-2">
-                              <p className={`text-2xl md:text-3xl font-semibold leading-relaxed break-words ${mode === "spelling" ? "text-card-foreground" : ""}`}>
+                              <p className={`text-2xl md:text-3xl font-semibold leading-relaxed whitespace-normal break-normal ${mode === "spelling" ? "text-card-foreground" : ""}`}>
                                 {getPosAbbr(currentCard.partOfSpeech)} {currentCard.definition}
                               </p>
                             </div>
                           )}
                         </div>
                       ) : (
-                        <p className={`${getWordFontSize(currentCard.word)} font-bold break-words hyphens-auto`}>
+                        <p className={`${getWordFontSize(currentCard.word)} font-bold whitespace-normal break-normal`}>
                           {currentCard.word}
                         </p>
                       )}
