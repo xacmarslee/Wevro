@@ -1,11 +1,13 @@
-import { config } from "dotenv";
-config();
-
 import { createServer } from "http";
 import { createApp } from "../api/lib/create-app.js";
 import { setupVite, serveStatic, log } from "./vite";
 
 (async () => {
+  if (process.env.NODE_ENV !== "production") {
+    const { config } = await import("dotenv");
+    config();
+  }
+
   // Ensure local dev user exists in database (for local development only)
   if (!process.env.REPL_ID) {
     const { storage } = await import("./storage");
