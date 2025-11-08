@@ -162,8 +162,13 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
   const unknownCount = Array.from(sessionResults.values()).filter((result) => result === "unknown").length;
   
   // Progress based on swiped cards (not just viewed)
-  const swipedCount = sessionResults.size;
-  const progress = (swipedCount / displayCards.length) * 100;
+  const processedCount = Math.min(
+    mode === "flip" ? sessionResults.size : processedCardIds.length,
+    displayCards.length
+  );
+  const swipedCount = processedCount;
+  const progress =
+    displayCards.length === 0 ? 0 : (processedCount / displayCards.length) * 100;
 
   // Format time as MM:SS
   const formatTime = (seconds: number): string => {
@@ -257,14 +262,15 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     setProcessedCardIds(nextProcessedIds);
 
     const processedSet = new Set(nextProcessedIds);
+    const totalCards = displayCards.length;
 
     const findNextIndex = () => {
-      for (let i = currentIndex + 1; i < displayCards.length; i++) {
+      for (let i = currentIndex + 1; i < totalCards; i++) {
         if (!processedSet.has(displayCards[i].id)) {
           return i;
         }
       }
-      for (let i = 0; i < displayCards.length; i++) {
+      for (let i = 0; i < totalCards; i++) {
         if (!processedSet.has(displayCards[i].id)) {
           return i;
         }
@@ -272,13 +278,17 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
       return -1;
     };
 
-    const nextIndex = findNextIndex();
-
-    if (nextIndex === -1) {
+    if (totalCards === 0 || nextProcessedIds.length >= totalCards) {
       setSpellingIsCompleted(true);
-      setCurrentIndex(displayCards.length);
+      setCurrentIndex(totalCards);
     } else {
-      setCurrentIndex(nextIndex);
+      const nextIndex = findNextIndex();
+      if (nextIndex === -1) {
+        setSpellingIsCompleted(true);
+        setCurrentIndex(totalCards);
+      } else {
+        setCurrentIndex(nextIndex);
+      }
     }
 
     setSpellingInput("");

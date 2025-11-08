@@ -460,6 +460,9 @@ export async function generateBatchDefinitions(
       auxiliary: "aux.",
       phr: "phr.",
       phrase: "phr.",
+      idiom: "phr.",
+      idioms: "phr.",
+      collocation: "phr.",
       int: "int.",
       interjection: "int.",
       conj: "conj.",
@@ -476,6 +479,12 @@ export async function generateBatchDefinitions(
       if (!trimmed) return null;
       const key = trimmed.toLowerCase();
       return canonicalPosMap[key] || `${trimmed}.`;
+    };
+
+    const isRecognizedPosToken = (token: string | null) => {
+      if (!token) return false;
+      const normalized = token.replace(/\./g, "").toLowerCase();
+      return canonicalPosMap[normalized] !== undefined;
     };
 
     const sanitizeDefinitionLine = (line: string) => {
@@ -496,7 +505,7 @@ export async function generateBatchDefinitions(
         }
 
         // Only treat as POS token if it matches canonical list
-        if (normalized && canonicalPosMap[normalized.replace(/\./g, "")] !== undefined) {
+        if (isRecognizedPosToken(normalized)) {
           if (!posTokens.some((existing) => existing.toLowerCase() === normalized.toLowerCase())) {
             posTokens.push(normalized);
           }
@@ -524,7 +533,7 @@ export async function generateBatchDefinitions(
         let cleanedPos = def.partOfSpeech;
         if (typeof cleanedPos === "string") {
           const posParts = cleanedPos
-            .split(/[,、]/)
+            .split(/[,、\s]+/)
             .map((p: string) => normalizePosToken(p) || p.trim())
             .filter(Boolean) as string[];
           const uniqueParts: string[] = [];
@@ -536,11 +545,16 @@ export async function generateBatchDefinitions(
           cleanedPos = uniqueParts.join(", ");
         }
 
-        const sanitizedDefinition = String(def.definition)
+        let sanitizedDefinition = String(def.definition)
           .split(/\r?\n/)
           .map(sanitizeDefinitionLine)
           .filter((line) => line && line.trim().length > 0)
           .join("\n");
+
+        // Remove duplicated POS prefixes that might slip through (e.g., "phr. phr.")
+        sanitizedDefinition = sanitizedDefinition
+          .replace(/\b([A-Za-z]{1,10}\.)\s+\1\b/g, "$1")
+          .replace(/\b([A-Za-z]{1,10}\.),\s*\1\b/g, "$1");
         
         return {
           word: def.word,
