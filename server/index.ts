@@ -35,8 +35,7 @@ const baseLog = (...args: unknown[]) => console.log(...args);
   let logFn: (...args: any[]) => void = baseLog;
 
   if (dev) {
-    const modulePath = process.env.VITE_DEV_MODULE ?? "./vite";
-    const { setupVite, log } = await import(modulePath);
+    const { setupVite, log } = await import("./vite.js");
     await setupVite(app, server);
     logFn = log;
     logFn("✓ Vite dev server attached");
