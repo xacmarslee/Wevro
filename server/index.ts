@@ -4,7 +4,8 @@ import { serveStatic } from "./static.js";
 
 declare const __DEV__: boolean | undefined;
 
-const dev = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
+const devFlag = typeof __DEV__ === "boolean" ? __DEV__ : undefined;
+const dev = devFlag ?? process.env.NODE_ENV !== "production";
 const baseLog = (...args: unknown[]) => console.log(...args);
 
 (async () => {
