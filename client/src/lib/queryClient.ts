@@ -1,5 +1,23 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+const API_BASE_URL = RAW_API_BASE_URL.endsWith("/")
+  ? RAW_API_BASE_URL.slice(0, -1)
+  : RAW_API_BASE_URL;
+
+function resolveRequestInfo(input: RequestInfo | URL): RequestInfo | URL {
+  if (typeof input === "string") {
+    if (input.startsWith("http://") || input.startsWith("https://")) {
+      return input;
+    }
+    if (API_BASE_URL) {
+      const normalizedPath = input.startsWith("/") ? input : `/${input}`;
+      return `${API_BASE_URL}${normalizedPath}`;
+    }
+  }
+  return input;
+}
+
 export async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -22,7 +40,8 @@ function withAuthInit(init: RequestInit = {}): RequestInit {
 }
 
 export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
-  return fetch(input, withAuthInit(init));
+  const resolvedInput = resolveRequestInfo(input);
+  return fetch(resolvedInput, withAuthInit(init));
 }
 
 export async function fetchJsonWithAuth<T>(input: RequestInfo | URL, init: RequestInit = {}): Promise<T> {
