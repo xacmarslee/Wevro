@@ -1,7 +1,10 @@
 import { createServer } from "http";
 import { createApp } from "../api/lib/create-app.js";
+import { serveStatic } from "./static.js";
 
-const dev = process.env.NODE_ENV !== "production";
+declare const __DEV__: boolean | undefined;
+
+const dev = typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
 const baseLog = (...args: unknown[]) => console.log(...args);
 
 (async () => {
@@ -32,14 +35,13 @@ const baseLog = (...args: unknown[]) => console.log(...args);
   let logFn: (...args: any[]) => void = baseLog;
 
   if (dev) {
-    const { setupVite, log } = await import("./vite");
+    const modulePath = process.env.VITE_DEV_MODULE ?? "./vite";
+    const { setupVite, log } = await import(modulePath);
     await setupVite(app, server);
     logFn = log;
     logFn("✓ Vite dev server attached");
   } else {
-    const { serveStatic, log } = await import("./vite");
     serveStatic(app);
-    logFn = log;
     logFn("✓ Static assets served");
   }
 
