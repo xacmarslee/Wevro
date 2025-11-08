@@ -8,7 +8,7 @@
  */
 
 import OpenAI from "openai";
-import { type WordCategory } from "@shared/schema";
+import { type WordCategory } from "../shared/schema.js";
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,

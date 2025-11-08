@@ -7,7 +7,7 @@ import {
   generateSynonymsRequestSchema,
   mindMapSchema,
   flashcardDeckSchema,
-} from "@shared/schema";
+} from "../shared/schema.js";
 import { z } from "zod";
 import { firebaseAuthMiddleware, getFirebaseUserId } from "./firebaseAuth.js";
 import { getUserByUid, deleteUser as deleteFirebaseUser } from "./firebaseAdmin.js";

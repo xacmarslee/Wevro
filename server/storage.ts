@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
-import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "@shared/schema";
+import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "../shared/schema.js";
 import { db } from "./db.js";
-import { mindMaps, flashcardDecks, flashcards, users, userQuotas } from "@shared/schema";
+import { mindMaps, flashcardDecks, flashcards, users, userQuotas } from "../shared/schema.js";
 import { eq, and, desc, inArray } from "drizzle-orm";
 
 export interface IStorage {
