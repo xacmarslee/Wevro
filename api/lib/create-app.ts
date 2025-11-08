@@ -4,6 +4,7 @@ import express, {
   type Request,
   type Response,
 } from "express";
+import cors, { type CorsOptions } from "cors";
 import { registerRoutes } from "../../server/routes.js";
 function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -26,6 +27,31 @@ declare global {
 
 export async function createApp(): Promise<Express> {
   const app = express();
+
+  const rawAllowedOrigins = process.env.ALLOWED_ORIGINS || process.env.FRONTEND_ORIGIN || "";
+  const allowedOrigins = rawAllowedOrigins
+    .split(/[\s,]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const corsOptions: CorsOptions = {
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+    },
+    credentials: true,
+  };
+
+  const corsMiddleware = cors(corsOptions);
+  app.use(corsMiddleware);
+  app.options("*", corsMiddleware);
 
   app.use(
     express.json({
