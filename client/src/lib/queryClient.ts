@@ -1,9 +1,18 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-const RAW_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
-const API_BASE_URL = RAW_API_BASE_URL.endsWith("/")
-  ? RAW_API_BASE_URL.slice(0, -1)
-  : RAW_API_BASE_URL;
+const RAW_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
+let normalizedBaseUrl = RAW_API_BASE_URL;
+
+if (normalizedBaseUrl) {
+  if (normalizedBaseUrl.startsWith("//")) {
+    normalizedBaseUrl = `https:${normalizedBaseUrl}`;
+  } else if (!/^https?:\/\//i.test(normalizedBaseUrl)) {
+    normalizedBaseUrl = `https://${normalizedBaseUrl}`;
+  }
+  normalizedBaseUrl = normalizedBaseUrl.replace(/\/+$/, "");
+}
+
+const API_BASE_URL = normalizedBaseUrl;
 
 function resolveRequestInfo(input: RequestInfo | URL): RequestInfo | URL {
   if (typeof input === "string") {
