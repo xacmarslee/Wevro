@@ -102,9 +102,24 @@ ${category === "topic-related" ? `- VERIFY each word: Can it REPLACE "${word}" i
 - Do not include the original word "${word}" by itself
 - Quality over quantity - it's better to return fewer accurate words than to force irrelevant ones
 
-Return a JSON object with a "words" array (can be empty if no related words exist):
+For each candidate, assign two scores between 0 and 1:
+- "similarity": how strongly the word matches the target word in meaning within this category (1.0 = perfect match)
+- "usage": how frequently the word or phrase appears in contemporary English (1.0 = extremely common)
+
+Ranking rules:
+1. Order primarily by higher similarity.
+2. When similarity ties (difference < 0.05), place the word with higher usage earlier.
+3. Do not include items with similarity lower than 0.4.
+
+Return a JSON object:
 {
-  "words": ["word1", "word2", "word3"]
+  "words": [
+    {
+      "word": "word1",
+      "similarity": 0.92,
+      "usage": 0.78
+    }
+  ]
 }`,
         },
       ],
@@ -114,7 +129,36 @@ Return a JSON object with a "words" array (can be empty if no related words exis
 
     const content = response.choices[0]?.message?.content || "{}";
     const parsed = JSON.parse(content);
-    const words = parsed.words || [];
+    const items = parsed.words || [];
+
+    const cleaned = Array.isArray(items)
+      ? items
+          .filter(
+            (item: any) =>
+              item &&
+              typeof item.word === "string" &&
+              typeof item.similarity === "number" &&
+              item.similarity >= 0.4
+          )
+          .map((item: any) => ({
+            word: item.word.trim(),
+            similarity: Math.max(0, Math.min(1, Number(item.similarity))),
+            usage:
+              typeof item.usage === "number"
+                ? Math.max(0, Math.min(1, Number(item.usage)))
+                : 0,
+          }))
+          .filter((item) => item.word.length > 0)
+      : [];
+
+    cleaned.sort((a, b) => {
+      if (Math.abs(b.similarity - a.similarity) > 0.05) {
+        return b.similarity - a.similarity;
+      }
+      return b.usage - a.usage;
+    });
+
+    const words = cleaned.map((item) => item.word).slice(0, 7);
     
     console.log(`✓ Generated ${words.length} ${category} for "${word}":`, words.length > 0 ? words : "[No related words found]");
     
