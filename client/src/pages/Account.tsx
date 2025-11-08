@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { apiRequest } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
@@ -48,13 +49,7 @@ export default function Account() {
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/auth/user", {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete account");
-      }
+      const response = await apiRequest("DELETE", "/api/auth/user");
       return response.json();
     },
     onSuccess: () => {

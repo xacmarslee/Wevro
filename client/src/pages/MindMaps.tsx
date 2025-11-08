@@ -34,7 +34,7 @@ import { Plus, Loader2, MoreVertical, Pencil, Trash2, Sparkles } from "lucide-re
 import LogoText from "@/components/LogoText";
 import TokenDisplay from "@/components/TokenDisplay";
 import { format } from "date-fns";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, fetchJsonWithAuth, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
 export default function MindMaps() {
@@ -54,23 +54,8 @@ export default function MindMaps() {
     queryKey: ["/api/mindmaps"],
     queryFn: async () => {
       console.log("[MindMaps] Fetching mind maps list, isAuthenticated:", isAuthenticated);
-      const token = localStorage.getItem('firebaseToken');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const response = await fetch("/api/mindmaps", {
-        credentials: "include",
-        headers,
-      });
-      console.log("[MindMaps] Fetch response:", { status: response.status, ok: response.ok });
-      if (!response.ok) {
-        const error = await response.text();
-        console.error("[MindMaps] Fetch failed:", error);
-        throw new Error("Failed to load mind maps");
-      }
-      const data = await response.json();
+      const data = await fetchJsonWithAuth<any[]>("/api/mindmaps");
+      console.log("[MindMaps] Fetch response:", { ok: true });
       console.log("[MindMaps] Mind maps loaded:", data);
       return data;
     },

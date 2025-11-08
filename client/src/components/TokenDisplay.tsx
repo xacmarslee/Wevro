@@ -4,6 +4,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useLocation } from "wouter";
 import { Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
 
 interface TokenDisplayProps {
   variant?: "header" | "full";
@@ -20,28 +21,16 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
     queryKey: ["/api/quota"],
     queryFn: async () => {
       console.log('[TokenDisplay] Fetching quota, isAuthenticated:', isAuthenticated);
-      const token = localStorage.getItem('firebaseToken');
-      console.log('[TokenDisplay] Has token:', !!token);
-      
-      const headers: Record<string, string> = {};
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch("/api/quota", {
-        credentials: "include",
-        headers,
-      });
-      
+      const response = await fetchWithAuth("/api/quota");
+
       console.log('[TokenDisplay] Quota response:', { status: response.status, ok: response.ok });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[TokenDisplay] Quota error:', errorText);
-        throw new Error(`Failed to load quota: ${response.status}`);
+
+      if (response.status === 401) {
+        console.warn("[TokenDisplay] Unauthorized while fetching quota");
+        return null;
       }
-      
+
+      await throwIfResNotOk(response);
       const data = await response.json();
       console.log('[TokenDisplay] Quota data:', data);
       return data;

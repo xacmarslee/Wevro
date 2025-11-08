@@ -33,7 +33,7 @@ import {
 import { Plus, Loader2, MoreVertical, Pencil, Trash2, Sparkles, Edit, X } from "lucide-react";
 import LogoText from "@/components/LogoText";
 import TokenDisplay from "@/components/TokenDisplay";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, fetchJsonWithAuth, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -60,23 +60,7 @@ export default function Flashcards() {
     queryKey: ["/api/flashcards"],
     queryFn: async () => {
       console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated);
-      const token = localStorage.getItem('firebaseToken');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const response = await fetch("/api/flashcards", {
-        credentials: "include",
-        headers,
-      });
-      console.log("[Flashcards] Fetch response:", { status: response.status, ok: response.ok });
-      if (!response.ok) {
-        const error = await response.text();
-        console.error("[Flashcards] Fetch failed:", error);
-        throw new Error("Failed to load flashcard decks");
-      }
-      const data = await response.json();
+      const data = await fetchJsonWithAuth<FlashcardDeck[]>("/api/flashcards");
       console.log("[Flashcards] Decks loaded:", data);
       return data;
     },

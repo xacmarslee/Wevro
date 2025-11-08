@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { onAuthChange, type FirebaseUser } from "@/lib/firebase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
+import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
 
 export function useAuth() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -40,24 +41,17 @@ export function useAuth() {
   }, [queryClient]);
 
   // Fetch user data from backend (includes database info)
-  const { data: user } = useQuery<User>({
+  const { data: user } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
-      const token = localStorage.getItem('firebaseToken');
-      const headers: Record<string, string> = {};
-      
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+      const response = await fetchWithAuth("/api/auth/user");
+
+      if (response.status === 401 || response.status === 404) {
+        console.warn("[useAuth] Unauthorized or user not found, returning null");
+        return null;
       }
-      
-      const response = await fetch("/api/auth/user", {
-        credentials: "include",
-        headers,
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch user");
-      }
+
+      await throwIfResNotOk(response);
       return await response.json();
     },
     enabled: !!firebaseUser,

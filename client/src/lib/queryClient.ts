@@ -1,6 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
+export async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     console.error(`[API Error] ${res.status}: ${text}`);
@@ -8,30 +8,48 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function withAuthInit(init: RequestInit = {}): RequestInit {
+  const headers = new Headers(init.headers || {});
+  const token = localStorage.getItem("firebaseToken");
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  return {
+    ...init,
+    headers,
+    credentials: init.credentials ?? "include",
+  };
+}
+
+export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
+  return fetch(input, withAuthInit(init));
+}
+
+export async function fetchJsonWithAuth<T>(input: RequestInfo | URL, init: RequestInit = {}): Promise<T> {
+  const res = await fetchWithAuth(input, init);
+  await throwIfResNotOk(res);
+  return res.json() as Promise<T>;
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Get Firebase token from localStorage
-  const token = localStorage.getItem('firebaseToken');
-  
-  const headers: Record<string, string> = {};
-  if (data) {
-    headers["Content-Type"] = "application/json";
-  }
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  console.log(`[API Request] ${method} ${url}`, data ? { data } : '');
-
-  const res = await fetch(url, {
+  const init: RequestInit = {
     method,
-    headers,
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  };
+
+  if (data) {
+    init.headers = {
+      "Content-Type": "application/json",
+    };
+  }
+
+  console.log(`[API Request] ${method} ${url}`, data ? { data } : "");
+
+  const res = await fetchWithAuth(url, init);
 
   console.log(`[API Response] ${method} ${url}`, {
     status: res.status,
@@ -52,18 +70,7 @@ export const getQueryFn: <T>(options: {
     const url = queryKey.join("/") as string;
     console.log(`[Query] Fetching ${url}`);
 
-    // Get Firebase token from localStorage
-    const token = localStorage.getItem('firebaseToken');
-    
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const res = await fetch(url, {
-      credentials: "include",
-      headers,
-    });
+    const res = await fetchWithAuth(url);
 
     console.log(`[Query Response] ${url}`, {
       status: res.status,
