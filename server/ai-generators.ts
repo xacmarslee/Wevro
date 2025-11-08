@@ -72,6 +72,13 @@ Example: ${examples[category]}
 
 ${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them. If no idioms exist with this word, return an empty array.` : ""}
 
+${category === "derivatives" ? `CRITICAL for derivatives:
+- ONLY include attested word forms you can find in major learner dictionaries such as Oxford Learner's Dictionaries, Cambridge, Merriam-Webster, Collins, or Longman.
+- Do NOT invent or guess rare spellings (e.g., "cakelet", "caker").
+- Prefer common inflectional forms (plural, past tense, comparative, adverb form) and widely used derivations with standard affixes (e.g., "-ness", "-ly", "-able").
+- If unsure whether a form is real or lacks reliable evidence, exclude it.
+- If no trustworthy derivatives exist, return an empty array.` : ""}
+
 ${category === "synonyms" ? `CRITICAL for synonyms - Use the SUBSTITUTION TEST:
 - ✓ CORRECT: Words that can REPLACE "${word}" in sentences. Test: "I feel ${word}" → "I feel [synonym]" should work.
 - ✗ WRONG: Topic-related words that describe the same theme but CANNOT replace the word.
