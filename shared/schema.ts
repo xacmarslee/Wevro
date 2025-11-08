@@ -326,6 +326,7 @@ export type FlashcardDeck = z.infer<typeof flashcardDeckSchema>;
 export const generateWordsRequestSchema = z.object({
   word: z.string(),
   category: z.enum(wordCategories),
+  existingWords: z.array(z.string()).optional().default([]),
 });
 
 export type GenerateWordsRequest = z.infer<typeof generateWordsRequestSchema>;

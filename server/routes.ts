@@ -89,7 +89,8 @@ export async function registerRoutes(app: Express): Promise<void> {
       const validatedData = generateWordsRequestSchema.parse(req.body);
       const words = await generateRelatedWords(
         validatedData.word,
-        validatedData.category
+        validatedData.category,
+        validatedData.existingWords
       );
 
       res.json({ words });

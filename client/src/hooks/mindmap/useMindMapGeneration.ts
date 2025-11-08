@@ -24,14 +24,15 @@ export function useMindMapGeneration() {
    * AI 生成單字的 mutation
    */
   const generateWordsMutation = useMutation({
-    mutationFn: async ({ word, category }: { 
+    mutationFn: async ({ word, category, existingWords = [] }: { 
       word: string; 
       category: WordCategory; 
+      existingWords?: string[];
     }) => {
       const response = await apiRequest(
         "POST",
         "/api/generate-words",
-        { word, category }
+        { word, category, existingWords }
       );
       const data = await response.json();
       return data as { words: string[] };
@@ -75,9 +76,17 @@ export function useMindMapGeneration() {
     
     try {
       // 呼叫後端 API 生成單字
+      const existingWords = currentNodes
+        .filter(
+          (node) =>
+            node.parentId === centerNode.id && node.category === category
+        )
+        .map((node) => node.word);
+
       const result = await generateWordsMutation.mutateAsync({
         word: centerNode.word,
         category,
+        existingWords,
       });
 
       // 檢查回傳結果
@@ -96,11 +105,11 @@ export function useMindMapGeneration() {
       if (result.words.length === 0) {
         console.warn("No words generated for category:", category);
         toast({
-          title: language === "en" ? "No words generated" : "未生成任何單字",
+          title: language === "en" ? "All words added" : "已無更多單字",
           description: language === "en"
-            ? `Could not generate ${category} words. Please try another category.`
-            : `無法生成${t.categories[category]}單字，請嘗試其他類別。`,
-          variant: "destructive",
+            ? `No additional ${category} words are available.`
+            : `沒有更多${t.categories[category]}可加入。`,
+          variant: "default",
         });
         return currentNodes;
       }

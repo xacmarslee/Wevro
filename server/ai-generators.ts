@@ -35,7 +35,8 @@ const categoryDescriptions: Record<WordCategory, string> = {
 
 export async function generateRelatedWords(
   word: string,
-  category: WordCategory
+  category: WordCategory,
+  existingWords: string[] = []
 ): Promise<string[]> {
   try {
     const examples: Record<WordCategory, string> = {
@@ -49,6 +50,17 @@ export async function generateRelatedWords(
       suffix: `For "happiness": ["kindness", "sadness", "darkness", "weakness", "fitness"]`,
       "topic-related": `For "happy": ["emotion", "mood", "feeling", "smile", "laughter"] ← CANNOT replace "happy", just related topic. For "sad": ["emotion", "tear", "cry", "depression", "grief"] ← CANNOT replace "sad". For "computer": ["keyboard", "mouse", "monitor", "technology", "internet"]`,
     };
+
+    const normalizedExistingWords = Array.isArray(existingWords)
+      ? existingWords
+          .filter((w) => typeof w === "string")
+          .map((w) => w.trim())
+          .filter((w) => w.length > 0)
+      : [];
+
+    if (!normalizedExistingWords.includes(word)) {
+      normalizedExistingWords.push(word);
+    }
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", // 使用 mini 版本：成本降低 94%，品質足夠
@@ -79,6 +91,8 @@ ${category === "derivatives" ? `CRITICAL for derivatives:
 - Do NOT invent or guess rare spellings (e.g., "cakelet", "caker").
 - Accept only well-established affixed forms (e.g., "-ness", "-ly", "-able") that pass the dictionary check.
 - If you cannot confirm any valid derivatives, return an empty array.` : ""}
+
+${normalizedExistingWords.length > 0 ? `ALREADY PROVIDED WORDS (do NOT repeat): ${JSON.stringify(normalizedExistingWords)}` : ""}
 
 ${category === "synonyms" ? `CRITICAL for synonyms - Use the SUBSTITUTION TEST:
 - ✓ CORRECT: Words that can REPLACE "${word}" in sentences. Test: "I feel ${word}" → "I feel [synonym]" should work.
@@ -139,6 +153,10 @@ Return a JSON object:
     const parsed = JSON.parse(content);
     const items = parsed.words || [];
 
+    const lowerExistingWords = new Set(
+      normalizedExistingWords.map((w) => w.toLowerCase())
+    );
+
     const cleaned = Array.isArray(items)
       ? items
           .filter(
@@ -166,7 +184,18 @@ Return a JSON object:
       return b.usage - a.usage;
     });
 
-    const words = cleaned.map((item) => item.word).slice(0, 7);
+    const seen = new Set<string>();
+    const words = cleaned
+      .map((item) => item.word)
+      .filter((w) => {
+        const lower = w.toLowerCase();
+        if (lowerExistingWords.has(lower) || seen.has(lower)) {
+          return false;
+        }
+        seen.add(lower);
+        return true;
+      })
+      .slice(0, 7);
     
     console.log(`✓ Generated ${words.length} ${category} for "${word}":`, words.length > 0 ? words : "[No related words found]");
     
