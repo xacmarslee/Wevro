@@ -443,22 +443,110 @@ export async function generateBatchDefinitions(
     const rawDefinitions = parsed.definitions || [];
     
     // Validate and sanitize
+    const canonicalPosMap: Record<string, string> = {
+      n: "n.",
+      noun: "n.",
+      v: "v.",
+      verb: "v.",
+      adj: "adj.",
+      adjective: "adj.",
+      adv: "adv.",
+      adverb: "adv.",
+      prep: "prep.",
+      preposition: "prep.",
+      pron: "pron.",
+      pronoun: "pron.",
+      aux: "aux.",
+      auxiliary: "aux.",
+      phr: "phr.",
+      phrase: "phr.",
+      int: "int.",
+      interjection: "int.",
+      conj: "conj.",
+      conjunction: "conj.",
+      det: "det.",
+      determiner: "det.",
+      num: "num.",
+      numeral: "num.",
+      modal: "modal.",
+    };
+
+    const normalizePosToken = (token: string) => {
+      const trimmed = token.trim().replace(/\.+$/, "");
+      if (!trimmed) return null;
+      const key = trimmed.toLowerCase();
+      return canonicalPosMap[key] || `${trimmed}.`;
+    };
+
+    const sanitizeDefinitionLine = (line: string) => {
+      const trimmed = (line ?? "").trim();
+      if (!trimmed) {
+        return "";
+      }
+
+      const tokens = trimmed.split(/\s+/);
+      const posTokens: string[] = [];
+      let translationStartIndex = 0;
+
+      for (let i = 0; i < tokens.length; i++) {
+        const normalized = normalizePosToken(tokens[i]);
+        if (!normalized) {
+          translationStartIndex = i;
+          break;
+        }
+
+        // Only treat as POS token if it matches canonical list
+        if (normalized && canonicalPosMap[normalized.replace(/\./g, "")] !== undefined) {
+          if (!posTokens.some((existing) => existing.toLowerCase() === normalized.toLowerCase())) {
+            posTokens.push(normalized);
+          }
+          translationStartIndex = i + 1;
+        } else {
+          translationStartIndex = i;
+          break;
+        }
+      }
+
+      const translation = tokens.slice(translationStartIndex).join(" ").trim();
+      const prefix = posTokens.join(" ");
+
+      if (!prefix) {
+        return translation;
+      }
+
+      return translation ? `${prefix} ${translation}` : prefix;
+    };
+
     const validDefinitions = rawDefinitions
       .filter((def: any) => def.word && def.definition && def.partOfSpeech)
       .map((def: any) => {
         // Remove duplicate POS tags (e.g., "phr., phr." -> "phr.")
         let cleanedPos = def.partOfSpeech;
-        if (cleanedPos && (cleanedPos.includes(',') || cleanedPos.includes('、'))) {
-          const posParts = cleanedPos.split(/[,、]/).map((p: string) => p.trim()).filter(Boolean);
-          const uniqueParts = Array.from(new Set(posParts));
-          cleanedPos = uniqueParts.join(', ');
+        if (typeof cleanedPos === "string") {
+          const posParts = cleanedPos
+            .split(/[,、]/)
+            .map((p: string) => normalizePosToken(p) || p.trim())
+            .filter(Boolean) as string[];
+          const uniqueParts: string[] = [];
+          for (const part of posParts) {
+            if (!uniqueParts.some((existing) => existing.toLowerCase() === part.toLowerCase())) {
+              uniqueParts.push(part);
+            }
+          }
+          cleanedPos = uniqueParts.join(", ");
         }
+
+        const sanitizedDefinition = String(def.definition)
+          .split(/\r?\n/)
+          .map(sanitizeDefinitionLine)
+          .filter((line) => line && line.trim().length > 0)
+          .join("\n");
         
         return {
           word: def.word,
           // Keep full definition - no arbitrary truncation
-          definition: def.definition,
-          partOfSpeech: cleanedPos || "未知",
+          definition: sanitizedDefinition,
+          partOfSpeech: typeof cleanedPos === "string" && cleanedPos.trim().length > 0 ? cleanedPos : "未知",
         };
       });
     

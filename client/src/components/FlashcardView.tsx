@@ -36,12 +36,14 @@ export function FlashcardView({
   const [flipIsCompleted, setFlipIsCompleted] = useState(false);
   
   // Spelling mode states - separate from flip mode
-  const [spellingSessionResults, setSpellingSessionResults] = useState<Map<string, "known" | "unknown">>(new Map());
-  const [spellingTimeElapsed, setSpellingTimeElapsed] = useState(0);
-  const [spellingTimerStarted, setSpellingTimerStarted] = useState(false);
-  const [spellingIsCompleted, setSpellingIsCompleted] = useState(false);
-  const [spellingInput, setSpellingInput] = useState("");
-  const [spellingFeedback, setSpellingFeedback] = useState<"correct" | "incorrect" | null>(null);
+const [spellingSessionResults, setSpellingSessionResults] = useState<Map<string, "known" | "unknown">>(new Map());
+const [spellingTimeElapsed, setSpellingTimeElapsed] = useState(0);
+const [spellingTimerStarted, setSpellingTimerStarted] = useState(false);
+const [spellingIsCompleted, setSpellingIsCompleted] = useState(false);
+const [spellingInput, setSpellingInput] = useState("");
+const [processedCardIds, setProcessedCardIds] = useState<string[]>([]);
+const [isSpellingProcessing, setIsSpellingProcessing] = useState(false);
+const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "incorrect"; answer: string } | null>(null);
   
   const { language } = useLanguage();
   const t = useTranslation(language);
@@ -93,6 +95,7 @@ export function FlashcardView({
     setIsFlipped(false);
     setShuffledCards(cards);
     setShuffleMode(false);
+    setProcessedCardIds([]);
     // Reset flip mode session counts
     setFlipSessionResults(new Map());
     setFlipTimeElapsed(0);
@@ -103,6 +106,8 @@ export function FlashcardView({
     setSpellingTimeElapsed(0);
     setSpellingTimerStarted(false);
     setSpellingIsCompleted(false);
+    setSpellingFeedback(null);
+    setIsSpellingProcessing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId]); // Only reset when deck ID changes, not when cards array reference changes
   
@@ -185,6 +190,8 @@ export function FlashcardView({
     setIsFlipped(false);
     setSpellingInput("");
     setSpellingFeedback(null);
+    setProcessedCardIds([]);
+    setIsSpellingProcessing(false);
     // Reset drag motion values
     x.set(0);
     
@@ -203,47 +210,79 @@ export function FlashcardView({
 
   // Handle spelling check
   const handleSpellingCheck = () => {
+    if (isSpellingProcessing) return;
     if (!spellingInput.trim()) return;
+    if (!currentCard) return;
+
+    setIsSpellingProcessing(true);
 
     // Start timer on first check
     if (!spellingTimerStarted) {
       setSpellingTimerStarted(true);
     }
 
-    const correctAnswer = currentCard.word.toLowerCase().trim();
+    const answeredCard = currentCard;
+    const correctAnswer = answeredCard.word.toLowerCase().trim();
     const userAnswer = spellingInput.toLowerCase().trim();
     const isCorrect = userAnswer === correctAnswer;
 
-    setSpellingFeedback(isCorrect ? "correct" : "incorrect");
+    setSpellingFeedback({ type: isCorrect ? "correct" : "incorrect", answer: answeredCard.word });
+    setTimeout(() => {
+      setSpellingFeedback((prev) => {
+        if (!prev) return prev;
+        return prev.answer === answeredCard.word ? null : prev;
+      });
+    }, 800);
 
     // Update session counts
     if (isCorrect) {
       setSpellingSessionResults((prev) => {
         const next = new Map(prev);
-        next.set(currentCard.id, "known");
+        next.set(answeredCard.id, "known");
         return next;
       });
-      onUpdateCard(currentCard.id, true);
+      onUpdateCard(answeredCard.id, true);
     } else {
       setSpellingSessionResults((prev) => {
         const next = new Map(prev);
-        next.set(currentCard.id, "unknown");
+        next.set(answeredCard.id, "unknown");
         return next;
       });
-      onUpdateCard(currentCard.id, false);
+      onUpdateCard(answeredCard.id, false);
     }
 
-    // Auto advance to next card after a short delay
-    setTimeout(() => {
-      setSpellingInput("");
-      setSpellingFeedback(null);
-      if (currentIndex < displayCards.length - 1) {
-        setCurrentIndex(i => i + 1);
-      } else {
-        setSpellingIsCompleted(true);
-        setCurrentIndex(displayCards.length);
+    const nextProcessedIds = processedCardIds.includes(answeredCard.id)
+      ? processedCardIds
+      : [...processedCardIds, answeredCard.id];
+    setProcessedCardIds(nextProcessedIds);
+
+    const processedSet = new Set(nextProcessedIds);
+
+    const findNextIndex = () => {
+      for (let i = currentIndex + 1; i < displayCards.length; i++) {
+        if (!processedSet.has(displayCards[i].id)) {
+          return i;
+        }
       }
-    }, 1500);
+      for (let i = 0; i < displayCards.length; i++) {
+        if (!processedSet.has(displayCards[i].id)) {
+          return i;
+        }
+      }
+      return -1;
+    };
+
+    const nextIndex = findNextIndex();
+
+    if (nextIndex === -1) {
+      setSpellingIsCompleted(true);
+      setCurrentIndex(displayCards.length);
+    } else {
+      setCurrentIndex(nextIndex);
+    }
+
+    setSpellingInput("");
+    setIsSpellingProcessing(false);
   };
 
   // Shuffle cards order
@@ -269,6 +308,10 @@ export function FlashcardView({
       setFlipIsCompleted(false);
     } else {
       setSpellingIsCompleted(false);
+      setProcessedCardIds([]);
+      setSpellingSessionResults(new Map());
+      setSpellingTimerStarted(false);
+      setSpellingTimeElapsed(0);
     }
   };
 
@@ -341,16 +384,30 @@ export function FlashcardView({
         {/* Mode Toggle */}
       <div className="px-6 pt-4 flex justify-center">
         <Tabs value={mode} onValueChange={(v) => {
-          setMode(v as "flip" | "spelling");
+          const newMode = v as "flip" | "spelling";
+          setMode(newMode);
           // Reset current card index when switching modes
           setCurrentIndex(0);
           setSpellingInput("");
           setSpellingFeedback(null);
+          setProcessedCardIds([]);
+          setIsSpellingProcessing(false);
           setIsFlipped(false);
           // Reset shuffle mode when switching
           setShuffleMode(false);
           // Reset drag motion values
           x.set(0);
+          if (newMode === "flip") {
+            setFlipSessionResults(new Map());
+            setFlipTimeElapsed(0);
+            setFlipTimerStarted(false);
+            setFlipIsCompleted(false);
+          } else {
+            setSpellingSessionResults(new Map());
+            setSpellingTimeElapsed(0);
+            setSpellingTimerStarted(false);
+            setSpellingIsCompleted(false);
+          }
         }}>
           <TabsList className="grid grid-cols-2 w-64 mx-auto">
             <TabsTrigger value="flip" className="text-sm py-1.5">
@@ -453,16 +510,30 @@ export function FlashcardView({
       {/* Mode Toggle */}
       <div className="px-6 pt-4 flex justify-center">
         <Tabs value={mode} onValueChange={(v) => {
-          setMode(v as "flip" | "spelling");
+          const newMode = v as "flip" | "spelling";
+          setMode(newMode);
           // Reset current card index when switching modes
           setCurrentIndex(0);
           setSpellingInput("");
           setSpellingFeedback(null);
+          setProcessedCardIds([]);
+          setIsSpellingProcessing(false);
           setIsFlipped(false);
           // Reset shuffle mode when switching
           setShuffleMode(false);
           // Reset drag motion values
           x.set(0);
+          if (newMode === "flip") {
+            setFlipSessionResults(new Map());
+            setFlipTimeElapsed(0);
+            setFlipTimerStarted(false);
+            setFlipIsCompleted(false);
+          } else {
+            setSpellingSessionResults(new Map());
+            setSpellingTimeElapsed(0);
+            setSpellingTimerStarted(false);
+            setSpellingIsCompleted(false);
+          }
         }}>
           <TabsList className="grid grid-cols-2 w-64 mx-auto">
             <TabsTrigger value="flip" className="text-sm py-1.5">
@@ -664,24 +735,24 @@ export function FlashcardView({
                   value={spellingInput}
                   onChange={(e) => setSpellingInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !spellingFeedback) {
+                    if (e.key === "Enter" && !isSpellingProcessing) {
                       handleSpellingCheck();
                     }
                   }}
                   placeholder={language === "en" ? "Type the word..." : "輸入單字..."}
                   className={`text-lg font-mono ${
-                    spellingFeedback === "correct" 
-                      ? "border-green-600 dark:border-green-500" 
-                      : spellingFeedback === "incorrect" 
-                      ? "border-destructive" 
+                    spellingFeedback?.type === "correct"
+                      ? "border-green-600 dark:border-green-500"
+                      : spellingFeedback?.type === "incorrect"
+                      ? "border-destructive"
                       : ""
                   }`}
-                  disabled={!!spellingFeedback}
+                  disabled={isSpellingProcessing}
                   autoFocus
                 />
                 <Button
                   onClick={handleSpellingCheck}
-                  disabled={!spellingInput.trim() || !!spellingFeedback}
+                  disabled={!spellingInput.trim() || isSpellingProcessing}
                   size="icon"
                   className="h-10 w-10"
                 >
@@ -695,12 +766,12 @@ export function FlashcardView({
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className={`flex items-center justify-center gap-2 p-4 rounded-lg ${
-                    spellingFeedback === "correct"
+                    spellingFeedback.type === "correct"
                       ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                       : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                   }`}
                 >
-                  {spellingFeedback === "correct" ? (
+                  {spellingFeedback.type === "correct" ? (
                     <>
                       <Check className="h-5 w-5" />
                       <span className="font-semibold">
@@ -711,7 +782,9 @@ export function FlashcardView({
                     <>
                       <XIcon className="h-5 w-5" />
                       <span className="font-semibold">
-                        {language === "en" ? `Incorrect. The answer is: ${currentCard.word}` : `答錯了。正確答案是：${currentCard.word}`}
+                        {language === "en"
+                          ? `Incorrect. The answer is: ${spellingFeedback.answer}`
+                          : `答錯了。正確答案是：${spellingFeedback.answer}`}
                       </span>
                     </>
                   )}

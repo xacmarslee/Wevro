@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "../shared/schema.js";
 import { db } from "./db.js";
 import { mindMaps, flashcardDecks, flashcards, users, userQuotas } from "../shared/schema.js";
-import { eq, and, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, asc } from "drizzle-orm";
 
 export interface IStorage {
   // Users (Replit Auth)
@@ -194,7 +194,11 @@ export class DbStorage implements IStorage {
 
     if (!deck) return undefined;
 
-    const cards = await db.select().from(flashcards).where(eq(flashcards.deckId, id));
+    const cards = await db
+      .select()
+      .from(flashcards)
+      .where(eq(flashcards.deckId, id))
+      .orderBy(asc(flashcards.createdAt));
 
     return {
       id: deck.id,
@@ -225,7 +229,8 @@ export class DbStorage implements IStorage {
     const allCardsOptimized = await db
       .select()
       .from(flashcards)
-      .where(inArray(flashcards.deckId, deckIds));
+      .where(inArray(flashcards.deckId, deckIds))
+      .orderBy(asc(flashcards.createdAt));
 
     // Group cards by deckId
     const cardsByDeck = new Map<string, typeof allCardsOptimized>();
@@ -309,7 +314,11 @@ export class DbStorage implements IStorage {
 
     if (!updated) return undefined;
 
-    const cards = await db.select().from(flashcards).where(eq(flashcards.deckId, id));
+    const cards = await db
+      .select()
+      .from(flashcards)
+      .where(eq(flashcards.deckId, id))
+      .orderBy(asc(flashcards.createdAt));
 
     return {
       id: updated.id,
@@ -347,7 +356,11 @@ export class DbStorage implements IStorage {
   }
 
   async getFlashcardsByDeck(deckId: string): Promise<Flashcard[]> {
-    const cards = await db.select().from(flashcards).where(eq(flashcards.deckId, deckId));
+    const cards = await db
+      .select()
+      .from(flashcards)
+      .where(eq(flashcards.deckId, deckId))
+      .orderBy(asc(flashcards.createdAt));
     return cards.map((c) => ({
       id: c.id,
       word: c.word,
