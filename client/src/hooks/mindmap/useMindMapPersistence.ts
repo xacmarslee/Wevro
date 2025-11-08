@@ -89,10 +89,6 @@ export function useMindMapPersistence(mindMapId?: string) {
       setIsSaved(true);
       queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
       setShowSaveConfirmDialog(true);
-      toast({
-        title: language === "en" ? "Success" : "成功",
-        description: language === "en" ? "Mind map saved successfully" : "心智圖儲存成功",
-      });
     },
     onError: (error: Error) => {
       console.error("[MindMap] Save failed:", error);

@@ -4,7 +4,8 @@ import { FlashcardView } from "@/components/FlashcardView";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, fetchJsonWithAuth } from "@/lib/queryClient";
+import type { FlashcardDeck } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 
 export default function FlashcardPractice() {
@@ -15,32 +16,12 @@ export default function FlashcardPractice() {
   const { toast } = useToast();
 
   // Fetch flashcard deck
-  const { data: deck, isLoading } = useQuery({
+  const { data: deck, isLoading } = useQuery<FlashcardDeck>({
     queryKey: ["/api/flashcards", deckId],
     queryFn: async () => {
       console.log("[FlashcardPractice] Loading deck:", deckId);
       
-      // Get Firebase token from localStorage
-      const token = localStorage.getItem('firebaseToken');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`/api/flashcards/${deckId}`, {
-        credentials: "include",
-        headers,
-      });
-      
-      console.log("[FlashcardPractice] Load response:", { status: response.status, ok: response.ok });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        console.error("[FlashcardPractice] Load failed:", error);
-        throw new Error("Failed to load flashcard deck");
-      }
-      
-      const data = await response.json();
+      const data = await fetchJsonWithAuth<FlashcardDeck>(`/api/flashcards/${deckId}`);
       console.log("[FlashcardPractice] Deck loaded:", data);
       return data;
     },
