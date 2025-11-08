@@ -69,6 +69,14 @@ export async function createApp(): Promise<Express> {
 
   await registerRoutes(app);
 
+  app.use("/api", (req, res) => {
+    res.status(404).json({
+      message: "API route not found",
+      path: req.originalUrl ?? req.url,
+      method: req.method,
+    });
+  });
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err?.status || err?.statusCode || 500;
     const message = err?.message || "Internal Server Error";
