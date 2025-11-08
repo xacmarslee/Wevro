@@ -8,7 +8,7 @@
     "dev": "dotenv -e .env tsx server/index.ts",
     "dev:windows": "dotenv -e .env tsx server/index.ts",
     "build": "vite build && npm run build:server",
-    "build:server": "esbuild server/index.ts --platform=node --target=node18 --bundle --format=cjs --outfile=dist/index.cjs --packages=external --define:__DEV__=false --alias:rollup=server/shims/rollup --alias:rollup/parseAst=server/shims/rollup/parseAst --external:dotenv --external:vite --external:lightningcss --external:@babel/preset-typescript --external:@babel/core --external:./vite --external:./vite.js --external:./vite.ts",
+    "build:server": "esbuild server/index.ts --platform=node --target=node18 --bundle --format=cjs --outfile=dist/index.cjs --packages=external --define:__DEV__=false --alias:rollup=server/shims/rollup --alias:rollup/parseAst=server/shims/rollup/parseAst --external:dotenv --external:vite --external:lightningcss --external:@babel/preset-typescript --external:@babel/core --external:./vite-dev --external:./vite-dev.js --external:./vite-dev.ts",
     "build:mobile": "vite build",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",

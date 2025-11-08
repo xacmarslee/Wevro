@@ -36,7 +36,7 @@ const baseLog = (...args: unknown[]) => console.log(...args);
   let logFn: (...args: any[]) => void = baseLog;
 
   if (dev) {
-    const { setupVite, log } = await import("./vite.js");
+    const { setupVite, log } = await import("./vite-dev");
     await setupVite(app, server);
     logFn = log;
     logFn("✓ Vite dev server attached");

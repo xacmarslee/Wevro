@@ -5,7 +5,16 @@ import express, {
   type Response,
 } from "express";
 import { registerRoutes } from "../../server/routes.js";
-import { log } from "../../server/vite.js";
+function log(message: string, source = "express") {
+  const formattedTime = new Date().toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+
+  console.log(`${formattedTime} [${source}] ${message}`);
+}
 
 declare global {
   namespace Express {
