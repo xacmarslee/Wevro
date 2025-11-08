@@ -1,4 +1,5 @@
 import type { Express } from "express";
+import { randomUUID } from "crypto";
 import { storage } from "./storage.js";
 import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators.js";
 import {
@@ -333,7 +334,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       const cards = definitions
         .filter((def) => def.word && def.definition && def.partOfSpeech)
         .map((def) => ({
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           word: def.word,
           definition: def.definition,
           partOfSpeech: def.partOfSpeech,
