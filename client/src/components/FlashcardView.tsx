@@ -30,15 +30,13 @@ export function FlashcardView({
   const [shuffledCards, setShuffledCards] = useState<Flashcard[]>(cards);
   
   // Flip mode states - separate from spelling mode
-  const [flipSessionKnown, setFlipSessionKnown] = useState<Set<string>>(new Set());
-  const [flipSessionUnknown, setFlipSessionUnknown] = useState<Set<string>>(new Set());
+  const [flipSessionResults, setFlipSessionResults] = useState<Map<string, "known" | "unknown">>(new Map());
   const [flipTimeElapsed, setFlipTimeElapsed] = useState(0);
   const [flipTimerStarted, setFlipTimerStarted] = useState(false);
   const [flipIsCompleted, setFlipIsCompleted] = useState(false);
   
   // Spelling mode states - separate from flip mode
-  const [spellingSessionKnown, setSpellingSessionKnown] = useState<Set<string>>(new Set());
-  const [spellingSessionUnknown, setSpellingSessionUnknown] = useState<Set<string>>(new Set());
+  const [spellingSessionResults, setSpellingSessionResults] = useState<Map<string, "known" | "unknown">>(new Map());
   const [spellingTimeElapsed, setSpellingTimeElapsed] = useState(0);
   const [spellingTimerStarted, setSpellingTimerStarted] = useState(false);
   const [spellingIsCompleted, setSpellingIsCompleted] = useState(false);
@@ -96,14 +94,12 @@ export function FlashcardView({
     setShuffledCards(cards);
     setShuffleMode(false);
     // Reset flip mode session counts
-    setFlipSessionKnown(new Set());
-    setFlipSessionUnknown(new Set());
+    setFlipSessionResults(new Map());
     setFlipTimeElapsed(0);
     setFlipTimerStarted(false);
     setFlipIsCompleted(false);
     // Reset spelling mode session counts
-    setSpellingSessionKnown(new Set());
-    setSpellingSessionUnknown(new Set());
+    setSpellingSessionResults(new Map());
     setSpellingTimeElapsed(0);
     setSpellingTimerStarted(false);
     setSpellingIsCompleted(false);
@@ -151,18 +147,17 @@ export function FlashcardView({
   const opacity = useTransform(x, [-200, -100, 0, 100, 200], [0, 1, 1, 1, 0]);
   
   // Get current mode's state
-  const sessionKnown = mode === "flip" ? flipSessionKnown : spellingSessionKnown;
-  const sessionUnknown = mode === "flip" ? flipSessionUnknown : spellingSessionUnknown;
+  const sessionResults = mode === "flip" ? flipSessionResults : spellingSessionResults;
   const timeElapsed = mode === "flip" ? flipTimeElapsed : spellingTimeElapsed;
   const timerStarted = mode === "flip" ? flipTimerStarted : spellingTimerStarted;
   const isCompleted = mode === "flip" ? flipIsCompleted : spellingIsCompleted;
   
   // Count known and unknown cards from this session only
-  const knownCount = sessionKnown.size;
-  const unknownCount = sessionUnknown.size;
+  const knownCount = Array.from(sessionResults.values()).filter((result) => result === "known").length;
+  const unknownCount = Array.from(sessionResults.values()).filter((result) => result === "unknown").length;
   
   // Progress based on swiped cards (not just viewed)
-  const swipedCount = knownCount + unknownCount;
+  const swipedCount = sessionResults.size;
   const progress = (swipedCount / displayCards.length) * 100;
 
   // Format time as MM:SS
@@ -194,14 +189,12 @@ export function FlashcardView({
     x.set(0);
     
     if (mode === "flip") {
-      setFlipSessionKnown(new Set());
-      setFlipSessionUnknown(new Set());
+      setFlipSessionResults(new Map());
       setFlipTimeElapsed(0);
       setFlipTimerStarted(false);
       setFlipIsCompleted(false);
     } else {
-      setSpellingSessionKnown(new Set());
-      setSpellingSessionUnknown(new Set());
+      setSpellingSessionResults(new Map());
       setSpellingTimeElapsed(0);
       setSpellingTimerStarted(false);
       setSpellingIsCompleted(false);
@@ -225,19 +218,17 @@ export function FlashcardView({
 
     // Update session counts
     if (isCorrect) {
-      setSpellingSessionKnown(prev => new Set(prev).add(currentCard.id));
-      setSpellingSessionUnknown(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(currentCard.id);
-        return newSet;
+      setSpellingSessionResults((prev) => {
+        const next = new Map(prev);
+        next.set(currentCard.id, "known");
+        return next;
       });
       onUpdateCard(currentCard.id, true);
     } else {
-      setSpellingSessionUnknown(prev => new Set(prev).add(currentCard.id));
-      setSpellingSessionKnown(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(currentCard.id);
-        return newSet;
+      setSpellingSessionResults((prev) => {
+        const next = new Map(prev);
+        next.set(currentCard.id, "unknown");
+        return next;
       });
       onUpdateCard(currentCard.id, false);
     }
@@ -297,11 +288,10 @@ export function FlashcardView({
     
     if (info.offset.x > threshold) {
       // Swiped right - I know
-      setFlipSessionKnown(prev => new Set(prev).add(currentCard.id));
-      setFlipSessionUnknown(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(currentCard.id);
-        return newSet;
+      setFlipSessionResults((prev) => {
+        const next = new Map(prev);
+        next.set(currentCard.id, "known");
+        return next;
       });
       onUpdateCard(currentCard.id, true);
       // Immediately switch to next card
@@ -314,11 +304,10 @@ export function FlashcardView({
       });
     } else if (info.offset.x < -threshold) {
       // Swiped left - Don't know
-      setFlipSessionUnknown(prev => new Set(prev).add(currentCard.id));
-      setFlipSessionKnown(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(currentCard.id);
-        return newSet;
+      setFlipSessionResults((prev) => {
+        const next = new Map(prev);
+        next.set(currentCard.id, "unknown");
+        return next;
       });
       onUpdateCard(currentCard.id, false);
       // Immediately switch to next card
