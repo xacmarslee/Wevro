@@ -21,7 +21,8 @@ const openai = new OpenAI({
 
 // Category descriptions for better AI prompts
 const categoryDescriptions: Record<WordCategory, string> = {
-  derivatives: "word forms and derivatives (noun, verb, adjective, adverb forms)",
+  derivatives:
+    "attested derivational forms (e.g., noun, adjective, adverb variants) that create new dictionary headwords; exclude mere inflections (plural, tense, participle)",
   synonyms: "words with similar meanings (can be used interchangeably)",
   antonyms: "words with opposite meanings",
   collocations: "common word combinations - for verbs: preposition partners (intransitive) or typical objects (transitive); for nouns: common adjectives and verbs that take this noun as object",
@@ -73,11 +74,11 @@ Example: ${examples[category]}
 ${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them. If no idioms exist with this word, return an empty array.` : ""}
 
 ${category === "derivatives" ? `CRITICAL for derivatives:
-- ONLY include attested word forms you can find in major learner dictionaries such as Oxford Learner's Dictionaries, Cambridge, Merriam-Webster, Collins, or Longman.
+- ONLY include derivational forms that appear as separate entries (headwords) in major learner dictionaries such as Oxford Learner's Dictionaries, Cambridge, Merriam-Webster, Collins, or Longman.
+- EXCLUDE simple inflectional changes (plural, tense, participle, comparative, superlative). These are NOT derivatives.
 - Do NOT invent or guess rare spellings (e.g., "cakelet", "caker").
-- Prefer common inflectional forms (plural, past tense, comparative, adverb form) and widely used derivations with standard affixes (e.g., "-ness", "-ly", "-able").
-- If unsure whether a form is real or lacks reliable evidence, exclude it.
-- If no trustworthy derivatives exist, return an empty array.` : ""}
+- Accept only well-established affixed forms (e.g., "-ness", "-ly", "-able") that pass the dictionary check.
+- If you cannot confirm any valid derivatives, return an empty array.` : ""}
 
 ${category === "synonyms" ? `CRITICAL for synonyms - Use the SUBSTITUTION TEST:
 - ✓ CORRECT: Words that can REPLACE "${word}" in sentences. Test: "I feel ${word}" → "I feel [synonym]" should work.
