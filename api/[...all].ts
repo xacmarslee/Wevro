@@ -7,6 +7,14 @@ const appPromise = createApp();
 
 export default async function handler(req: any, res: any) {
   const app = await appPromise;
+
+  if (req.url && !req.url.startsWith("/api/")) {
+    req.url = `/api${req.url.startsWith("/") ? req.url : `/${req.url}`}`;
+  }
+  if (req.originalUrl && !req.originalUrl.startsWith("/api/")) {
+    req.originalUrl = `/api${req.originalUrl.startsWith("/") ? req.originalUrl : `/${req.originalUrl}`}`;
+  }
+
   return new Promise<void>((resolve, reject) => {
     res.on("finish", resolve);
     res.on("close", resolve);
