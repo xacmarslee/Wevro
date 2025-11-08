@@ -4,8 +4,8 @@ import express, {
   type Request,
   type Response,
 } from "express";
-import { registerRoutes } from "../../server/routes";
-import { log } from "../../server/vite";
+import { registerRoutes } from "../../server/routes.js";
+import { log } from "../../server/vite.js";
 
 declare global {
   namespace Express {

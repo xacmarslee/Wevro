@@ -1,6 +1,6 @@
 import type { Express } from "express";
-import { storage } from "./storage";
-import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators";
+import { storage } from "./storage.js";
+import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators.js";
 import {
   generateWordsRequestSchema,
   generateExamplesRequestSchema,
@@ -9,8 +9,8 @@ import {
   flashcardDeckSchema,
 } from "@shared/schema";
 import { z } from "zod";
-import { firebaseAuthMiddleware, getFirebaseUserId } from "./firebaseAuth";
-import { getUserByUid, deleteUser as deleteFirebaseUser } from "./firebaseAdmin";
+import { firebaseAuthMiddleware, getFirebaseUserId } from "./firebaseAuth.js";
+import { getUserByUid, deleteUser as deleteFirebaseUser } from "./firebaseAdmin.js";
 
 // Insert schemas (omit auto-generated fields)
 const insertMindMapSchema = mindMapSchema.omit({ id: true, userId: true, createdAt: true });

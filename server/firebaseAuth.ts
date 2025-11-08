@@ -1,6 +1,6 @@
 // Firebase Authentication Middleware for Express
 import type { RequestHandler } from "express";
-import { verifyIdToken } from "./firebaseAdmin";
+import { verifyIdToken } from "./firebaseAdmin.js";
 
 // Extend Express Request type to include user
 declare global {
@@ -54,4 +54,5 @@ export function getFirebaseUserId(req: any): string {
   }
   throw new Error("No Firebase user in request");
 }
+
 
