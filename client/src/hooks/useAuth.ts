@@ -9,31 +9,35 @@ import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
 export function useAuth() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
   const queryClient = useQueryClient();
 
   // Listen to Firebase auth state changes
   useEffect(() => {
     const unsubscribe = onAuthChange(async (user) => {
+      setIsLoading(true);
+      setAuthReady(false);
       setFirebaseUser(user);
-      setIsLoading(false);
-      
-      // If user is authenticated, sync with backend
-      if (user) {
-        try {
-          // Force refresh token to ensure it's valid
-          const idToken = await user.getIdToken(true);
-          // Store token in localStorage for API requests
-          localStorage.setItem('firebaseToken', idToken);
-          // Invalidate user query to refetch from backend
-          queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-          queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
-        } catch (error) {
-          console.error('❌ Auth error:', error);
-        }
-      } else {
-        localStorage.removeItem('firebaseToken');
+
+      if (!user) {
+        localStorage.removeItem("firebaseToken");
         queryClient.setQueryData(["/api/auth/user"], null);
         queryClient.setQueryData(["/api/quota"], null);
+        setAuthReady(true);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const idToken = await user.getIdToken(true);
+        localStorage.setItem("firebaseToken", idToken);
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+      } catch (error) {
+        console.error("❌ Auth error:", error);
+      } finally {
+        setAuthReady(true);
+        setIsLoading(false);
       }
     });
 
@@ -54,7 +58,7 @@ export function useAuth() {
       await throwIfResNotOk(response);
       return await response.json();
     },
-    enabled: !!firebaseUser,
+    enabled: !!firebaseUser && authReady,
     retry: false,
   });
 
@@ -68,6 +72,7 @@ export function useAuth() {
     }) : null,
     firebaseUser,
     isLoading,
-    isAuthenticated: !!firebaseUser,
+    isAuthenticated: !!firebaseUser && authReady,
+    authReady,
   };
 }

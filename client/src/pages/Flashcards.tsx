@@ -41,7 +41,7 @@ import type { FlashcardDeck } from "@shared/schema";
 
 export default function Flashcards() {
   const { language } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
@@ -64,7 +64,7 @@ export default function Flashcards() {
       console.log("[Flashcards] Decks loaded:", data);
       return data;
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && authReady,
   });
 
 

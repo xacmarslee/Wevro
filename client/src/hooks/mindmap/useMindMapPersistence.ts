@@ -6,16 +6,19 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type MindMapNode } from "@shared/schema";
+import { type MindMapNode, type MindMap } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/hooks/useAuth";
+import { fetchJsonWithAuth } from "@/lib/queryClient";
 
 export function useMindMapPersistence(mindMapId?: string) {
   const [isSaved, setIsSaved] = useState(false);
   const [showSaveConfirmDialog, setShowSaveConfirmDialog] = useState(false);
   const { toast } = useToast();
   const { language } = useLanguage();
+  const { authReady, isAuthenticated } = useAuth();
 
   /**
    * 載入現有心智圖
@@ -24,34 +27,13 @@ export function useMindMapPersistence(mindMapId?: string) {
     queryKey: ["/api/mindmaps", mindMapId],
     queryFn: async () => {
       if (!mindMapId) return null;
-      
+
       console.log("[MindMap] Loading mind map:", mindMapId);
-      
-      // Get Firebase token from localStorage
-      const token = localStorage.getItem('firebaseToken');
-      const headers: Record<string, string> = {};
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-      
-      const response = await fetch(`/api/mindmaps/${mindMapId}`, {
-        credentials: "include",
-        headers,
-      });
-      
-      console.log("[MindMap] Load response:", { status: response.status, ok: response.ok });
-      
-      if (!response.ok) {
-        const error = await response.text();
-        console.error("[MindMap] Load failed:", error);
-        throw new Error("Failed to load mind map");
-      }
-      
-      const data = await response.json();
+      const data = await fetchJsonWithAuth<MindMap>(`/api/mindmaps/${mindMapId}`);
       console.log("[MindMap] Mind map loaded:", data);
       return data;
     },
-    enabled: !!mindMapId,
+    enabled: !!mindMapId && isAuthenticated && authReady,
   });
 
   /**

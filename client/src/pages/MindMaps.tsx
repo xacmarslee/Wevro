@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 export default function MindMaps() {
   const [, setLocation] = useLocation();
   const { language } = useLanguage();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authReady } = useAuth();
   const { toast } = useToast();
   
   const [editingMindMap, setEditingMindMap] = useState<any>(null);
@@ -59,7 +59,7 @@ export default function MindMaps() {
       console.log("[MindMaps] Mind maps loaded:", data);
       return data;
     },
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && authReady,
   });
 
   // Rename mutation
