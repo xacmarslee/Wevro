@@ -41,6 +41,7 @@ const [spellingTimeElapsed, setSpellingTimeElapsed] = useState(0);
 const [spellingTimerStarted, setSpellingTimerStarted] = useState(false);
 const [spellingIsCompleted, setSpellingIsCompleted] = useState(false);
 const [spellingInput, setSpellingInput] = useState("");
+const [processedFlipIds, setProcessedFlipIds] = useState<string[]>([]);
 const [processedCardIds, setProcessedCardIds] = useState<string[]>([]);
 const [isSpellingProcessing, setIsSpellingProcessing] = useState(false);
 const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "incorrect"; answer: string } | null>(null);
@@ -95,6 +96,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     setIsFlipped(false);
     setShuffledCards(cards);
     setShuffleMode(false);
+    setProcessedFlipIds([]);
     setProcessedCardIds([]);
     // Reset flip mode session counts
     setFlipSessionResults(new Map());
@@ -163,7 +165,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
   
   // Progress based on swiped cards (not just viewed)
   const processedCount = Math.min(
-    mode === "flip" ? sessionResults.size : processedCardIds.length,
+    mode === "flip" ? processedFlipIds.length : processedCardIds.length,
     displayCards.length
   );
   const swipedCount = processedCount;
@@ -195,6 +197,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     setIsFlipped(false);
     setSpellingInput("");
     setSpellingFeedback(null);
+    setProcessedFlipIds([]);
     setProcessedCardIds([]);
     setIsSpellingProcessing(false);
     // Reset drag motion values
@@ -205,6 +208,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
       setFlipTimeElapsed(0);
       setFlipTimerStarted(false);
       setFlipIsCompleted(false);
+      setProcessedFlipIds([]);
     } else {
       setSpellingSessionResults(new Map());
       setSpellingTimeElapsed(0);
@@ -311,11 +315,15 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     // Clear spelling mode state when shuffling
     setSpellingInput("");
     setSpellingFeedback(null);
+    setProcessedFlipIds([]);
     // Reset drag motion values
     x.set(0);
     // Reset completed state - important when shuffling after completion
     if (mode === "flip") {
       setFlipIsCompleted(false);
+      setFlipSessionResults(new Map());
+      setFlipTimeElapsed(0);
+      setFlipTimerStarted(false);
     } else {
       setSpellingIsCompleted(false);
       setProcessedCardIds([]);
@@ -338,15 +346,23 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     if (!flipTimerStarted) {
       setFlipTimerStarted(true);
     }
+
+    const cardId = currentCard?.id;
+    if (!cardId) {
+      return;
+    }
     
     if (info.offset.x > threshold) {
       // Swiped right - I know
       setFlipSessionResults((prev) => {
         const next = new Map(prev);
-        next.set(currentCard.id, "known");
+        next.set(cardId, "known");
         return next;
       });
-      onUpdateCard(currentCard.id, true);
+      setProcessedFlipIds((prev) =>
+        prev.includes(cardId) ? prev : [...prev, cardId]
+      );
+      onUpdateCard(cardId, true);
       // Immediately switch to next card
       nextCard();
       // Use requestAnimationFrame to reset position after card switches
@@ -359,10 +375,13 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
       // Swiped left - Don't know
       setFlipSessionResults((prev) => {
         const next = new Map(prev);
-        next.set(currentCard.id, "unknown");
+        next.set(cardId, "unknown");
         return next;
       });
-      onUpdateCard(currentCard.id, false);
+      setProcessedFlipIds((prev) =>
+        prev.includes(cardId) ? prev : [...prev, cardId]
+      );
+      onUpdateCard(cardId, false);
       // Immediately switch to next card
       nextCard();
       // Use requestAnimationFrame to reset position after card switches
@@ -400,6 +419,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
           setCurrentIndex(0);
           setSpellingInput("");
           setSpellingFeedback(null);
+          setProcessedFlipIds([]);
           setProcessedCardIds([]);
           setIsSpellingProcessing(false);
           setIsFlipped(false);
@@ -412,6 +432,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
             setFlipTimeElapsed(0);
             setFlipTimerStarted(false);
             setFlipIsCompleted(false);
+            setProcessedFlipIds([]);
           } else {
             setSpellingSessionResults(new Map());
             setSpellingTimeElapsed(0);
