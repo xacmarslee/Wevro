@@ -8,7 +8,7 @@
     "dev": "dotenv -e .env tsx server/index.ts",
     "dev:windows": "dotenv -e .env tsx server/index.ts",
     "build": "vite build && npm run build:server",
-    "build:server": "esbuild server/index.ts --platform=node --bundle --format=esm --outdir=dist --alias:rollup=./server/shims/rollup-empty.ts --alias:@rollup/rollup-linux-x64-gnu=./server/shims/rollup-empty.ts --alias:@rollup/rollup-linux-x64-musl=./server/shims/rollup-empty.ts --alias:@rollup/rollup-win32-x64-msvc=./server/shims/rollup-empty.ts --alias:@rollup/rollup-darwin-arm64=./server/shims/rollup-empty.ts --alias:@rollup/rollup-darwin-x64=./server/shims/rollup-empty.ts",
+    "build:server": "esbuild server/index.ts --platform=node --bundle --format=esm --outdir=dist --define:process.env.NODE_ENV=\"production\" --alias:rollup=server/shims/rollup --alias:rollup/parseAst=server/shims/rollup/parseAst --external:vite --external:lightningcss --external:@babel/preset-typescript --external:@babel/core",
     "build:mobile": "vite build",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
