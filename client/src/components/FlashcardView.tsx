@@ -147,6 +147,15 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
   // Get current cards (shuffled or original)
   const displayCards = shuffleMode ? shuffledCards : cards;
   const currentCard = displayCards[currentIndex];
+
+  useEffect(() => {
+    setProcessedFlipIds((prev) => {
+      if (prev.length === 0) return prev;
+      const validIds = new Set(displayCards.map((card) => card.id));
+      const filtered = prev.filter((id) => validIds.has(id));
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [displayCards]);
   
   // Motion values for drag animation
   const x = useMotionValue(0);
@@ -241,7 +250,7 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
         if (!prev) return prev;
         return prev.answer === answeredCard.word ? null : prev;
       });
-    }, 800);
+    }, 1500);
 
     // Update session counts
     if (isCorrect) {
@@ -352,6 +361,8 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
       return;
     }
     
+    let updatedProcessedIds: string[] | null = null;
+    
     if (info.offset.x > threshold) {
       // Swiped right - I know
       setFlipSessionResults((prev) => {
@@ -359,12 +370,11 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
         next.set(cardId, "known");
         return next;
       });
-      setProcessedFlipIds((prev) =>
-        prev.includes(cardId) ? prev : [...prev, cardId]
-      );
+      const processedSet = new Set(processedFlipIds);
+      processedSet.add(cardId);
+      updatedProcessedIds = Array.from(processedSet);
+      setProcessedFlipIds(updatedProcessedIds);
       onUpdateCard(cardId, true);
-      // Immediately switch to next card
-      nextCard();
       // Use requestAnimationFrame to reset position after card switches
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -378,31 +388,71 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
         next.set(cardId, "unknown");
         return next;
       });
-      setProcessedFlipIds((prev) =>
-        prev.includes(cardId) ? prev : [...prev, cardId]
-      );
+      const processedSet = new Set(processedFlipIds);
+      processedSet.add(cardId);
+      updatedProcessedIds = Array.from(processedSet);
+      setProcessedFlipIds(updatedProcessedIds);
       onUpdateCard(cardId, false);
-      // Immediately switch to next card
-      nextCard();
       // Use requestAnimationFrame to reset position after card switches
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           x.set(0);
         });
       });
+    } else {
+      return;
+    }
+    
+    if (updatedProcessedIds) {
+      advanceToNextCard(updatedProcessedIds);
     }
     // If didn't reach threshold, let dragConstraints handle the spring back naturally
     // Don't manually set x to 0 here as it interferes with the drag physics
   };
 
-  const nextCard = () => {
+  const advanceToNextCard = (processedIds: string[]) => {
     setIsFlipped(false);
-    if (currentIndex < displayCards.length - 1) {
-      setCurrentIndex((i) => i + 1);
-    } else {
-      // Mark as completed, stop timer, but don't navigate away
+    const totalCards = displayCards.length;
+
+    if (totalCards === 0) {
       setFlipIsCompleted(true);
-      setCurrentIndex(displayCards.length);
+      setCurrentIndex(0);
+      return;
+    }
+
+    const processedSet = new Set(processedIds);
+
+    if (processedSet.size >= totalCards) {
+      setFlipIsCompleted(true);
+      setCurrentIndex(totalCards);
+      return;
+    }
+
+    let nextIndex = -1;
+
+    for (let i = currentIndex + 1; i < totalCards; i++) {
+      const id = displayCards[i]?.id;
+      if (id && !processedSet.has(id)) {
+        nextIndex = i;
+        break;
+      }
+    }
+
+    if (nextIndex === -1) {
+      for (let i = 0; i < totalCards; i++) {
+        const id = displayCards[i]?.id;
+        if (id && !processedSet.has(id)) {
+          nextIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (nextIndex === -1) {
+      setFlipIsCompleted(true);
+      setCurrentIndex(totalCards);
+    } else {
+      setCurrentIndex(nextIndex);
     }
   };
 

@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { calculateBatchNodePositions } from "@/utils/mindmap/nodeLayout";
 import { LIMITS } from "@/utils/mindmap/constants";
@@ -16,6 +16,7 @@ import { useTranslation } from "@/lib/i18n";
 
 export function useMindMapGeneration() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const { language } = useLanguage();
   const t = useTranslation(language);
@@ -35,18 +36,48 @@ export function useMindMapGeneration() {
         { word, category, existingWords }
       );
       const data = await response.json();
-      return data as { words: string[] };
+      return data as {
+        words: string[];
+        tokenInfo?: {
+          tokenBalance: number;
+          usedMindmapExpansions: number;
+          tokensCharged: number;
+        };
+      };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setIsGenerating(false);
+      if (data?.tokenInfo) {
+        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+      }
     },
-    onError: () => {
+    onError: (error: unknown) => {
       setIsGenerating(false);
+
+      const defaultMessage =
+        language === "en"
+          ? "Failed to generate words. Please try again."
+          : "生成單字失敗，請重試。";
+
+      let description = defaultMessage;
+
+      if (error instanceof Error && error.message.startsWith("402")) {
+        const fallback =
+          language === "en"
+            ? "Not enough tokens. Each mind map expansion costs 0.5 token (billed every two expansions). Please top up on the pricing page."
+            : "點數不足。心智圖每次成功展開扣 0.5 點（累積兩次扣 1 點）。請前往計費頁面儲值。";
+        const payload = error.message.split(":").slice(1).join(":").trim();
+        try {
+          const parsed = JSON.parse(payload);
+          description = parsed?.message ?? fallback;
+        } catch {
+          description = fallback;
+        }
+      }
+
       toast({
         title: language === "en" ? "Error" : "錯誤",
-        description: language === "en"
-          ? "Failed to generate words. Please try again."
-          : "生成單字失敗，請重試。",
+        description,
         variant: "destructive",
       });
     },
