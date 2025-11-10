@@ -10,8 +10,10 @@ const baseLog = (...args: unknown[]) => console.log(...args);
 
 (async () => {
   if (dev) {
-    const { config } = await import("dotenv");
-    config();
+    const dotenv = await import("dotenv");
+    if (typeof dotenv.config === "function") {
+      dotenv.config();
+    }
   }
 
   if (dev && !process.env.REPL_ID) {

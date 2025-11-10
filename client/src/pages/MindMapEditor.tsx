@@ -77,6 +77,7 @@ export default function MindMapEditor() {
   const nodes = history.currentNodes ?? [];
   const hasNodes = nodes.length > 0;
   const hasOnlyCenterNode = nodes.length === 1 && !!nodes[0]?.isCenter;
+  const [isHydrating, setIsHydrating] = useState(true);
 
   // 從 URL 參數獲取初始單字（建立新心智圖時）
   useEffect(() => {
@@ -108,6 +109,7 @@ export default function MindMapEditor() {
   // 載入現有心智圖
   useEffect(() => {
     hydrationGuardRef.current = false;
+    setIsHydrating(true);
   }, [mindMapId]);
 
   useEffect(() => {
@@ -126,6 +128,7 @@ export default function MindMapEditor() {
       (hydratedFromCacheRef.current && isServerData);
 
     if (!shouldHydrate) {
+      setIsHydrating(false);
       return;
     }
 
@@ -138,10 +141,7 @@ export default function MindMapEditor() {
     console.log("raw nodes available:", Array.isArray(sourceMindMap?.nodes) ? sourceMindMap!.nodes.length : "N/A");
 
     if (!sourceMindMap) {
-      history.resetHistory([]);
-      setCenterNodeId(undefined);
-      setFocusNodeId(undefined);
-      console.warn("[MindMapEditor] No mind map found for hydration");
+      console.warn("[MindMapEditor] No mind map data available yet, skipping hydration");
       console.groupEnd();
       return;
     }
@@ -200,6 +200,7 @@ export default function MindMapEditor() {
     setCenterNodeId(nextCenter.id);
     setFocusNodeId(nextCenter.id);
     persistence.setIsSaved(true);
+    setIsHydrating(false);
     requestAnimationFrame(() => {
       window.dispatchEvent(new Event("mindmap-nodes-ready"));
     });
@@ -448,7 +449,7 @@ export default function MindMapEditor() {
       />
 
       <div className="relative grow h-[calc(100vh-160px)]">
-        {mindMapId && persistence.isLoading && (
+        {mindMapId && (persistence.isLoading || isHydrating) && (
           <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-lg font-medium">

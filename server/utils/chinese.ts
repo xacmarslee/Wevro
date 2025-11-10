@@ -1,4 +1,4 @@
-import chineseConv from "chinese-conv";
+import * as chineseConv from "chinese-conv";
 
 export const ensureTraditional = (text: string): string => {
   if (!text) {
