@@ -62,9 +62,9 @@ export const categoryColors: Record<WordCategory, { light: string; dark: string;
     name: "yellow"
   },
   "topic-related": {
-    light: "hsl(262, 83%, 58%)", // Indigo
-    dark: "hsl(263, 70%, 50%)",
-    name: "indigo"
+    light: "hsl(30, 60%, 52%)", // Brown
+    dark: "hsl(30, 55%, 45%)",
+    name: "brown"
   },
 };
 

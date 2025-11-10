@@ -87,3 +87,4 @@ npx @capacitor/assets generate
 參考主要文檔：`MOBILE_APP_SETUP.md` 中的「應用圖標和啟動畫面」章節。
 
 
+

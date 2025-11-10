@@ -161,12 +161,12 @@ return (
         </div>
       ) : (
         <>
-          <Button onClick={handleCreateNew} data-testid="button-create-mindmap">
+          <Button onClick={handleCreateNew} data-testid="button-create-mindmap" className="mb-6">
             <Plus className="h-4 w-4 mr-2" />
             {language === "en" ? "New Mind Map" : "新建心智圖"}
           </Button>
           
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4 mt-0">
             {mindMaps.map((mindMap: any) => (
             <Card 
               key={mindMap.id} 

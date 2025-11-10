@@ -9,6 +9,7 @@
 
 import OpenAI from "openai";
 import { type WordCategory } from "../shared/schema.js";
+import { ensureTraditional } from "./utils/chinese.js";
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -551,10 +552,19 @@ export async function generateBatchDefinitions(
           cleanedPos = uniqueParts.join(", ");
         }
 
+        if (typeof cleanedPos === "string") {
+          cleanedPos = ensureTraditional(cleanedPos);
+        }
+
         let sanitizedDefinition = String(def.definition)
           .split(/\r?\n/)
           .map(sanitizeDefinitionLine)
           .filter((line) => line && line.trim().length > 0)
+          .join("\n");
+
+        sanitizedDefinition = sanitizedDefinition
+          .split("\n")
+          .map((line) => ensureTraditional(line))
           .join("\n");
 
         // Remove duplicated POS prefixes that might slip through (e.g., "phr. phr.")
@@ -565,7 +575,7 @@ export async function generateBatchDefinitions(
         return {
           word: def.word,
           // Keep full definition - no arbitrary truncation
-          definition: sanitizedDefinition,
+          definition: ensureTraditional(sanitizedDefinition),
           partOfSpeech: typeof cleanedPos === "string" && cleanedPos.trim().length > 0 ? cleanedPos : "未知",
         };
       });

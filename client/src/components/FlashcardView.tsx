@@ -1,4 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+
+const SPELLING_FEEDBACK_DURATION = 1500;
+const SPELLING_RESULT_DELAY = 200;
 import { type Flashcard } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,18 +39,33 @@ export function FlashcardView({
   const [flipIsCompleted, setFlipIsCompleted] = useState(false);
   
   // Spelling mode states - separate from flip mode
-const [spellingSessionResults, setSpellingSessionResults] = useState<Map<string, "known" | "unknown">>(new Map());
-const [spellingTimeElapsed, setSpellingTimeElapsed] = useState(0);
-const [spellingTimerStarted, setSpellingTimerStarted] = useState(false);
-const [spellingIsCompleted, setSpellingIsCompleted] = useState(false);
-const [spellingInput, setSpellingInput] = useState("");
-const [processedFlipIds, setProcessedFlipIds] = useState<string[]>([]);
-const [processedCardIds, setProcessedCardIds] = useState<string[]>([]);
-const [isSpellingProcessing, setIsSpellingProcessing] = useState(false);
-const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "incorrect"; answer: string } | null>(null);
+  const [spellingSessionResults, setSpellingSessionResults] = useState<Map<string, "known" | "unknown">>(new Map());
+  const [spellingTimeElapsed, setSpellingTimeElapsed] = useState(0);
+  const [spellingTimerStarted, setSpellingTimerStarted] = useState(false);
+  const [spellingIsCompleted, setSpellingIsCompleted] = useState(false);
+  const [spellingInput, setSpellingInput] = useState("");
+  const [processedFlipIds, setProcessedFlipIds] = useState<string[]>([]);
+  const [processedCardIds, setProcessedCardIds] = useState<string[]>([]);
+  const [isSpellingProcessing, setIsSpellingProcessing] = useState(false);
+  const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "incorrect"; answer: string } | null>(null);
+  const feedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const { language } = useLanguage();
   const t = useTranslation(language);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current);
+        feedbackTimeoutRef.current = null;
+      }
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+        completionTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   // Convert part of speech to English abbreviation
   const getPosAbbr = (pos: string): string => {
@@ -110,6 +128,14 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     setSpellingIsCompleted(false);
     setSpellingFeedback(null);
     setIsSpellingProcessing(false);
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = null;
+    }
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId]); // Only reset when deck ID changes, not when cards array reference changes
   
@@ -206,6 +232,14 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     setIsFlipped(false);
     setSpellingInput("");
     setSpellingFeedback(null);
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = null;
+    }
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
     setProcessedFlipIds([]);
     setProcessedCardIds([]);
     setIsSpellingProcessing(false);
@@ -244,13 +278,17 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     const userAnswer = spellingInput.toLowerCase().trim();
     const isCorrect = userAnswer === correctAnswer;
 
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
     setSpellingFeedback({ type: isCorrect ? "correct" : "incorrect", answer: answeredCard.word });
-    setTimeout(() => {
+    feedbackTimeoutRef.current = setTimeout(() => {
       setSpellingFeedback((prev) => {
         if (!prev) return prev;
         return prev.answer === answeredCard.word ? null : prev;
       });
-    }, 1500);
+      feedbackTimeoutRef.current = null;
+    }, SPELLING_FEEDBACK_DURATION);
 
     // Update session counts
     if (isCorrect) {
@@ -291,9 +329,17 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
       return -1;
     };
 
-    if (totalCards === 0 || nextProcessedIds.length >= totalCards) {
-      setSpellingIsCompleted(true);
-      setCurrentIndex(totalCards);
+    const isFinalCard = totalCards === 0 || nextProcessedIds.length >= totalCards;
+
+    if (isFinalCard) {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current);
+      }
+      completionTimeoutRef.current = setTimeout(() => {
+        setSpellingIsCompleted(true);
+        setCurrentIndex(totalCards);
+        completionTimeoutRef.current = null;
+      }, SPELLING_FEEDBACK_DURATION + SPELLING_RESULT_DELAY);
     } else {
       const nextIndex = findNextIndex();
       if (nextIndex === -1) {
@@ -324,6 +370,14 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
     // Clear spelling mode state when shuffling
     setSpellingInput("");
     setSpellingFeedback(null);
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+      feedbackTimeoutRef.current = null;
+    }
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current);
+      completionTimeoutRef.current = null;
+    }
     setProcessedFlipIds([]);
     // Reset drag motion values
     x.set(0);
@@ -614,6 +668,14 @@ const [spellingFeedback, setSpellingFeedback] = useState<{ type: "correct" | "in
             setSpellingTimeElapsed(0);
             setSpellingTimerStarted(false);
             setSpellingIsCompleted(false);
+            if (feedbackTimeoutRef.current) {
+              clearTimeout(feedbackTimeoutRef.current);
+              feedbackTimeoutRef.current = null;
+            }
+            if (completionTimeoutRef.current) {
+              clearTimeout(completionTimeoutRef.current);
+              completionTimeoutRef.current = null;
+            }
           }
         }}>
           <TabsList className="grid grid-cols-2 w-64 mx-auto">

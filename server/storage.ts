@@ -3,6 +3,9 @@ import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "../sha
 import { db } from "./db.js";
 import { mindMaps, flashcardDecks, flashcards, users, userQuotas, tokenTransactions } from "../shared/schema.js";
 import { eq, and, desc, inArray, asc } from "drizzle-orm";
+import { ensureTraditional } from "./utils/chinese.js";
+type FlashcardRowSelect = typeof flashcards.$inferSelect;
+type FlashcardEssentialFields = Pick<FlashcardRowSelect, "id" | "word" | "definition" | "partOfSpeech" | "known">;
 
 export interface IStorage {
   // Users (Replit Auth)
@@ -39,6 +42,14 @@ export interface IStorage {
     tokensCharged: number;
   }>;
 }
+
+const mapFlashcardRow = (card: FlashcardEssentialFields) => ({
+  id: card.id,
+  word: card.word,
+  definition: ensureTraditional(card.definition),
+  partOfSpeech: card.partOfSpeech,
+  known: card.known,
+});
 
 export class DbStorage implements IStorage {
   // User methods (Replit Auth)
@@ -211,13 +222,7 @@ export class DbStorage implements IStorage {
     return {
       id: deck.id,
       name: deck.name,
-      cards: cards.map((c) => ({
-        id: c.id,
-        word: c.word,
-        definition: c.definition,
-        partOfSpeech: c.partOfSpeech,
-        known: c.known,
-      })),
+      cards: cards.map(mapFlashcardRow),
       createdAt: deck.createdAt.toISOString(),
     };
   }
@@ -253,13 +258,7 @@ export class DbStorage implements IStorage {
     return decks.map((deck) => ({
       id: deck.id,
       name: deck.name,
-      cards: (cardsByDeck.get(deck.id) || []).map((c) => ({
-        id: c.id,
-        word: c.word,
-        definition: c.definition,
-        partOfSpeech: c.partOfSpeech,
-        known: c.known,
-      })),
+      cards: (cardsByDeck.get(deck.id) || []).map(mapFlashcardRow),
       createdAt: deck.createdAt.toISOString(),
     }));
   }
@@ -285,20 +284,14 @@ export class DbStorage implements IStorage {
         id: randomUUID(),
         deckId,
         word: card.word,
-        definition: card.definition,
+        definition: ensureTraditional(card.definition),
         partOfSpeech: card.partOfSpeech,
         known: card.known || false,
       }));
 
       const insertedCards = await db.insert(flashcards).values(cardValues).returning();
       createdCards.push(
-        ...insertedCards.map((c) => ({
-          id: c.id,
-          word: c.word,
-          definition: c.definition,
-          partOfSpeech: c.partOfSpeech,
-          known: c.known,
-        }))
+        ...insertedCards.map(mapFlashcardRow)
       );
     }
 
@@ -331,13 +324,7 @@ export class DbStorage implements IStorage {
     return {
       id: updated.id,
       name: updated.name,
-      cards: cards.map((c) => ({
-        id: c.id,
-        word: c.word,
-        definition: c.definition,
-        partOfSpeech: c.partOfSpeech,
-        known: c.known,
-      })),
+      cards: cards.map(mapFlashcardRow),
       createdAt: updated.createdAt.toISOString(),
     };
   }
@@ -354,13 +341,7 @@ export class DbStorage implements IStorage {
     const [card] = await db.select().from(flashcards).where(eq(flashcards.id, id));
     if (!card) return undefined;
 
-    return {
-      id: card.id,
-      word: card.word,
-      definition: card.definition,
-      partOfSpeech: card.partOfSpeech,
-      known: card.known,
-    };
+    return mapFlashcardRow(card);
   }
 
   async getFlashcardsByDeck(deckId: string): Promise<Flashcard[]> {
@@ -369,13 +350,7 @@ export class DbStorage implements IStorage {
       .from(flashcards)
       .where(eq(flashcards.deckId, deckId))
       .orderBy(asc(flashcards.createdAt));
-    return cards.map((c) => ({
-      id: c.id,
-      word: c.word,
-      definition: c.definition,
-      partOfSpeech: c.partOfSpeech,
-      known: c.known,
-    }));
+    return cards.map(mapFlashcardRow);
   }
 
   async updateFlashcard(id: string, flashcard: Partial<Flashcard>): Promise<Flashcard | undefined> {
@@ -384,7 +359,7 @@ export class DbStorage implements IStorage {
       .set({
         ...(flashcard.known !== undefined && { known: flashcard.known }),
         ...(flashcard.word && { word: flashcard.word }),
-        ...(flashcard.definition && { definition: flashcard.definition }),
+        ...(flashcard.definition && { definition: ensureTraditional(flashcard.definition) }),
         ...(flashcard.partOfSpeech && { partOfSpeech: flashcard.partOfSpeech }),
       })
       .where(eq(flashcards.id, id))
@@ -392,13 +367,7 @@ export class DbStorage implements IStorage {
 
     if (!updated) return undefined;
 
-    return {
-      id: updated.id,
-      word: updated.word,
-      definition: updated.definition,
-      partOfSpeech: updated.partOfSpeech,
-      known: updated.known,
-    };
+    return mapFlashcardRow(updated);
   }
 
   async addFlashcard(deckId: string, flashcard: Omit<Flashcard, "id" | "known">): Promise<Flashcard | undefined> {
@@ -413,7 +382,7 @@ export class DbStorage implements IStorage {
         id,
         deckId,
         word: flashcard.word,
-        definition: flashcard.definition,
+        definition: ensureTraditional(flashcard.definition),
         partOfSpeech: flashcard.partOfSpeech,
         known: false,
         reviewCount: 0,
@@ -423,13 +392,7 @@ export class DbStorage implements IStorage {
       })
       .returning();
 
-    return {
-      id: created.id,
-      word: created.word,
-      definition: created.definition,
-      partOfSpeech: created.partOfSpeech,
-      known: created.known,
-    };
+    return mapFlashcardRow(created);
   }
 
   async consumeMindmapExpansion(userId: string): Promise<{
@@ -437,61 +400,59 @@ export class DbStorage implements IStorage {
     usedMindmapExpansions: number;
     tokensCharged: number;
   }> {
-    return await db.transaction(async (tx) => {
-      const [quota] = await tx
-        .select()
-        .from(userQuotas)
-        .where(eq(userQuotas.userId, userId))
-        .limit(1);
+    const [quota] = await db
+      .select()
+      .from(userQuotas)
+      .where(eq(userQuotas.userId, userId))
+      .limit(1);
 
-      if (!quota) {
-        throw new Error("QUOTA_NOT_INITIALIZED");
+    if (!quota) {
+      throw new Error("QUOTA_NOT_INITIALIZED");
+    }
+
+    let tokenBalance = quota.tokenBalance ?? 0;
+    let usedMindmapExpansions = quota.usedMindmapExpansions ?? 0;
+
+    usedMindmapExpansions += 1;
+    let tokensCharged = 0;
+
+    if (usedMindmapExpansions >= 2) {
+      if (tokenBalance <= 0) {
+        throw new Error("INSUFFICIENT_TOKENS");
       }
+      tokenBalance -= 1;
+      usedMindmapExpansions -= 2;
+      tokensCharged = 1;
+    }
 
-      let tokenBalance = quota.tokenBalance ?? 0;
-      let usedMindmapExpansions = quota.usedMindmapExpansions ?? 0;
-
-      usedMindmapExpansions += 1;
-      let tokensCharged = 0;
-
-      if (usedMindmapExpansions >= 2) {
-        if (tokenBalance <= 0) {
-          throw new Error("INSUFFICIENT_TOKENS");
-        }
-        tokenBalance -= 1;
-        usedMindmapExpansions -= 2;
-        tokensCharged = 1;
-      }
-
-      await tx
-        .update(userQuotas)
-        .set({
-          tokenBalance,
-          usedMindmapExpansions,
-          updatedAt: new Date(),
-        })
-        .where(eq(userQuotas.userId, userId));
-
-      if (tokensCharged > 0) {
-        await tx.insert(tokenTransactions).values({
-          id: randomUUID(),
-          userId,
-          amount: -tokensCharged,
-          type: "consume",
-          feature: "mindmapExpansion",
-          metadata: {
-            costPerExpansion: 0.5,
-            chargedExpansions: 2,
-          },
-        });
-      }
-
-      return {
+    await db
+      .update(userQuotas)
+      .set({
         tokenBalance,
         usedMindmapExpansions,
-        tokensCharged,
-      };
-    });
+        updatedAt: new Date(),
+      })
+      .where(eq(userQuotas.userId, userId));
+
+    if (tokensCharged > 0) {
+      await db.insert(tokenTransactions).values({
+        id: randomUUID(),
+        userId,
+        amount: -tokensCharged,
+        type: "consume",
+        feature: "mindmapExpansion",
+        metadata: {
+          costPerExpansion: 0.5,
+          chargedExpansions: 2,
+        },
+      });
+    }
+
+    return {
+      tokenBalance,
+      usedMindmapExpansions,
+      tokensCharged,
+    };
   }
 
   async deleteFlashcard(id: string): Promise<boolean> {

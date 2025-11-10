@@ -33,7 +33,7 @@ export default function Settings() {
   const { language, setLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
   const { startPage, setStartPage } = useStartPage();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
@@ -145,7 +145,18 @@ export default function Settings() {
           </button>
 
           {/* Account */}
-          {isAuthenticated && user ? (
+          {authLoading ? (
+            <div className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg border border-dashed border-muted animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-muted/70" />
+                <div className="space-y-2">
+                  <div className="h-4 w-24 rounded bg-muted/70" />
+                  <div className="h-3 w-32 rounded bg-muted/60" />
+                </div>
+              </div>
+              <div className="w-5 h-5 rounded bg-muted/70" />
+            </div>
+          ) : isAuthenticated && user ? (
             <button
               onClick={() => setLocation("/account")}
               className="flex items-center justify-between gap-4 w-full p-4 -mx-4 rounded-lg hover:bg-muted/50 transition-colors text-left"

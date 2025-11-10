@@ -4,9 +4,10 @@
  * 心智圖編輯器主頁面 - 協調所有 hooks 和元件
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
-import { type MindMapNode, type WordCategory } from "@shared/schema";
+import { type MindMapNode, type WordCategory, type MindMap } from "@shared/schema";
 import { CategoryButtons } from "@/components/CategoryButtons";
 import { MindMapCanvas } from "@/components/MindMapCanvas";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,20 @@ export default function MindMapEditor() {
   const generation = useMindMapGeneration();
   const persistence = useMindMapPersistence(mindMapId);
   const exportPNG = useMindMapExport();
+  const queryClient = useQueryClient();
+
+  const cachedMindMaps = queryClient.getQueryData<MindMap[]>(["/api/mindmaps"]) || [];
+  const cachedMindMap = mindMapId ? cachedMindMaps.find((map) => map.id === mindMapId) : undefined;
+
+  const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
+  const [centerWordInput, setCenterWordInput] = useState("");
+  const [centerDialogConfirmed, setCenterDialogConfirmed] = useState(false);
+  const hydrationGuardRef = useRef(false);
+  const hydratedFromCacheRef = useRef(false);
+
+  const nodes = history.currentNodes ?? [];
+  const hasNodes = nodes.length > 0;
+  const hasOnlyCenterNode = nodes.length === 1 && !!nodes[0]?.isCenter;
 
   // 從 URL 參數獲取初始單字（建立新心智圖時）
   useEffect(() => {
@@ -92,16 +107,154 @@ export default function MindMapEditor() {
   
   // 載入現有心智圖
   useEffect(() => {
-    if (persistence.existingMindMap?.nodes && Array.isArray(persistence.existingMindMap.nodes)) {
-      const loadedNodes = persistence.existingMindMap.nodes as MindMapNode[];
-      history.resetHistory(loadedNodes);
-      const centerNode = loadedNodes.find((n) => n.isCenter);
-      if (centerNode) {
-        setCenterNodeId(centerNode.id);
-      }
-      persistence.setIsSaved(true);
+    hydrationGuardRef.current = false;
+  }, [mindMapId]);
+
+  useEffect(() => {
+    if (!mindMapId) {
+      return;
     }
-  }, [persistence.existingMindMap]);
+    if (persistence.isLoading) {
+      return;
+    }
+
+    const sourceMindMap = persistence.existingMindMap ?? cachedMindMap;
+    const isServerData = Boolean(persistence.existingMindMap);
+
+    const shouldHydrate =
+      !hydrationGuardRef.current ||
+      (hydratedFromCacheRef.current && isServerData);
+
+    if (!shouldHydrate) {
+      return;
+    }
+
+    hydrationGuardRef.current = true;
+    hydratedFromCacheRef.current = !isServerData;
+
+    console.group("[MindMapEditor] Hydration");
+    console.log("mindMapId:", mindMapId);
+    console.log("source:", isServerData ? "server" : "cache");
+    console.log("raw nodes available:", Array.isArray(sourceMindMap?.nodes) ? sourceMindMap!.nodes.length : "N/A");
+
+    if (!sourceMindMap) {
+      history.resetHistory([]);
+      setCenterNodeId(undefined);
+      setFocusNodeId(undefined);
+      console.warn("[MindMapEditor] No mind map found for hydration");
+      console.groupEnd();
+      return;
+    }
+
+    const rawNodes = Array.isArray(sourceMindMap.nodes)
+      ? (sourceMindMap.nodes as MindMapNode[])
+      : [];
+
+    let normalizedNodes: MindMapNode[];
+
+    if (rawNodes.length === 0) {
+      console.warn("[MindMapEditor] Mind map contains no nodes, creating fallback center node");
+      const fallbackWord =
+        sourceMindMap.name?.trim() || initialWord || "Mind Map";
+      const centerNode: MindMapNode = {
+        id: crypto.randomUUID(),
+        word: fallbackWord,
+        x: 0,
+        y: 0,
+        isCenter: true,
+      };
+      normalizedNodes = [centerNode];
+      setInitialWord(fallbackWord);
+      window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [centerNode] } }));
+    } else {
+      normalizedNodes = rawNodes.map((node) => {
+        const parsedNode: MindMapNode = {
+          ...node,
+          id: String(node.id),
+          word: String(node.word),
+          x: typeof node.x === "number" ? node.x : Number(node.x) || 0,
+          y: typeof node.y === "number" ? node.y : Number(node.y) || 0,
+          parentId: node.parentId ? String(node.parentId) : undefined,
+          isCenter: Boolean(node.isCenter),
+        };
+        console.log("[MindMapEditor] Parsed node", parsedNode);
+        return parsedNode;
+      });
+
+      console.log("[MindMapEditor] Normalized nodes", normalizedNodes);
+
+      let centerNode = normalizedNodes.find((n) => n.isCenter);
+
+      if (!centerNode) {
+        centerNode = { ...normalizedNodes[0], isCenter: true };
+        normalizedNodes[0] = centerNode;
+      }
+
+      setInitialWord(centerNode.word);
+    }
+
+    const nextCenter = normalizedNodes.find((n) => n.isCenter) ?? normalizedNodes[0];
+
+    window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: normalizedNodes } }));
+    history.resetHistory(normalizedNodes);
+    setCenterNodeId(nextCenter.id);
+    setFocusNodeId(nextCenter.id);
+    persistence.setIsSaved(true);
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event("mindmap-nodes-ready"));
+    });
+    console.log("[MindMapEditor] Hydration complete", {
+      normalizedCount: normalizedNodes.length,
+      centerNode: nextCenter,
+    });
+    console.groupEnd();
+  }, [
+    mindMapId,
+    persistence.existingMindMap,
+    persistence.isLoading,
+    persistence.setIsSaved,
+    history.resetHistory,
+    cachedMindMap,
+  ]);
+
+  // 在節點資料更新時，確保中心節點狀態始終存在
+  useEffect(() => {
+    if (!hasNodes) {
+      if (centerNodeId) {
+        setCenterNodeId(undefined);
+      }
+      if (focusNodeId) {
+        setFocusNodeId(undefined);
+      }
+      return;
+    }
+
+    const centerNode = nodes.find((n) => n.isCenter) ?? nodes[0];
+
+    if (centerNode && centerNodeId !== centerNode.id) {
+      setCenterNodeId(centerNode.id);
+    }
+
+    if (!focusNodeId || !nodes.some((n) => n.id === focusNodeId)) {
+      setFocusNodeId(centerNode.id);
+    }
+  }, [nodes, hasNodes, centerNodeId, focusNodeId]);
+
+  useEffect(() => {
+    if (mindMapId) return;
+    if (persistence.isLoading) return;
+    if (nodes.length > 0) return;
+    if (isCenterDialogOpen) return;
+
+    setCenterWordInput(initialWord || "");
+    setIsCenterDialogOpen(true);
+  }, [
+    mindMapId,
+    nodes.length,
+    persistence.isLoading,
+    isCenterDialogOpen,
+    initialWord,
+  ]);
 
 
   // Undo
@@ -137,8 +290,20 @@ export default function MindMapEditor() {
 
   // 點擊節點
   const handleNodeClick = (nodeId: string) => {
+    const node = history.currentNodes.find((n) => n.id === nodeId);
+    if (!node) return;
+
     setCenterNodeId(nodeId);
     setFocusNodeId(nodeId);
+
+    if (!node.isCenter) {
+      history.updateNodesWithHistory((nodes) =>
+        nodes.map((n) => ({
+          ...n,
+          isCenter: n.id === nodeId,
+        })),
+      );
+    }
   };
 
   // 確認新增節點
@@ -175,6 +340,34 @@ export default function MindMapEditor() {
     history.clearHistory(); // 清空歷史記錄（保留當前狀態）
   };
 
+  const handleOpenCenterDialog = () => {
+    const centerNode = nodes.find((n) => n.isCenter);
+    setCenterWordInput(centerNode?.word || initialWord || "");
+    setIsCenterDialogOpen(true);
+  };
+
+  const handleConfirmCenter = () => {
+    const word = centerWordInput.trim();
+    if (!word) return;
+
+    const newNode: MindMapNode = {
+      id: crypto.randomUUID(),
+      word,
+      x: 0,
+      y: 0,
+      isCenter: true,
+    };
+
+    history.resetHistory([newNode]);
+    setCenterNodeId(newNode.id);
+    setFocusNodeId(newNode.id);
+    setInitialWord(word);
+    setCenterDialogConfirmed(true);
+    setIsCenterDialogOpen(false);
+    setCenterWordInput("");
+    persistence.setIsSaved(false);
+  };
+
   // 建立字卡
   const handleCreateFlashcards = () => {
     persistence.createFlashcards(history.currentNodes);
@@ -186,7 +379,7 @@ export default function MindMapEditor() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-screen">
       {/* 工具列 */}
       {(history.currentNodes.length > 0 || history.historyLength > 1) && (
         <div className="sticky top-0 z-40 border-b px-6 py-3 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -254,7 +447,16 @@ export default function MindMapEditor() {
         loading={generation.isGenerating}
       />
 
-      <div className="flex-1 relative">
+      <div className="relative grow h-[calc(100vh-160px)]">
+        {mindMapId && persistence.isLoading && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-lg font-medium">
+              {language === "en" ? "Loading mind map..." : "載入心智圖中..."}
+            </p>
+          </div>
+        )}
+
         {generation.isGenerating && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
@@ -264,8 +466,18 @@ export default function MindMapEditor() {
           </div>
         )}
 
+        {hasOnlyCenterNode && !generation.isGenerating && (
+          <div className="pointer-events-none absolute left-1/2 bottom-6 z-30 -translate-x-1/2">
+            <div className="rounded-full bg-background/95 px-4 py-2 text-sm text-muted-foreground shadow-lg">
+              {language === "en"
+                ? "Only the center node is shown. Use the category buttons or + icons to expand your mind map."
+                : "目前只有中心節點，試著使用上方的類別按鈕或畫布上的＋來擴充心智圖。"}
+            </div>
+          </div>
+        )}
+
         <MindMapCanvas
-          nodes={history.currentNodes}
+          nodes={nodes}
           onNodeClick={handleNodeClick}
           onNodeDelete={handleDeleteNode}
           onNodeAdd={nodeOps.openAddDialog}
@@ -304,6 +516,59 @@ export default function MindMapEditor() {
               onClick={handleConfirmAddNode}
               disabled={!nodeOps.newNodeWord.trim()}
               data-testid="button-confirm-add-node"
+              size="icon"
+              className="shrink-0"
+            >
+              <Plus className="h-5 w-5" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
+      {/* 建立中心節點對話框 */}
+      <Dialog
+        open={isCenterDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            if (centerDialogConfirmed) {
+              setCenterDialogConfirmed(false);
+            } else if (!persistence.isLoading && nodes.length === 0) {
+              setCenterWordInput("");
+              setIsCenterDialogOpen(false);
+              setLocation("/mindmaps");
+              return;
+            }
+            setCenterWordInput("");
+          } else {
+            const centerNode = nodes.find((n) => n.isCenter);
+            setCenterWordInput(centerNode?.word || initialWord || "");
+          }
+          setIsCenterDialogOpen(open);
+        }}
+      >
+        <DialogContent className="max-w-sm rounded-2xl p-6" data-testid="dialog-set-center">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-center">
+              {language === "en" ? "Set Center Word" : "設定中心字"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Input
+              value={centerWordInput}
+              onChange={(e) => setCenterWordInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && centerWordInput.trim()) handleConfirmCenter();
+                if (e.key === "Escape") setIsCenterDialogOpen(false);
+              }}
+              placeholder={language === "en" ? "Enter the main word..." : "輸入中心字..."}
+              autoFocus
+              data-testid="input-center-word"
+              className="flex-1"
+            />
+            <Button
+              onClick={handleConfirmCenter}
+              disabled={!centerWordInput.trim()}
+              data-testid="button-confirm-center"
               size="icon"
               className="shrink-0"
             >

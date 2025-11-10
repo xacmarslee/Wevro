@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
 import { type MindMapNode, type WordCategory } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { ZoomIn, ZoomOut, Maximize2, X, Plus } from "lucide-react";
@@ -28,7 +28,8 @@ export function MindMapCanvas({
 }: MindMapCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [pan, setPan] = useState({ x: 80, y: 80 });
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const pinchStateRef = useRef<{
@@ -45,25 +46,50 @@ export function MindMapCanvas({
 
   const clampZoom = (value: number) => Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect();
+      setCanvasSize((prev) => {
+        if (prev.width === rect.width && prev.height === rect.height) {
+          return prev;
+        }
+        return { width: rect.width, height: rect.height };
+      });
+    };
+
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(container);
+
+    return () => {
+      ro.disconnect();
+    };
+  }, []);
+
   // Auto-center the center node when it's created, or focus on a specific node
   useEffect(() => {
     const targetNodeId = focusNodeId || centerNodeId;
     if (!targetNodeId || !containerRef.current) return;
-    
+    if (canvasSize.width === 0 || canvasSize.height === 0) return;
+
     const targetNode = nodes.find((n) => n.id === targetNodeId);
     if (!targetNode) return;
 
-    // Calculate the center of the viewport
-    const rect = containerRef.current.getBoundingClientRect();
-    const viewportCenterX = rect.width / 2;
-    const viewportCenterY = rect.height / 2;
+    const raf = requestAnimationFrame(() => {
+      const viewportCenterX = canvasSize.width / 2;
+      const viewportCenterY = canvasSize.height / 2;
 
-    // Calculate the pan needed to center the node
-    setPan({
-      x: viewportCenterX - targetNode.x * zoom,
-      y: viewportCenterY - targetNode.y * zoom,
+      setPan({
+        x: viewportCenterX - targetNode.x * zoom,
+        y: viewportCenterY - targetNode.y * zoom,
+      });
     });
-  }, [centerNodeId, focusNodeId, nodes, zoom]);
+
+    return () => cancelAnimationFrame(raf);
+  }, [centerNodeId, focusNodeId, nodes, canvasSize.width, canvasSize.height]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
@@ -157,7 +183,22 @@ export function MindMapCanvas({
     const handleWheelEvent = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom((prev) => clampZoom(prev * delta));
+      const nextZoom = clampZoom(zoom * delta);
+      if (nextZoom === zoom) return;
+
+      const rect = container.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
+      const pointerY = e.clientY - rect.top;
+
+      const worldX = (pointerX - pan.x) / zoom;
+      const worldY = (pointerY - pan.y) / zoom;
+
+      setPan({
+        x: pointerX - worldX * nextZoom,
+        y: pointerY - worldY * nextZoom,
+      });
+
+      setZoom(nextZoom);
     };
 
     const handleTouchMoveEvent = (e: TouchEvent) => {
@@ -173,55 +214,78 @@ export function MindMapCanvas({
       container.removeEventListener('wheel', handleWheelEvent);
       container.removeEventListener('touchmove', handleTouchMoveEvent);
     };
-  }, [isDragging]);
+  }, [
+    isDragging,
+    zoom,
+    pan,
+    canvasSize.width,
+    canvasSize.height,
+  ]);
 
-  // Group nodes by parent AND category to preserve all connections
   const centerNode = nodes.find((n) => n.id === centerNodeId);
-  
-  // Create a map of parent -> category -> nodes
-  const connectionsByParent = nodes.reduce((acc, node) => {
-    if (node.category && node.parentId) {
-      if (!acc[node.parentId]) {
-        acc[node.parentId] = {};
-      }
-      if (!acc[node.parentId][node.category]) {
-        acc[node.parentId][node.category] = [];
-      }
-      acc[node.parentId][node.category].push(node);
-    }
-    return acc;
-  }, {} as Record<string, Record<string, MindMapNode[]>>);
 
-  // Create spider thread lines for all parent-child relationships
-  const spiderThreads: Array<{ category: string; from: MindMapNode; to: MindMapNode }> = [];
-  
-  Object.entries(connectionsByParent).forEach(([parentId, categories]) => {
-    const parentNode = nodes.find(n => n.id === parentId);
-    if (!parentNode) return;
-    
-    Object.entries(categories).forEach(([category, categoryNodes]) => {
-      if (categoryNodes.length === 0) return;
-      
-      // Sort nodes by distance from parent to get the furthest one
-      const sortedNodes = [...categoryNodes].sort((a, b) => {
-        const distA = Math.sqrt(Math.pow(a.x - parentNode.x, 2) + Math.pow(a.y - parentNode.y, 2));
-        const distB = Math.sqrt(Math.pow(b.x - parentNode.x, 2) + Math.pow(b.y - parentNode.y, 2));
-        return distB - distA;
+  const { immediateThreads, categoryFurthest } = useMemo(() => {
+    const connectionsByParent = nodes.reduce((acc, node) => {
+      if (node.parentId) {
+        if (!acc[node.parentId]) {
+          acc[node.parentId] = [];
+        }
+        acc[node.parentId].push(node);
+      }
+      return acc;
+    }, {} as Record<string, MindMapNode[]>);
+
+    const threads: Array<{ category?: string; from: MindMapNode; to: MindMapNode }> = [];
+    const furthestByCategory: Record<string, Array<{ category?: string; from: MindMapNode; to: MindMapNode }>> = {};
+
+    Object.entries(connectionsByParent).forEach(([parentId, childNodes]) => {
+      const parentNode = nodes.find((n) => n.id === parentId);
+      if (!parentNode) return;
+
+      const groupedByCategory = childNodes.reduce((acc, node) => {
+        const key = node.category || "default";
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(node);
+        return acc;
+      }, {} as Record<string, MindMapNode[]>);
+
+      childNodes.forEach((child) => {
+        threads.push({
+          category: child.category,
+          from: parentNode,
+          to: child,
+        });
       });
 
-      const furthestNode = sortedNodes[0];
+      Object.entries(groupedByCategory).forEach(([categoryKey, categoryNodes]) => {
+        if (categoryNodes.length === 0) return;
+        const furthestNode = categoryNodes.reduce((furthest, current) => {
+          const distFurthest = Math.hypot(furthest.x - parentNode.x, furthest.y - parentNode.y);
+          const distCurrent = Math.hypot(current.x - parentNode.x, current.y - parentNode.y);
+          return distCurrent > distFurthest ? current : furthest;
+        }, categoryNodes[0]);
 
-      spiderThreads.push({
-        category,
-        from: parentNode,
-        to: furthestNode,
+        const record = {
+          category: furthestNode.category,
+          from: parentNode,
+          to: furthestNode,
+        };
+
+        if (!furthestByCategory[parentNode.id]) {
+          furthestByCategory[parentNode.id] = [];
+        }
+        furthestByCategory[parentNode.id].push(record);
       });
     });
-  });
+
+    const categoryFurthestRecords = Object.values(furthestByCategory).flat();
+
+    return { immediateThreads: threads, categoryFurthest: categoryFurthestRecords };
+  }, [nodes]);
 
   return (
     <div 
-      className="relative h-full w-full overflow-hidden bg-background"
+      className="relative h-full min-h-[60vh] w-full overflow-hidden bg-background"
       style={{
         backgroundImage: `radial-gradient(circle, hsl(var(--border)) 1px, transparent 1px)`,
         backgroundSize: `${24 * zoom}px ${24 * zoom}px`,
@@ -248,14 +312,14 @@ export function MindMapCanvas({
           style={{ overflow: "visible" }}
         >
           <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-            {spiderThreads.map((thread) => {
+            {immediateThreads.map((thread, index) => {
               if (!thread) return null;
               const { category, from, to } = thread;
               const categoryColor = getCategoryColor(category as WordCategory, isDark) || "#999";
               
               return (
                 <line
-                  key={`thread-${category}`}
+                  key={`thread-${category ?? "default"}-${from.id}-${to.id}-${index}`}
                   x1={from.x}
                   y1={from.y}
                   x2={to.x}
@@ -279,7 +343,7 @@ export function MindMapCanvas({
           }}
         >
           {/* Add buttons at the end of each category thread */}
-          {onNodeAdd && spiderThreads.map((thread) => {
+          {onNodeAdd && categoryFurthest.map((thread, index) => {
             if (!thread) return null;
             const { category, from, to } = thread;
             const categoryColor = getCategoryColor(category as WordCategory, isDark) || "#999";
@@ -310,7 +374,7 @@ export function MindMapCanvas({
             
             return (
               <div
-                key={`add-btn-${category}`}
+                key={`add-btn-${category ?? "default"}-${from.id}-${to.id}-${index}`}
                 className="absolute"
                 style={{
                   left: buttonX,
