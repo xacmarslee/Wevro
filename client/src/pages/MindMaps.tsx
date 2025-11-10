@@ -131,9 +131,10 @@ export default function MindMaps() {
     }
   };
 
-  return (
-    <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div className="flex items-center justify-between gap-3">
+return (
+  <div className="flex flex-col h-full">
+    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="px-6 py-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <LogoText className="text-2xl font-bold text-primary" />
           <div className="h-6 w-px bg-border" />
@@ -143,6 +144,9 @@ export default function MindMaps() {
         </div>
         <TokenDisplay variant="header" />
       </div>
+    </div>
+
+    <div className="flex-1 px-6 pb-24 pt-6">
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -217,9 +221,10 @@ export default function MindMaps() {
             </Card>
           ))}
           </div>
-        </>
-      )}
-      
+      </>
+    )}
+    </div>
+
       {/* Create New Mind Map Dialog */}
       <Dialog open={isCreatingNew} onOpenChange={(open) => !open && setIsCreatingNew(false)}>
         <DialogContent data-testid="dialog-create-mindmap" className="max-w-sm rounded-2xl">

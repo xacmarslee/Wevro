@@ -40,7 +40,7 @@ export async function generateRelatedWords(
 ): Promise<string[]> {
   try {
     const examples: Record<WordCategory, string> = {
-      derivatives: `For "happy": ["happiness", "happily", "happier", "happiest", "unhappy"]`,
+      derivatives: `For "happy": ["happiness", "unhappiness", "unhappy"]`,
       synonyms: `For "happy": ["joyful", "cheerful", "content", "pleased", "delighted"] ← CAN replace "happy". For "sad": ["unhappy", "miserable", "sorrowful", "dejected", "gloomy"] ← CAN replace "sad"`,
       antonyms: `For "happy": ["sad", "unhappy", "miserable", "depressed", "gloomy"]`,
       collocations: `For "make" (transitive verb): ["make a decision", "make progress", "make sense", "make time", "make an effort"]. For "look" (intransitive): ["look at", "look for", "look after", "look into"]. For "decision" (noun): ["make a decision", "tough decision", "final decision"]`,
@@ -63,7 +63,7 @@ export async function generateRelatedWords(
     }
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // 使用 mini 版本：成本降低 94%，品質足夠
+      model: "gpt-4o", // 升級完整 4o：提升心智圖精準度
       messages: [
         {
           role: "system",
@@ -87,10 +87,11 @@ ${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the wo
 
 ${category === "derivatives" ? `CRITICAL for derivatives:
 - ONLY include derivational forms that appear as separate entries (headwords) in major learner dictionaries such as Oxford Learner's Dictionaries, Cambridge, Merriam-Webster, Collins, or Longman.
-- EXCLUDE simple inflectional changes (plural, tense, participle, comparative, superlative). These are NOT derivatives.
-- Do NOT invent or guess rare spellings (e.g., "cakelet", "caker").
-- Accept only well-established affixed forms (e.g., "-ness", "-ly", "-able") that pass the dictionary check.
-- If you cannot confirm any valid derivatives, return an empty array.` : ""}
+- Accept common derivational affixes (-y, -ly, -ful, -less, -ness, -able, -ous, -ment, -tion, etc.) and compounds built from the base word, as long as the resulting word is a dictionary headword.
+- For each derivative provide the verifying dictionary name in a separate "dictionary" field. If you cannot name the dictionary source, exclude the word.
+- EXCLUDE ALL inflectional changes: plural nouns, verb tenses/participles, comparative/superlative adjectives, -ly adverbs formed from the same root, or other grammatical inflections. These are NOT derivatives.
+- EXCLUDE invented, rare, or unattested forms. If the word is not an established dictionary headword, DO NOT include it.
+- If you cannot confirm any valid derivatives, return an empty array and add "_reason": "no verified derivatives" to the JSON.` : ""}
 
 ${normalizedExistingWords.length > 0 ? `ALREADY PROVIDED WORDS (do NOT repeat): ${JSON.stringify(normalizedExistingWords)}` : ""}
 
@@ -114,6 +115,10 @@ ${category === "collocations" ? `IMPORTANT for collocations:
 - If "${word}" is a NOUN:
   * Return common adjective + noun combinations (e.g., "tough decision", "final decision")
   * Return common verb + noun combinations where this noun is the object (e.g., "make a decision", "reach a decision")` : ""}
+
+${category === "collocations" ? `ABSOLUTE RULE for collocations:
+- Every collocation MUST explicitly contain the base word "${word}" (with its preposition, modifier, or object). Examples: "restrict access", "restrict someone", "restrict from doing".
+- DO NOT output synonyms, related concepts, or collocations that omit "${word}". If you cannot find valid collocations that include "${word}", return an empty array.` : ""}
 
 Instructions:
 - Generate as many ACCURATE ${categoryDescriptions[category]} as you can find (up to 7 words maximum)
@@ -139,7 +144,8 @@ Return a JSON object:
     {
       "word": "word1",
       "similarity": 0.92,
-      "usage": 0.78
+      "usage": 0.78${category === "derivatives" ? `,
+      "dictionary": "Oxford Learner's Dictionaries"` : ""}
     }
   ]
 }`,

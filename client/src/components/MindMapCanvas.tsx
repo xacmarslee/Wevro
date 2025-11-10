@@ -31,9 +31,19 @@ export function MindMapCanvas({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const pinchStateRef = useRef<{
+    distance: number;
+    zoom: number;
+    worldX: number;
+    worldY: number;
+  } | null>(null);
   const { theme } = useTheme();
   const { language } = useLanguage();
   const isDark = theme === "dark";
+  const MIN_ZOOM = 0.3;
+  const MAX_ZOOM = 3;
+
+  const clampZoom = (value: number) => Math.min(Math.max(value, MIN_ZOOM), MAX_ZOOM);
 
   // Auto-center the center node when it's created, or focus on a specific node
   useEffect(() => {
@@ -77,11 +87,50 @@ export function MindMapCanvas({
   const handleTouchStart = (e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest("[data-node]")) return;
     const touch = e.touches[0];
-    setIsDragging(true);
-    setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    if (e.touches.length === 1) {
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+      pinchStateRef.current = null;
+    } else if (e.touches.length === 2) {
+      const [t1, t2] = Array.from(e.touches);
+      const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const centerX = (t1.clientX + t2.clientX) / 2;
+      const centerY = (t1.clientY + t2.clientY) / 2;
+      const worldX = (centerX - pan.x) / zoom;
+      const worldY = (centerY - pan.y) / zoom;
+      pinchStateRef.current = {
+        distance,
+        zoom,
+        worldX,
+        worldY,
+      };
+      setIsDragging(false);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchStateRef.current) {
+      const [t1, t2] = Array.from(e.touches);
+      const distance = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      const centerX = (t1.clientX + t2.clientX) / 2;
+      const centerY = (t1.clientY + t2.clientY) / 2;
+      const { distance: startDistance, zoom: startZoom, worldX, worldY } = pinchStateRef.current;
+
+      if (startDistance === 0) return;
+
+      const ratio = distance / startDistance;
+      const nextZoom = clampZoom(startZoom * ratio);
+      const nextPan = {
+        x: centerX - worldX * nextZoom,
+        y: centerY - worldY * nextZoom,
+      };
+
+      setZoom(nextZoom);
+      setPan(nextPan);
+      e.preventDefault();
+      return;
+    }
+
     if (!isDragging) return;
     const touch = e.touches[0];
     setPan({
@@ -92,6 +141,7 @@ export function MindMapCanvas({
 
   const handleTouchEnd = () => {
     setIsDragging(false);
+    pinchStateRef.current = null;
   };
 
   const resetView = () => {
@@ -107,7 +157,7 @@ export function MindMapCanvas({
     const handleWheelEvent = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? 0.9 : 1.1;
-      setZoom((prev) => Math.min(Math.max(prev * delta, 0.3), 3));
+      setZoom((prev) => clampZoom(prev * delta));
     };
 
     const handleTouchMoveEvent = (e: TouchEvent) => {

@@ -189,10 +189,10 @@ export default function Query() {
     return posMap[pos.toLowerCase()] || pos;
   };
 
-  return (
-    <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+return (
+  <div className="flex flex-col h-full">
+    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="px-6 py-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <LogoText className="text-2xl font-bold text-primary" />
           <div className="h-6 w-px bg-border" />
@@ -202,8 +202,10 @@ export default function Query() {
         </div>
         <TokenDisplay variant="header" />
       </div>
+    </div>
 
-      {/* Mode Toggle */}
+    <div className="flex-1 px-6 pb-24 pt-6">
+    {/* Mode Toggle */}
       <Tabs
         value={mode}
         onValueChange={(value) => setMode(value as "examples" | "synonyms")}
@@ -474,7 +476,8 @@ export default function Query() {
             </div>
           )}
         </TabsContent>
-      </Tabs>
-    </div>
+    </Tabs>
+  </div>
+  </div>
   );
 }

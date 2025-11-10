@@ -85,6 +85,8 @@ export function useMindMapPersistence(mindMapId?: string) {
   /**
    * 建立字卡 mutation
    */
+  const FLASHCARDS_CREATING_KEY = ["/api/flashcards", "creating"] as const;
+
   const createFlashcardsMutation = useMutation({
     mutationFn: async (nodes: MindMapNode[]) => {
       const centerNode = nodes.find(n => n.isCenter);
@@ -120,6 +122,9 @@ export function useMindMapPersistence(mindMapId?: string) {
       
       return await response.json();
     },
+    onMutate: () => {
+      queryClient.setQueryData(FLASHCARDS_CREATING_KEY, true);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       setShowSaveConfirmDialog(false);
@@ -136,6 +141,9 @@ export function useMindMapPersistence(mindMapId?: string) {
         duration: 5000,
       });
       setShowSaveConfirmDialog(false);
+    },
+    onSettled: () => {
+      queryClient.setQueryData(FLASHCARDS_CREATING_KEY, false);
     },
   });
 
@@ -166,6 +174,7 @@ export function useMindMapPersistence(mindMapId?: string) {
     
     // 字卡建立狀態
     isCreatingFlashcards: createFlashcardsMutation.isPending,
+    setIsCreatingFlashcards: createFlashcardsMutation.reset,
     
     // 對話框狀態
     showSaveConfirmDialog,

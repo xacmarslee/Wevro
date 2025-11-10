@@ -55,8 +55,8 @@ function Router() {
 function AuthenticatedRoutes() {
   return (
 
-  <div className="flex flex-col h-screen">
-    <div className="flex-1 overflow-hidden">
+  <div className="flex flex-col min-h-screen max-h-screen overflow-hidden">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden">
       <Switch>
         <Route path="/landing" component={Landing} />
         <Route path="/query" component={Query} />
@@ -72,7 +72,9 @@ function AuthenticatedRoutes() {
         <Route component={NotFound} />
       </Switch>
     </div>
-    <Footer />
+    <div className="sticky inset-x-0 bottom-0 z-50">
+      <Footer />
+    </div>
   </div>
   );
 }

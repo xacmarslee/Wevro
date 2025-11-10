@@ -56,7 +56,7 @@ export default function Flashcards() {
   const [deletingCard, setDeletingCard] = useState<{ deckId: string; cardId: string; word: string } | null>(null);
 
   // Fetch user's flashcard decks (only when authenticated)
-  const { data: decks = [], isLoading } = useQuery({
+const { data: decks = [], isLoading } = useQuery({
     queryKey: ["/api/flashcards"],
     queryFn: async () => {
       console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated);
@@ -66,6 +66,18 @@ export default function Flashcards() {
     },
     enabled: isAuthenticated && authReady,
   });
+
+const { data: isMindMapGenerating = false } = useQuery({
+  queryKey: ["/api/flashcards", "creating"],
+  queryFn: async () =>
+    queryClient.getQueryData<boolean>(["/api/flashcards", "creating"]) ?? false,
+  initialData: false,
+  staleTime: Infinity,
+  gcTime: Infinity,
+  refetchOnWindowFocus: false,
+  refetchOnReconnect: false,
+  refetchInterval: false,
+});
 
 
   // Delete mutation
@@ -172,9 +184,21 @@ export default function Flashcards() {
     }
   };
 
-  return (
-    <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <div className="flex items-center justify-between gap-3">
+return (
+  <div className="relative flex flex-col h-full">
+    {isMindMapGenerating && (
+      <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg font-medium">
+            {language === "en" ? "Generating flashcards..." : "字卡生成中..."}
+          </p>
+        </div>
+      </div>
+    )}
+
+    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="px-6 py-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <LogoText className="text-2xl font-bold text-primary" />
           <div className="h-6 w-px bg-border" />
@@ -184,7 +208,9 @@ export default function Flashcards() {
         </div>
         <TokenDisplay variant="header" />
       </div>
+    </div>
 
+    <div className="flex-1 px-6 pb-24 pt-6">
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -197,72 +223,75 @@ export default function Flashcards() {
           </Button>
         </div>
       ) : (
-        <>
-          <Button onClick={handleCreateNew} data-testid="button-create-deck">
-            <Plus className="h-4 w-4 mr-2" />
-            {language === "en" ? "New Deck" : "新建字卡組"}
-          </Button>
-          
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {decks.map((deck: any) => (
-            <Card 
-              key={deck.id} 
-              className="hover-elevate active-elevate-2 transition-all relative"
-              data-testid={`card-deck-${deck.id}`}
-            >
-              <div 
-                className="cursor-pointer"
-                onClick={() => setLocation(`/flashcards/${deck.id}`)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-base truncate flex-1">{deck.name || "Untitled"}</CardTitle>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          data-testid={`button-menu-${deck.id}`}
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCards(deck); }} data-testid={`button-edit-cards-${deck.id}`}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          {language === "en" ? "Edit Deck" : "編輯字卡組"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={(e) => { e.stopPropagation(); handleDelete(deck); }}
-                          className="text-destructive"
-                          data-testid={`button-delete-${deck.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          {language === "en" ? "Delete" : "刪除"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                  <CardDescription className="text-xs">
-                    {deck.cards?.length || 0} {language === "en" ? "cards" : "張卡片"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <p className="text-xs text-muted-foreground">
-                    {language === "en" ? "Last updated: " : "最後更新："}
-                    {new Date(deck.createdAt).toLocaleDateString()}
-                  </p>
-                </CardContent>
-              </div>
-            </Card>
-          ))}
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleCreateNew} data-testid="button-create-deck">
+              <Plus className="h-4 w-4 mr-2" />
+              {language === "en" ? "New deck" : "建立字卡組"}
+            </Button>
           </div>
-        </>
-      )}
 
-      {/* Create Dialog */}
-      <Dialog open={isCreating} onOpenChange={(open) => !open && setIsCreating(false)}>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            {decks.map((deck: any) => (
+              <Card 
+                key={deck.id} 
+                className="hover-elevate active-elevate-2 transition-all relative"
+                data-testid={`card-deck-${deck.id}`}
+              >
+                <div 
+                  className="cursor-pointer"
+                  onClick={() => setLocation(`/flashcards/${deck.id}`)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <CardTitle className="text-base truncate flex-1">{deck.name || "Untitled"}</CardTitle>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            data-testid={`button-menu-${deck.id}`}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleEditCards(deck); }} data-testid={`button-edit-cards-${deck.id}`}>
+                            <Edit className="h-4 w-4 mr-2" />
+                            {language === "en" ? "Edit Deck" : "編輯字卡組"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(deck); }}
+                            className="text-destructive"
+                            data-testid={`button-delete-${deck.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            {language === "en" ? "Delete" : "刪除"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <CardDescription className="text-xs">
+                      {deck.cards?.length || 0} {language === "en" ? "cards" : "張卡片"}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <p className="text-xs text-muted-foreground">
+                      {language === "en" ? "Last updated: " : "最後更新："}
+                      {new Date(deck.createdAt).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* Create Dialog */}
+    <Dialog open={isCreating} onOpenChange={(open) => !open && setIsCreating(false)}>
         <DialogContent data-testid="dialog-create-deck" className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle>{language === "en" ? "Create Flashcard Deck" : "建立字卡組"}</DialogTitle>

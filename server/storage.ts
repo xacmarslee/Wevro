@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "../shared/schema.js";
 import { db } from "./db.js";
-import { mindMaps, flashcardDecks, flashcards, users, userQuotas } from "../shared/schema.js";
+import { mindMaps, flashcardDecks, flashcards, users, userQuotas, tokenTransactions } from "../shared/schema.js";
 import { eq, and, desc, inArray, asc } from "drizzle-orm";
 
 export interface IStorage {
@@ -31,6 +31,13 @@ export interface IStorage {
   updateFlashcard(id: string, flashcard: Partial<Flashcard>): Promise<Flashcard | undefined>;
   addFlashcard(deckId: string, flashcard: Omit<Flashcard, "id" | "known">): Promise<Flashcard | undefined>;
   deleteFlashcard(id: string): Promise<boolean>;
+
+  // Tokens
+  consumeMindmapExpansion(userId: string): Promise<{
+    tokenBalance: number;
+    usedMindmapExpansions: number;
+    tokensCharged: number;
+  }>;
 }
 
 export class DbStorage implements IStorage {
@@ -92,6 +99,7 @@ export class DbStorage implements IStorage {
           plan: "free",
           tokenBalance: 30, // 註冊送 30 點
           monthlyTokens: 0,
+          usedMindmapExpansions: 0,
           quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 明天
         })
         .returning();
@@ -422,6 +430,68 @@ export class DbStorage implements IStorage {
       partOfSpeech: created.partOfSpeech,
       known: created.known,
     };
+  }
+
+  async consumeMindmapExpansion(userId: string): Promise<{
+    tokenBalance: number;
+    usedMindmapExpansions: number;
+    tokensCharged: number;
+  }> {
+    return await db.transaction(async (tx) => {
+      const [quota] = await tx
+        .select()
+        .from(userQuotas)
+        .where(eq(userQuotas.userId, userId))
+        .limit(1);
+
+      if (!quota) {
+        throw new Error("QUOTA_NOT_INITIALIZED");
+      }
+
+      let tokenBalance = quota.tokenBalance ?? 0;
+      let usedMindmapExpansions = quota.usedMindmapExpansions ?? 0;
+
+      usedMindmapExpansions += 1;
+      let tokensCharged = 0;
+
+      if (usedMindmapExpansions >= 2) {
+        if (tokenBalance <= 0) {
+          throw new Error("INSUFFICIENT_TOKENS");
+        }
+        tokenBalance -= 1;
+        usedMindmapExpansions -= 2;
+        tokensCharged = 1;
+      }
+
+      await tx
+        .update(userQuotas)
+        .set({
+          tokenBalance,
+          usedMindmapExpansions,
+          updatedAt: new Date(),
+        })
+        .where(eq(userQuotas.userId, userId));
+
+      if (tokensCharged > 0) {
+        await tx.insert(tokenTransactions).values({
+          id: randomUUID(),
+          userId,
+          amount: -tokensCharged,
+          type: "consume",
+          feature: "mindmapExpansion",
+          metadata: {
+            costPerExpansion: 0.5,
+            chargedExpansions: 2,
+          },
+        });
+      }
+
+      return {
+        tokenBalance,
+        usedMindmapExpansions,
+        tokensCharged,
+      };
+    });
   }
 
   async deleteFlashcard(id: string): Promise<boolean> {

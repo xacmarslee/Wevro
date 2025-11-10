@@ -95,10 +95,12 @@ export default function Pricing() {
           </p>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-semibold text-green-600">
-                {language === "en" ? "FREE" : "免費"}
-              </Badge>
-              <span className="text-sm">{language === "en" ? "Mind Map expansion" : "心智圖擴展"}</span>
+              <Badge variant="secondary" className="text-xs font-semibold">0.5 {language === "en" ? "token" : "點"}</Badge>
+              <span className="text-sm">
+                {language === "en"
+                  ? "Mind map expansion (each successful expand, billed every two expands)"
+                  : "心智圖擴展（每次成功展開扣 0.5 點，兩次扣 1 點）"}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary" className="text-xs font-semibold">1 {language === "en" ? "token" : "點"}</Badge>
@@ -221,6 +223,14 @@ export default function Pricing() {
                   {language === "en" 
                     ? "All free features included" 
                     : "包含所有免費功能"}
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <span className="text-sm">
+                  {language === "en" 
+                    ? "Mind map expansion: 0.5 token per success (every two expands deduct 1 token)" 
+                    : "心智圖擴展：每次成功展開扣 0.5 點（兩次展開扣 1 點）"}
                 </span>
               </div>
               <div className="flex items-start gap-2">

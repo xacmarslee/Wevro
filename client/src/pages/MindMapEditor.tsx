@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
-import { Loader2, Undo2, Redo2, Save, Download, Sparkles, Plus } from "lucide-react";
+import { Loader2, Undo2, Redo2, Save, Download, Sparkles, Plus, ArrowLeft } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,6 +39,7 @@ import { useMindMapGeneration } from "@/hooks/mindmap/useMindMapGeneration";
 import { useMindMapPersistence } from "@/hooks/mindmap/useMindMapPersistence";
 import { useMindMapExport } from "@/hooks/mindmap/useMindMapExport";
 import { LIMITS } from "@/utils/mindmap/constants";
+import TokenDisplay from "@/components/TokenDisplay";
 
 export default function MindMapEditor() {
   // 路由參數
@@ -78,8 +79,9 @@ export default function MindMapEditor() {
             y: 0,
             isCenter: true,
           };
-          history.updateNodesWithHistory(() => [newNode]);
+          history.resetHistory([newNode]);
           setCenterNodeId(newNode.id);
+          setFocusNodeId(newNode.id);
         }, 100);
       } else {
         // 沒有初始單字，返回心智圖列表
@@ -187,13 +189,21 @@ export default function MindMapEditor() {
     <div className="flex flex-col h-full">
       {/* 工具列 */}
       {(history.currentNodes.length > 0 || history.historyLength > 1) && (
-        <div className="border-b px-6 py-3 flex items-center justify-between bg-card/50">
+        <div className="sticky top-0 z-40 border-b px-6 py-3 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="icon"
+              onClick={() => setLocation("/mindmaps")}
+              data-testid="button-back"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
               onClick={handleUndo}
-              disabled={!history.canUndo}
+              disabled={history.currentNodes.length === 0 || !history.canUndo}
               data-testid="button-undo"
             >
               <Undo2 className="h-4 w-4" />
@@ -232,6 +242,7 @@ export default function MindMapEditor() {
             >
               <Download className="h-4 w-4" />
             </Button>
+            <TokenDisplay variant="header" />
           </div>
         </div>
       )}

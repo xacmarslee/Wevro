@@ -60,6 +60,11 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
   }
 
   const tokenBalance = quota.tokenBalance || 0;
+  const usedMindmapExpansions = quota.usedMindmapExpansions || 0;
+
+  const remainderTokens = usedMindmapExpansions === 0 ? tokenBalance : tokenBalance - 1;
+  const hasHalf = usedMindmapExpansions % 2 === 1;
+  const displayBalance = hasHalf ? `${remainderTokens}.5` : `${remainderTokens}`;
 
   if (variant === "header") {
     // Header 右上角顯示（icon + 數字）
@@ -72,7 +77,7 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
       >
         <Coins className="h-4 w-4 text-yellow-600" />
         <span className="font-medium text-yellow-600">
-          {tokenBalance}
+          {displayBalance}
         </span>
       </Button>
     );
@@ -94,7 +99,9 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
             {language === "en" ? "My Tokens" : "我的點數"}
           </div>
           <div className="text-xs text-muted-foreground">
-            {language === "en" ? `${tokenBalance} tokens remaining` : `剩餘 ${tokenBalance} 點`}
+            {language === "en"
+              ? `${displayBalance} tokens remaining`
+              : `剩餘 ${displayBalance} 點`}
           </div>
         </div>
       </div>

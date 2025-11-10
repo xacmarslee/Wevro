@@ -84,16 +84,69 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
   // Generate related words for a category
-  app.post("/api/generate-words", async (req, res) => {
+  app.post("/api/generate-words", firebaseAuthMiddleware, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
       const validatedData = generateWordsRequestSchema.parse(req.body);
+
+      const quota = await storage.getUserQuota(userId);
+      const tokenBalance = quota?.tokenBalance ?? 0;
+      const expansionCarry = quota?.usedMindmapExpansions ?? 0;
+
+      // When no remaining tokens and no pending half-charge, block immediately
+      if (tokenBalance <= 0 && expansionCarry === 0) {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message:
+            "Mind map expansion requires tokens. Each successful expansion costs 0.5 tokens, billed every two expansions. Please top up your balance.",
+          tokenBalance,
+          usedMindmapExpansions: expansionCarry,
+        });
+      }
+
+      // When a half charge is pending (carry = 1), ensure the user still has at least 1 token for the next deduction
+      if (expansionCarry === 1 && tokenBalance <= 0) {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message:
+            "You need at least 1 token to continue expanding mind maps. The previous expansion reserved 0.5 tokens, and this one will complete the deduction.",
+          tokenBalance,
+          usedMindmapExpansions: expansionCarry,
+        });
+      }
+
       const words = await generateRelatedWords(
         validatedData.word,
         validatedData.category,
         validatedData.existingWords
       );
 
-      res.json({ words });
+      let tokenInfo:
+        | {
+            tokenBalance: number;
+            usedMindmapExpansions: number;
+            tokensCharged: number;
+          }
+        | undefined;
+
+      if (words.length > 0) {
+        try {
+          tokenInfo = await storage.consumeMindmapExpansion(userId);
+        } catch (error: any) {
+          if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+            return res.status(402).json({
+              error: "INSUFFICIENT_TOKENS",
+              message:
+                "Not enough tokens to complete this expansion. Please recharge and try again.",
+              tokenBalance,
+              usedMindmapExpansions: expansionCarry,
+            });
+          }
+          throw error;
+        }
+      }
+
+      res.json({ words, tokenInfo });
     } catch (error: any) {
       console.error("Error in /api/generate-words:", error);
       res.status(500).json({
