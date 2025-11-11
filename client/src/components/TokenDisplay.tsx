@@ -59,12 +59,13 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
     return null;
   }
 
-  const tokenBalance = quota.tokenBalance || 0;
-  const usedMindmapExpansions = quota.usedMindmapExpansions || 0;
-
-  const remainderTokens = usedMindmapExpansions === 0 ? tokenBalance : tokenBalance - 1;
-  const hasHalf = usedMindmapExpansions % 2 === 1;
-  const displayBalance = hasHalf ? `${remainderTokens}.5` : `${remainderTokens}`;
+  const tokenBalance = Number(quota.tokenBalance ?? 0);
+  const locale = language === "en" ? "en-US" : "zh-TW";
+  const formatter = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: Number.isInteger(tokenBalance) ? 0 : 1,
+    maximumFractionDigits: 2,
+  });
+  const displayBalance = formatter.format(tokenBalance);
 
   if (variant === "header") {
     // Header 右上角顯示（icon + 數字）

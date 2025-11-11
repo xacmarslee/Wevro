@@ -64,8 +64,8 @@ export function useMindMapGeneration() {
       if (error instanceof Error && error.message.startsWith("402")) {
         const fallback =
           language === "en"
-            ? "Not enough tokens. Each mind map expansion costs 0.5 token (billed every two expansions). Please top up on the pricing page."
-            : "點數不足。心智圖每次成功展開扣 0.5 點（累積兩次扣 1 點）。請前往計費頁面儲值。";
+            ? "Not enough tokens. Each mind map expansion costs 0.5 token. Please top up on the pricing page."
+            : "點數不足。心智圖每次成功展開扣 0.5 點，請前往計費頁面儲值。";
         const payload = error.message.split(":").slice(1).join(":").trim();
         try {
           const parsed = JSON.parse(payload);

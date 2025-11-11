@@ -5,11 +5,24 @@ import { mindMaps, flashcardDecks, flashcards, users, userQuotas, tokenTransacti
 import { eq, and, desc, inArray, asc } from "drizzle-orm";
 import { ensureTraditional } from "./utils/chinese.js";
 type FlashcardRowSelect = typeof flashcards.$inferSelect;
+type UserQuotaRow = typeof userQuotas.$inferSelect;
 type FlashcardEssentialFields = Pick<FlashcardRowSelect, "id" | "word" | "definition" | "partOfSpeech" | "known">;
 type TokenChargeResult = {
   tokenBalance: number;
   tokensCharged: number;
 };
+
+const TOKEN_PRECISION = 2;
+const MINDMAP_EXPANSION_COST = 0.5;
+
+const toNumber = (value: string | number | null | undefined): number => {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  return typeof value === "number" ? value : Number(value);
+};
+
+const toTokenString = (value: number): string => value.toFixed(TOKEN_PRECISION);
 
 export type MindmapExpansionSnapshot = {
   tokenBalance: number;
@@ -21,6 +34,13 @@ const createMindmapTokenError = (tokenBalance: number, usedMindmapExpansions: nu
   error.code = "INSUFFICIENT_TOKENS";
   error.tokenBalance = tokenBalance;
   error.usedMindmapExpansions = usedMindmapExpansions;
+  return error;
+};
+
+const createTokenError = (tokenBalance: number) => {
+  const error: any = new Error("INSUFFICIENT_TOKENS");
+  error.code = "INSUFFICIENT_TOKENS";
+  error.tokenBalance = tokenBalance;
   return error;
 };
 
@@ -74,6 +94,11 @@ const mapFlashcardRow = (card: FlashcardEssentialFields) => ({
   known: card.known,
 });
 
+const normalizeQuotaRow = (quota: UserQuotaRow) => ({
+  ...quota,
+  tokenBalance: toNumber(quota.tokenBalance),
+});
+
 export class DbStorage implements IStorage {
   // User methods (Replit Auth)
   async getUser(id: string): Promise<User | undefined> {
@@ -100,7 +125,7 @@ export class DbStorage implements IStorage {
       .values({
         userId: user.id,
         plan: "free",
-        tokenBalance: 30,
+        tokenBalance: toTokenString(30),
         monthlyTokens: 0,
         quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       })
@@ -131,16 +156,16 @@ export class DbStorage implements IStorage {
         .values({
           userId,
           plan: "free",
-          tokenBalance: 30, // 註冊送 30 點
+          tokenBalance: toTokenString(30), // 註冊送 30 點
           monthlyTokens: 0,
           usedMindmapExpansions: 0,
           quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 明天
         })
         .returning();
-      return newQuota;
+      return normalizeQuotaRow(newQuota);
     }
     
-    return quota;
+    return normalizeQuotaRow(quota);
   }
 
   // Mind map methods
@@ -420,44 +445,26 @@ export class DbStorage implements IStorage {
 
   async consumeTokens(userId: string, amount: number, feature: string, metadata?: Record<string, unknown>): Promise<TokenChargeResult> {
     if (amount <= 0) {
-      const [quota] = await db
-        .select()
-        .from(userQuotas)
-        .where(eq(userQuotas.userId, userId))
-        .limit(1);
-
-      if (!quota) {
-        throw new Error("QUOTA_NOT_INITIALIZED");
-      }
-
+      const quota = await this.getUserQuota(userId);
       return {
-        tokenBalance: quota.tokenBalance ?? 0,
+        tokenBalance: quota.tokenBalance,
         tokensCharged: 0,
       };
     }
 
-    const [quota] = await db
-      .select()
-      .from(userQuotas)
-      .where(eq(userQuotas.userId, userId))
-      .limit(1);
+    const quota = await this.getUserQuota(userId);
+    const currentBalance = toNumber(quota.tokenBalance);
 
-    if (!quota) {
-      throw new Error("QUOTA_NOT_INITIALIZED");
+    if (currentBalance + 1e-9 < amount) {
+      throw createTokenError(currentBalance);
     }
 
-    const currentBalance = quota.tokenBalance ?? 0;
-
-    if (currentBalance < amount) {
-      throw new Error("INSUFFICIENT_TOKENS");
-    }
-
-    const newBalance = currentBalance - amount;
+    const newBalance = Number((currentBalance - amount).toFixed(TOKEN_PRECISION));
 
     await db
       .update(userQuotas)
       .set({
-        tokenBalance: newBalance,
+        tokenBalance: toTokenString(newBalance),
         updatedAt: new Date(),
       })
       .where(eq(userQuotas.userId, userId));
@@ -465,7 +472,7 @@ export class DbStorage implements IStorage {
     await db.insert(tokenTransactions).values({
       id: randomUUID(),
       userId,
-      amount: -amount,
+      amount: toTokenString(-amount),
       type: "consume",
       feature,
       metadata: metadata ?? null,
@@ -489,15 +496,11 @@ export class DbStorage implements IStorage {
     }
 
     const snapshot: MindmapExpansionSnapshot = {
-      tokenBalance: quota.tokenBalance ?? 0,
+      tokenBalance: toNumber(quota.tokenBalance),
       usedMindmapExpansions: quota.usedMindmapExpansions ?? 0,
     };
 
-    if (snapshot.tokenBalance <= 0 && snapshot.usedMindmapExpansions === 0) {
-      throw createMindmapTokenError(snapshot.tokenBalance, snapshot.usedMindmapExpansions);
-    }
-
-    if (snapshot.usedMindmapExpansions === 1 && snapshot.tokenBalance <= 0) {
+    if (snapshot.tokenBalance + 1e-9 < MINDMAP_EXPANSION_COST) {
       throw createMindmapTokenError(snapshot.tokenBalance, snapshot.usedMindmapExpansions);
     }
 
@@ -514,31 +517,21 @@ export class DbStorage implements IStorage {
   }> {
     const snapshot = providedSnapshot ?? (await this.ensureMindmapExpansionAllowance(userId));
 
-    let tokenBalance = snapshot.tokenBalance;
-    let usedMindmapExpansions = snapshot.usedMindmapExpansions + 1;
-
-    let tokensCharged = 0;
-
-    if (usedMindmapExpansions >= 2) {
-      if (tokenBalance <= 0) {
-        throw createMindmapTokenError(tokenBalance, snapshot.usedMindmapExpansions);
-      }
-      tokenBalance -= 1;
-      usedMindmapExpansions -= 2;
-      tokensCharged = 1;
-    }
+    const previousBalance = snapshot.tokenBalance;
+    const newBalance = Number(Math.max(previousBalance - MINDMAP_EXPANSION_COST, 0).toFixed(TOKEN_PRECISION));
+    const updatedAt = new Date();
 
     const updateResult = await db
       .update(userQuotas)
       .set({
-        tokenBalance,
-        usedMindmapExpansions,
-        updatedAt: new Date(),
+        tokenBalance: toTokenString(newBalance),
+        usedMindmapExpansions: snapshot.usedMindmapExpansions + 1,
+        updatedAt,
       })
       .where(
         and(
           eq(userQuotas.userId, userId),
-          eq(userQuotas.tokenBalance, snapshot.tokenBalance),
+          eq(userQuotas.tokenBalance, toTokenString(previousBalance)),
           eq(userQuotas.usedMindmapExpansions, snapshot.usedMindmapExpansions)
         )
       )
@@ -549,24 +542,21 @@ export class DbStorage implements IStorage {
       return this.consumeMindmapExpansion(userId);
     }
 
-    if (tokensCharged > 0) {
-      await db.insert(tokenTransactions).values({
-        id: randomUUID(),
-        userId,
-        amount: -tokensCharged,
-        type: "consume",
-        feature: "mindmapExpansion",
-        metadata: {
-          costPerExpansion: 0.5,
-          chargedExpansions: 2,
-        },
-      });
-    }
+    await db.insert(tokenTransactions).values({
+      id: randomUUID(),
+      userId,
+      amount: toTokenString(-MINDMAP_EXPANSION_COST),
+      type: "consume",
+      feature: "mindmapExpansion",
+      metadata: {
+        costPerExpansion: MINDMAP_EXPANSION_COST,
+      },
+    });
 
     return {
-      tokenBalance,
-      usedMindmapExpansions,
-      tokensCharged,
+      tokenBalance: newBalance,
+      usedMindmapExpansions: snapshot.usedMindmapExpansions + 1,
+      tokensCharged: MINDMAP_EXPANSION_COST,
     };
   }
 

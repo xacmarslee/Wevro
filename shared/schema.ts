@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, real, index } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, numeric, real, index } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations, sql } from "drizzle-orm";
 
@@ -54,7 +54,7 @@ export const userQuotas = pgTable("user_quotas", {
   plan: varchar("plan", { length: 20 }).notNull().default("free"), // free, student, pro
   
   // Token balance (點數餘額，永不過期)
-  tokenBalance: integer("token_balance").notNull().default(0),
+  tokenBalance: numeric("token_balance", { precision: 10, scale: 2 }).notNull().default("0"),
   monthlyTokens: integer("monthly_tokens").notNull().default(0), // 方案每月配額
   
   // Daily quotas (not used with token system, kept for potential future use)
@@ -88,7 +88,7 @@ export const userQuotas = pgTable("user_quotas", {
 export const tokenTransactions = pgTable("token_transactions", {
   id: varchar("id").primaryKey(),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  amount: integer("amount").notNull(), // Positive for additions, negative for consumption
+  amount: numeric("amount", { precision: 10, scale: 2 }).notNull(), // Positive for additions, negative for consumption
   type: varchar("type", { length: 50 }).notNull(), // purchase, consume, gift, subscription_refill, refund
   feature: varchar("feature", { length: 100 }), // exampleGeneration, synonymComparison, etc. (null for purchases)
   metadata: jsonb("metadata"), // Additional info (e.g., pack name, transaction ID)

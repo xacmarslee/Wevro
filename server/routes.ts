@@ -96,18 +96,14 @@ export async function registerRoutes(app: Express): Promise<void> {
         expansionSnapshot = await storage.ensureMindmapExpansionAllowance(userId);
       } catch (error: any) {
         if (error?.code === "INSUFFICIENT_TOKENS") {
-          const tokenBalance = error.tokenBalance ?? 0;
-          const expansionCarry = error.usedMindmapExpansions ?? 0;
-          const message =
-            expansionCarry === 1
-              ? "You need at least 1 token to continue expanding mind maps. The previous expansion reserved 0.5 tokens, and this one will complete the deduction."
-              : "Mind map expansion requires tokens. Each successful expansion costs 0.5 tokens, billed every two expansions. Please top up your balance.";
-
+          const tokenBalance = Number(error.tokenBalance ?? 0);
           return res.status(402).json({
             error: "INSUFFICIENT_TOKENS",
-            message,
+            message:
+              "Mind map expansion requires at least 0.5 tokens. Please recharge before expanding.",
             tokenBalance,
-            usedMindmapExpansions: expansionCarry,
+            requiredTokens: 0.5,
+            usedMindmapExpansions: error.usedMindmapExpansions ?? 0,
           });
         }
 
@@ -134,16 +130,15 @@ export async function registerRoutes(app: Express): Promise<void> {
         } catch (error: any) {
           if (error?.code === "INSUFFICIENT_TOKENS" || error?.message === "INSUFFICIENT_TOKENS") {
             const tokenBalance =
-              error?.tokenBalance ?? expansionSnapshot?.tokenBalance ?? 0;
-            const usedMindmapExpansions =
-              error?.usedMindmapExpansions ?? expansionSnapshot?.usedMindmapExpansions ?? 0;
-
+              Number(error?.tokenBalance ?? expansionSnapshot?.tokenBalance ?? 0);
             return res.status(402).json({
               error: "INSUFFICIENT_TOKENS",
               message:
                 "Not enough tokens to complete this expansion. Please recharge and try again.",
               tokenBalance,
-              usedMindmapExpansions,
+              requiredTokens: 0.5,
+              usedMindmapExpansions:
+                error?.usedMindmapExpansions ?? expansionSnapshot?.usedMindmapExpansions ?? 0,
             });
           }
           throw error;
