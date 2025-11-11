@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { type MindMapNode, type MindMap } from "@shared/schema";
+import { type MindMapNode, type MindMap, type FlashcardDeck } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -67,9 +67,26 @@ export function useMindMapPersistence(mindMapId?: string) {
       }
     },
     onSuccess: (data) => {
-      console.log("[MindMap] onSuccess triggered, invalidating queries");
+      if (!data) {
+        return;
+      }
+
       setIsSaved(true);
-      queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
+
+      if (data.id) {
+        queryClient.setQueryData<MindMap[]>(["/api/mindmaps"], (previous = []) => {
+          const index = previous.findIndex((map) => map.id === data.id);
+          if (index === -1) {
+            return [data, ...previous];
+          }
+          const updated = [...previous];
+          updated[index] = data;
+          return updated;
+        });
+
+        queryClient.setQueryData(["/api/mindmaps", data.id], data);
+      }
+
       setShowSaveConfirmDialog(true);
     },
     onError: (error: Error) => {
@@ -87,7 +104,7 @@ export function useMindMapPersistence(mindMapId?: string) {
    */
   const FLASHCARDS_CREATING_KEY = ["/api/flashcards", "creating"] as const;
 
-  const createFlashcardsMutation = useMutation({
+  const createFlashcardsMutation = useMutation<FlashcardDeck, Error, MindMapNode[]>({
     mutationFn: async (nodes: MindMapNode[]) => {
       const centerNode = nodes.find(n => n.isCenter);
       const deckName = centerNode 
@@ -96,7 +113,7 @@ export function useMindMapPersistence(mindMapId?: string) {
       
       // 取得所有非中心節點的單字（去重）
       const words = nodes
-        .filter(n => !n.isCenter && n.word)
+        .filter(n => n.word)
         .map(n => n.word.trim())
         .filter((word, index, self) => self.indexOf(word) === index);
       
@@ -120,16 +137,32 @@ export function useMindMapPersistence(mindMapId?: string) {
         throw new Error(errorData.message || "Failed to create deck");
       }
       
-      return await response.json();
+      return await response.json() as FlashcardDeck;
     },
     onMutate: () => {
       queryClient.setQueryData(FLASHCARDS_CREATING_KEY, true);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
+      if (data?.tokenInfo) {
+        await queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+        toast({
+          title: language === "en" ? "Tokens deducted" : "點數已扣除",
+          description:
+            language === "en"
+              ? `Used ${data.tokenInfo.tokensCharged} token${data.tokenInfo.tokensCharged > 1 ? "s" : ""}.`
+              : `已扣除 ${data.tokenInfo.tokensCharged} 點。`,
+        });
+      } else {
+        toast({
+          title: language === "en" ? "Flashcards created" : "字卡建立成功",
+        });
+      }
+      queryClient.setQueryData(FLASHCARDS_CREATING_KEY, false);
       setShowSaveConfirmDialog(false);
     },
     onError: (error: Error) => {
+      queryClient.setQueryData(FLASHCARDS_CREATING_KEY, false);
       toast({
         title: language === "en" ? "Error" : "錯誤",
         description: error.message || (
@@ -141,9 +174,6 @@ export function useMindMapPersistence(mindMapId?: string) {
         duration: 5000,
       });
       setShowSaveConfirmDialog(false);
-    },
-    onSettled: () => {
-      queryClient.setQueryData(FLASHCARDS_CREATING_KEY, false);
     },
   });
 

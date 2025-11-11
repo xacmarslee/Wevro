@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { randomUUID } from "crypto";
 import { storage } from "./storage.js";
+import type { MindmapExpansionSnapshot } from "./storage.js";
 import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "./ai-generators.js";
 import {
   generateWordsRequestSchema,
@@ -89,30 +90,28 @@ export async function registerRoutes(app: Express): Promise<void> {
       const userId = getUserId(req);
       const validatedData = generateWordsRequestSchema.parse(req.body);
 
-      const quota = await storage.getUserQuota(userId);
-      const tokenBalance = quota?.tokenBalance ?? 0;
-      const expansionCarry = quota?.usedMindmapExpansions ?? 0;
+      let expansionSnapshot: MindmapExpansionSnapshot | undefined;
 
-      // When no remaining tokens and no pending half-charge, block immediately
-      if (tokenBalance <= 0 && expansionCarry === 0) {
-        return res.status(402).json({
-          error: "INSUFFICIENT_TOKENS",
-          message:
-            "Mind map expansion requires tokens. Each successful expansion costs 0.5 tokens, billed every two expansions. Please top up your balance.",
-          tokenBalance,
-          usedMindmapExpansions: expansionCarry,
-        });
-      }
+      try {
+        expansionSnapshot = await storage.ensureMindmapExpansionAllowance(userId);
+      } catch (error: any) {
+        if (error?.code === "INSUFFICIENT_TOKENS") {
+          const tokenBalance = error.tokenBalance ?? 0;
+          const expansionCarry = error.usedMindmapExpansions ?? 0;
+          const message =
+            expansionCarry === 1
+              ? "You need at least 1 token to continue expanding mind maps. The previous expansion reserved 0.5 tokens, and this one will complete the deduction."
+              : "Mind map expansion requires tokens. Each successful expansion costs 0.5 tokens, billed every two expansions. Please top up your balance.";
 
-      // When a half charge is pending (carry = 1), ensure the user still has at least 1 token for the next deduction
-      if (expansionCarry === 1 && tokenBalance <= 0) {
-        return res.status(402).json({
-          error: "INSUFFICIENT_TOKENS",
-          message:
-            "You need at least 1 token to continue expanding mind maps. The previous expansion reserved 0.5 tokens, and this one will complete the deduction.",
-          tokenBalance,
-          usedMindmapExpansions: expansionCarry,
-        });
+          return res.status(402).json({
+            error: "INSUFFICIENT_TOKENS",
+            message,
+            tokenBalance,
+            usedMindmapExpansions: expansionCarry,
+          });
+        }
+
+        throw error;
       }
 
       const words = await generateRelatedWords(
@@ -131,15 +130,20 @@ export async function registerRoutes(app: Express): Promise<void> {
 
       if (words.length > 0) {
         try {
-          tokenInfo = await storage.consumeMindmapExpansion(userId);
+          tokenInfo = await storage.consumeMindmapExpansion(userId, expansionSnapshot);
         } catch (error: any) {
-          if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+          if (error?.code === "INSUFFICIENT_TOKENS" || error?.message === "INSUFFICIENT_TOKENS") {
+            const tokenBalance =
+              error?.tokenBalance ?? expansionSnapshot?.tokenBalance ?? 0;
+            const usedMindmapExpansions =
+              error?.usedMindmapExpansions ?? expansionSnapshot?.usedMindmapExpansions ?? 0;
+
             return res.status(402).json({
               error: "INSUFFICIENT_TOKENS",
               message:
                 "Not enough tokens to complete this expansion. Please recharge and try again.",
               tokenBalance,
-              usedMindmapExpansions: expansionCarry,
+              usedMindmapExpansions,
             });
           }
           throw error;
@@ -157,17 +161,18 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Generate example sentences for a word/phrase
-  app.post("/api/examples/generate", async (req, res) => {
+  app.post("/api/examples/generate", firebaseAuthMiddleware, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
       const validatedData = generateExamplesRequestSchema.parse(req.body);
       const { query, counts } = validatedData;
-      
+
       console.log(`📝 Generating examples for "${query}"...`);
-      
+
       // Default counts if not provided
       const sensesCount = counts?.sense || 2;
       const phraseCount = counts?.phrase || 1;
-      
+
       // Check if OpenAI API key is configured
       if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         console.error("❌ OpenAI API key not configured");
@@ -176,22 +181,58 @@ export async function registerRoutes(app: Express): Promise<void> {
           message: "OpenAI API 金鑰未設定，請在 .env 檔案中設定 AI_INTEGRATIONS_OPENAI_API_KEY",
         });
       }
-      
+
+      const quota = await storage.getUserQuota(userId);
+      const tokenBalance = quota?.tokenBalance ?? 0;
+      const tokensRequired = 2;
+
+      if (tokenBalance < tokensRequired) {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message: "點數不足。例句生成每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+          tokenBalance,
+        });
+      }
+
       // Generate examples using OpenAI
       const examples = await generateExampleSentences(query, sensesCount, phraseCount);
-      
+
+      let tokenInfo;
+      const hasContent =
+        (examples?.senses?.length ?? 0) > 0 ||
+        (examples?.idioms?.length ?? 0) > 0 ||
+        (examples?.collocations?.length ?? 0) > 0;
+
+      if (hasContent) {
+        tokenInfo = await storage.consumeTokens(userId, tokensRequired, "exampleGeneration", {
+          query,
+          sensesCount,
+          phraseCount,
+        });
+      }
+
       console.log(`✅ Successfully generated examples for "${query}"`);
-      res.json(examples);
+      res.json({
+        ...examples,
+        tokenInfo,
+      });
     } catch (error: any) {
       console.error("❌ Error in /api/examples/generate:", error);
-      
+
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: "Invalid request data",
           details: error.errors,
         });
       }
-      
+
+      if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message: "點數不足。例句生成每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+        });
+      }
+
       res.status(500).json({
         error: "Failed to generate examples",
         message: error.message || "無法生成例句，請稍後再試",
@@ -200,13 +241,14 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // NEW: Generate synonym comparison for a word
-  app.post("/api/synonyms/generate", async (req, res) => {
+  app.post("/api/synonyms/generate", firebaseAuthMiddleware, async (req: any, res) => {
     try {
+      const userId = getUserId(req);
       const validatedData = generateSynonymsRequestSchema.parse(req.body);
       const { query } = validatedData;
-      
+
       console.log(`📝 Generating synonyms for "${query}"...`);
-      
+
       // Check if OpenAI API key is configured
       if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         console.error("❌ OpenAI API key not configured");
@@ -215,22 +257,52 @@ export async function registerRoutes(app: Express): Promise<void> {
           message: "OpenAI API 金鑰未設定，請在 .env 檔案中設定 AI_INTEGRATIONS_OPENAI_API_KEY",
         });
       }
-      
+
+      const quota = await storage.getUserQuota(userId);
+      const tokenBalance = quota?.tokenBalance ?? 0;
+      const tokensRequired = 2;
+
+      if (tokenBalance < tokensRequired) {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message: "點數不足。同義字比較每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+          tokenBalance,
+        });
+      }
+
       // Generate synonym comparison using OpenAI
       const synonyms = await generateSynonymComparison(query);
-      
+
+      let tokenInfo;
+      if ((synonyms?.synonyms?.length ?? 0) > 0) {
+        tokenInfo = await storage.consumeTokens(userId, tokensRequired, "synonymComparison", {
+          query,
+          synonymCount: synonyms.synonyms.length,
+        });
+      }
+
       console.log(`✅ Successfully generated synonyms for "${query}"`);
-      res.json(synonyms);
+      res.json({
+        ...synonyms,
+        tokenInfo,
+      });
     } catch (error: any) {
       console.error("❌ Error in /api/synonyms/generate:", error);
-      
+
       if (error instanceof z.ZodError) {
         return res.status(400).json({
           error: "Invalid request data",
           details: error.errors,
         });
       }
-      
+
+      if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message: "點數不足。同義字比較每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+        });
+      }
+
       res.status(500).json({
         error: "Failed to generate synonyms",
         message: error.message || "無法生成同義字，請稍後再試",
@@ -405,6 +477,18 @@ export async function registerRoutes(app: Express): Promise<void> {
         return;
       }
 
+      const tokensRequired = Math.max(1, Math.ceil(cards.length / 10));
+      const quota = await storage.getUserQuota(userId);
+      const tokenBalance = quota?.tokenBalance ?? 0;
+
+      if (tokenBalance < tokensRequired) {
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message: `點數不足。字卡生成每 10 張扣除 1 點（至少 1 點）。本次需要 ${tokensRequired} 點，請前往訂閱與點數頁面儲值。`,
+          tokenBalance,
+        });
+      }
+
       // Create the deck
       const deck = await storage.createFlashcardDeck(
         { name, cards: [] },
@@ -412,7 +496,28 @@ export async function registerRoutes(app: Express): Promise<void> {
         cards
       );
 
-      res.json(deck);
+      let tokenInfo;
+      try {
+        tokenInfo = await storage.consumeTokens(userId, tokensRequired, "flashcardGeneration", {
+          deckId: deck.id,
+          cardCount: cards.length,
+          wordsRequested: words.length,
+        });
+      } catch (error: any) {
+        await storage.deleteFlashcardDeck(deck.id, userId);
+        if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+          return res.status(402).json({
+            error: "INSUFFICIENT_TOKENS",
+            message: `點數不足。字卡生成每 10 張扣除 1 點（至少 1 點）。本次需要 ${tokensRequired} 點，請前往訂閱與點數頁面儲值。`,
+          });
+        }
+        throw error;
+      }
+
+      res.json({
+        ...deck,
+        tokenInfo,
+      });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid request data", details: error.errors });

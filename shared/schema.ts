@@ -3,6 +3,12 @@ import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, real, index
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations, sql } from "drizzle-orm";
 
+export const tokenInfoSchema = z.object({
+  tokenBalance: z.number(),
+  tokensCharged: z.number(),
+});
+export type TokenInfo = z.infer<typeof tokenInfoSchema>;
+
 // Word categories for mind map expansion
 export const wordCategories = [
   "derivatives",
@@ -240,6 +246,7 @@ export const examplesResponseSchema = z.object({
   senses: z.array(senseWithExamplesSchema),
   idioms: z.array(idiomWithExamplesSchema),
   collocations: z.array(collocationWithExamplesSchema),
+  tokenInfo: tokenInfoSchema.optional(),
 });
 
 export type ExamplesResponse = z.infer<typeof examplesResponseSchema>;
@@ -275,6 +282,7 @@ export type SynonymEntry = z.infer<typeof synonymEntrySchema>;
 export const synonymComparisonResponseSchema = z.object({
   query: z.string(),
   synonyms: z.array(synonymEntrySchema).max(7),
+  tokenInfo: tokenInfoSchema.optional(),
 });
 
 export type SynonymComparisonResponse = z.infer<typeof synonymComparisonResponseSchema>;
@@ -318,6 +326,7 @@ export const flashcardDeckSchema = z.object({
   name: z.string(),
   cards: z.array(flashcardSchema),
   createdAt: z.string(),
+  tokenInfo: tokenInfoSchema.optional(),
 });
 
 export type FlashcardDeck = z.infer<typeof flashcardDeckSchema>;

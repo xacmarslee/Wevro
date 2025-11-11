@@ -81,30 +81,31 @@ export default function MindMapEditor() {
 
   // 從 URL 參數獲取初始單字（建立新心智圖時）
   useEffect(() => {
-    if (!mindMapId) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const wordParam = urlParams.get('word');
-      if (wordParam) {
-        setInitialWord(wordParam);
-        // 自動開始
-        setTimeout(() => {
-          const newNode: MindMapNode = {
-            id: crypto.randomUUID(),
-            word: wordParam.trim(),
-            x: 0,
-            y: 0,
-            isCenter: true,
-          };
-          history.resetHistory([newNode]);
-          setCenterNodeId(newNode.id);
-          setFocusNodeId(newNode.id);
-        }, 100);
-      } else {
-        // 沒有初始單字，返回心智圖列表
-        setLocation('/mindmaps');
-      }
+    if (mindMapId) {
+      return;
     }
-  }, [mindMapId, setLocation]);
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const wordParam = urlParams.get("word")?.trim();
+
+    if (wordParam) {
+      setInitialWord(wordParam);
+      const newNode: MindMapNode = {
+        id: crypto.randomUUID(),
+        word: wordParam,
+        x: 0,
+        y: 0,
+        isCenter: true,
+      };
+      history.resetHistory([newNode]);
+      setCenterNodeId(newNode.id);
+      setFocusNodeId(newNode.id);
+      window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
+      return;
+    }
+
+    setLocation("/mindmaps");
+  }, [mindMapId, setLocation, history.resetHistory]);
   
   // 載入現有心智圖
   useEffect(() => {
@@ -135,14 +136,7 @@ export default function MindMapEditor() {
     hydrationGuardRef.current = true;
     hydratedFromCacheRef.current = !isServerData;
 
-    console.group("[MindMapEditor] Hydration");
-    console.log("mindMapId:", mindMapId);
-    console.log("source:", isServerData ? "server" : "cache");
-    console.log("raw nodes available:", Array.isArray(sourceMindMap?.nodes) ? sourceMindMap!.nodes.length : "N/A");
-
     if (!sourceMindMap) {
-      console.warn("[MindMapEditor] No mind map data available yet, skipping hydration");
-      console.groupEnd();
       return;
     }
 
@@ -153,7 +147,6 @@ export default function MindMapEditor() {
     let normalizedNodes: MindMapNode[];
 
     if (rawNodes.length === 0) {
-      console.warn("[MindMapEditor] Mind map contains no nodes, creating fallback center node");
       const fallbackWord =
         sourceMindMap.name?.trim() || initialWord || "Mind Map";
       const centerNode: MindMapNode = {
@@ -177,11 +170,8 @@ export default function MindMapEditor() {
           parentId: node.parentId ? String(node.parentId) : undefined,
           isCenter: Boolean(node.isCenter),
         };
-        console.log("[MindMapEditor] Parsed node", parsedNode);
         return parsedNode;
       });
-
-      console.log("[MindMapEditor] Normalized nodes", normalizedNodes);
 
       let centerNode = normalizedNodes.find((n) => n.isCenter);
 
@@ -199,16 +189,11 @@ export default function MindMapEditor() {
     history.resetHistory(normalizedNodes);
     setCenterNodeId(nextCenter.id);
     setFocusNodeId(nextCenter.id);
-    persistence.setIsSaved(true);
+      persistence.setIsSaved(true);
     setIsHydrating(false);
     requestAnimationFrame(() => {
       window.dispatchEvent(new Event("mindmap-nodes-ready"));
     });
-    console.log("[MindMapEditor] Hydration complete", {
-      normalizedCount: normalizedNodes.length,
-      centerNode: nextCenter,
-    });
-    console.groupEnd();
   }, [
     mindMapId,
     persistence.existingMindMap,

@@ -6,6 +6,23 @@ import { eq, and, desc, inArray, asc } from "drizzle-orm";
 import { ensureTraditional } from "./utils/chinese.js";
 type FlashcardRowSelect = typeof flashcards.$inferSelect;
 type FlashcardEssentialFields = Pick<FlashcardRowSelect, "id" | "word" | "definition" | "partOfSpeech" | "known">;
+type TokenChargeResult = {
+  tokenBalance: number;
+  tokensCharged: number;
+};
+
+export type MindmapExpansionSnapshot = {
+  tokenBalance: number;
+  usedMindmapExpansions: number;
+};
+
+const createMindmapTokenError = (tokenBalance: number, usedMindmapExpansions: number) => {
+  const error: any = new Error("INSUFFICIENT_TOKENS");
+  error.code = "INSUFFICIENT_TOKENS";
+  error.tokenBalance = tokenBalance;
+  error.usedMindmapExpansions = usedMindmapExpansions;
+  return error;
+};
 
 export interface IStorage {
   // Users (Replit Auth)
@@ -35,8 +52,14 @@ export interface IStorage {
   addFlashcard(deckId: string, flashcard: Omit<Flashcard, "id" | "known">): Promise<Flashcard | undefined>;
   deleteFlashcard(id: string): Promise<boolean>;
 
+  consumeTokens(userId: string, amount: number, feature: string, metadata?: Record<string, unknown>): Promise<TokenChargeResult>;
+
   // Tokens
-  consumeMindmapExpansion(userId: string): Promise<{
+  ensureMindmapExpansionAllowance(userId: string): Promise<MindmapExpansionSnapshot>;
+  consumeMindmapExpansion(
+    userId: string,
+    snapshot?: MindmapExpansionSnapshot
+  ): Promise<{
     tokenBalance: number;
     usedMindmapExpansions: number;
     tokensCharged: number;
@@ -395,11 +418,24 @@ export class DbStorage implements IStorage {
     return mapFlashcardRow(created);
   }
 
-  async consumeMindmapExpansion(userId: string): Promise<{
-    tokenBalance: number;
-    usedMindmapExpansions: number;
-    tokensCharged: number;
-  }> {
+  async consumeTokens(userId: string, amount: number, feature: string, metadata?: Record<string, unknown>): Promise<TokenChargeResult> {
+    if (amount <= 0) {
+      const [quota] = await db
+        .select()
+        .from(userQuotas)
+        .where(eq(userQuotas.userId, userId))
+        .limit(1);
+
+      if (!quota) {
+        throw new Error("QUOTA_NOT_INITIALIZED");
+      }
+
+      return {
+        tokenBalance: quota.tokenBalance ?? 0,
+        tokensCharged: 0,
+      };
+    }
+
     const [quota] = await db
       .select()
       .from(userQuotas)
@@ -410,29 +446,108 @@ export class DbStorage implements IStorage {
       throw new Error("QUOTA_NOT_INITIALIZED");
     }
 
-    let tokenBalance = quota.tokenBalance ?? 0;
-    let usedMindmapExpansions = quota.usedMindmapExpansions ?? 0;
+    const currentBalance = quota.tokenBalance ?? 0;
 
-    usedMindmapExpansions += 1;
+    if (currentBalance < amount) {
+      throw new Error("INSUFFICIENT_TOKENS");
+    }
+
+    const newBalance = currentBalance - amount;
+
+    await db
+      .update(userQuotas)
+      .set({
+        tokenBalance: newBalance,
+        updatedAt: new Date(),
+      })
+      .where(eq(userQuotas.userId, userId));
+
+    await db.insert(tokenTransactions).values({
+      id: randomUUID(),
+      userId,
+      amount: -amount,
+      type: "consume",
+      feature,
+      metadata: metadata ?? null,
+    });
+
+    return {
+      tokenBalance: newBalance,
+      tokensCharged: amount,
+    };
+  }
+
+  async ensureMindmapExpansionAllowance(userId: string): Promise<MindmapExpansionSnapshot> {
+    const [quota] = await db
+      .select()
+      .from(userQuotas)
+      .where(eq(userQuotas.userId, userId))
+      .limit(1);
+
+    if (!quota) {
+      throw new Error("QUOTA_NOT_INITIALIZED");
+    }
+
+    const snapshot: MindmapExpansionSnapshot = {
+      tokenBalance: quota.tokenBalance ?? 0,
+      usedMindmapExpansions: quota.usedMindmapExpansions ?? 0,
+    };
+
+    if (snapshot.tokenBalance <= 0 && snapshot.usedMindmapExpansions === 0) {
+      throw createMindmapTokenError(snapshot.tokenBalance, snapshot.usedMindmapExpansions);
+    }
+
+    if (snapshot.usedMindmapExpansions === 1 && snapshot.tokenBalance <= 0) {
+      throw createMindmapTokenError(snapshot.tokenBalance, snapshot.usedMindmapExpansions);
+    }
+
+    return snapshot;
+  }
+
+  async consumeMindmapExpansion(
+    userId: string,
+    providedSnapshot?: MindmapExpansionSnapshot
+  ): Promise<{
+    tokenBalance: number;
+    usedMindmapExpansions: number;
+    tokensCharged: number;
+  }> {
+    const snapshot = providedSnapshot ?? (await this.ensureMindmapExpansionAllowance(userId));
+
+    let tokenBalance = snapshot.tokenBalance;
+    let usedMindmapExpansions = snapshot.usedMindmapExpansions + 1;
+
     let tokensCharged = 0;
 
     if (usedMindmapExpansions >= 2) {
       if (tokenBalance <= 0) {
-        throw new Error("INSUFFICIENT_TOKENS");
+        throw createMindmapTokenError(tokenBalance, snapshot.usedMindmapExpansions);
       }
       tokenBalance -= 1;
       usedMindmapExpansions -= 2;
       tokensCharged = 1;
     }
 
-    await db
+    const updateResult = await db
       .update(userQuotas)
       .set({
         tokenBalance,
         usedMindmapExpansions,
         updatedAt: new Date(),
       })
-      .where(eq(userQuotas.userId, userId));
+      .where(
+        and(
+          eq(userQuotas.userId, userId),
+          eq(userQuotas.tokenBalance, snapshot.tokenBalance),
+          eq(userQuotas.usedMindmapExpansions, snapshot.usedMindmapExpansions)
+        )
+      )
+      .returning();
+
+    if (updateResult.length === 0) {
+      // 資料在期間已被更新，重新嘗試一次以取得最新 quota
+      return this.consumeMindmapExpansion(userId);
+    }
 
     if (tokensCharged > 0) {
       await db.insert(tokenTransactions).values({

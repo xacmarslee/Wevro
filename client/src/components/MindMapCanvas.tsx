@@ -74,7 +74,7 @@ export function MindMapCanvas({
     const targetNodeId = focusNodeId || centerNodeId;
     if (!targetNodeId || !containerRef.current) return;
     if (canvasSize.width === 0 || canvasSize.height === 0) return;
-
+    
     const targetNode = nodes.find((n) => n.id === targetNodeId);
     if (!targetNode) return;
 
@@ -82,10 +82,10 @@ export function MindMapCanvas({
       const viewportCenterX = canvasSize.width / 2;
       const viewportCenterY = canvasSize.height / 2;
 
-      setPan({
-        x: viewportCenterX - targetNode.x * zoom,
-        y: viewportCenterY - targetNode.y * zoom,
-      });
+    setPan({
+      x: viewportCenterX - targetNode.x * zoom,
+      y: viewportCenterY - targetNode.y * zoom,
+    });
     });
 
     return () => cancelAnimationFrame(raf);
@@ -223,25 +223,25 @@ export function MindMapCanvas({
   ]);
 
   const centerNode = nodes.find((n) => n.id === centerNodeId);
-
+  
   const { immediateThreads, categoryFurthest } = useMemo(() => {
-    const connectionsByParent = nodes.reduce((acc, node) => {
+  const connectionsByParent = nodes.reduce((acc, node) => {
       if (node.parentId) {
-        if (!acc[node.parentId]) {
+      if (!acc[node.parentId]) {
           acc[node.parentId] = [];
-        }
-        acc[node.parentId].push(node);
       }
-      return acc;
+        acc[node.parentId].push(node);
+    }
+    return acc;
     }, {} as Record<string, MindMapNode[]>);
 
     const threads: Array<{ category?: string; from: MindMapNode; to: MindMapNode }> = [];
     const furthestByCategory: Record<string, Array<{ category?: string; from: MindMapNode; to: MindMapNode }>> = {};
-
+  
     Object.entries(connectionsByParent).forEach(([parentId, childNodes]) => {
       const parentNode = nodes.find((n) => n.id === parentId);
-      if (!parentNode) return;
-
+    if (!parentNode) return;
+    
       const groupedByCategory = childNodes.reduce((acc, node) => {
         const key = node.category || "default";
         if (!acc[key]) acc[key] = [];
@@ -258,7 +258,7 @@ export function MindMapCanvas({
       });
 
       Object.entries(groupedByCategory).forEach(([categoryKey, categoryNodes]) => {
-        if (categoryNodes.length === 0) return;
+      if (categoryNodes.length === 0) return;
         const furthestNode = categoryNodes.reduce((furthest, current) => {
           const distFurthest = Math.hypot(furthest.x - parentNode.x, furthest.y - parentNode.y);
           const distCurrent = Math.hypot(current.x - parentNode.x, current.y - parentNode.y);
@@ -267,8 +267,8 @@ export function MindMapCanvas({
 
         const record = {
           category: furthestNode.category,
-          from: parentNode,
-          to: furthestNode,
+        from: parentNode,
+        to: furthestNode,
         };
 
         if (!furthestByCategory[parentNode.id]) {

@@ -54,9 +54,21 @@ export default function Flashcards() {
   const [editedCards, setEditedCards] = useState<any[]>([]);
   const [newCard, setNewCard] = useState({ word: "", definition: "" });
   const [deletingCard, setDeletingCard] = useState<{ deckId: string; cardId: string; word: string } | null>(null);
+  const parseTokenError = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.startsWith("402")) {
+      const payload = error.message.split(":").slice(1).join(":").trim();
+      try {
+        const parsed = JSON.parse(payload);
+        return parsed?.message ?? fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    return fallback;
+  };
 
   // Fetch user's flashcard decks (only when authenticated)
-const { data: decks = [], isLoading } = useQuery({
+  const { data: decks = [], isLoading } = useQuery({
     queryKey: ["/api/flashcards"],
     queryFn: async () => {
       console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated);
@@ -67,17 +79,17 @@ const { data: decks = [], isLoading } = useQuery({
     enabled: isAuthenticated && authReady,
   });
 
-const { data: isMindMapGenerating = false } = useQuery({
-  queryKey: ["/api/flashcards", "creating"],
-  queryFn: async () =>
-    queryClient.getQueryData<boolean>(["/api/flashcards", "creating"]) ?? false,
-  initialData: false,
-  staleTime: Infinity,
-  gcTime: Infinity,
-  refetchOnWindowFocus: false,
-  refetchOnReconnect: false,
-  refetchInterval: false,
-});
+  const { data: isMindMapGenerating = false } = useQuery({
+    queryKey: ["/api/flashcards", "creating"],
+    queryFn: async () =>
+      queryClient.getQueryData<boolean>(["/api/flashcards", "creating"]) ?? false,
+    initialData: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: false,
+  });
 
 
   // Delete mutation
@@ -109,13 +121,16 @@ const { data: isMindMapGenerating = false } = useQuery({
         throw new Error(errorData.message || "Failed to create deck");
       }
       
-      const data = await response.json();
+      const data = (await response.json()) as FlashcardDeck;
       console.log("[Flashcards] Deck created successfully:", data);
       return data;
     },
     onSuccess: (data) => {
       console.log("[Flashcards] onSuccess triggered, invalidating queries");
       queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
+      if (data?.tokenInfo) {
+        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+      }
       setIsCreating(false);
       setDeckName("");
       setWordsList("");
@@ -128,7 +143,11 @@ const { data: isMindMapGenerating = false } = useQuery({
       console.error("[Flashcards] Create failed:", error);
       toast({
         title: language === "en" ? "Error" : "錯誤",
-        description: error.message || (language === "en" ? "Failed to create deck" : "建立字卡組失敗"),
+        description:
+          parseTokenError(
+            error,
+            error.message || (language === "en" ? "Failed to create deck" : "建立字卡組失敗"),
+          ),
         variant: "destructive",
         duration: 5000,
       });
@@ -187,7 +206,7 @@ const { data: isMindMapGenerating = false } = useQuery({
 return (
   <div className="relative flex flex-col h-full">
     {isMindMapGenerating && (
-      <div className="absolute inset-0 z-40 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-lg font-medium">

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
@@ -40,6 +40,20 @@ export default function Query() {
   const [expandedCollocations, setExpandedCollocations] = useState<Set<string>>(new Set());
   const { language } = useLanguage();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const parseTokenError = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message.startsWith("402")) {
+      const payload = error.message.split(":").slice(1).join(":").trim();
+      try {
+        const parsed = JSON.parse(payload);
+        return parsed?.message ?? fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    return fallback;
+  };
 
   // Examples generation mutation
   const examplesMutation = useMutation({
@@ -54,10 +68,11 @@ export default function Query() {
         query,
         counts,
       });
-      const data = await response.json();
+      const data = (await response.json()) as ExamplesResponse;
       
       // Save to cache
-      examplesCache[cacheKey] = data;
+      const { tokenInfo: _examplesTokenInfo, ...cacheableExamples } = data;
+      examplesCache[cacheKey] = cacheableExamples;
       
       return data;
     },
@@ -67,11 +82,19 @@ export default function Query() {
       setExpandedSenses(new Set());
       setExpandedIdioms(new Set());
       setExpandedCollocations(new Set());
+      if (data?.tokenInfo) {
+        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+      }
     },
-    onError: () => {
+    onError: (error: unknown) => {
       toast({
         title: language === "en" ? "Generation failed" : "生成失敗",
-        description: language === "en" ? "Failed to generate example sentences" : "無法生成例句",
+        description: parseTokenError(
+          error,
+          language === "en"
+            ? "Failed to generate example sentences"
+            : "無法生成例句",
+        ),
         variant: "destructive",
       });
     },
@@ -86,20 +109,29 @@ export default function Query() {
       }
 
       const response = await apiRequest("POST", "/api/synonyms/generate", { query });
-      const data = await response.json();
+      const data = (await response.json()) as SynonymComparisonResponse;
       
       // Save to cache
-      synonymsCache[query] = data;
+      const { tokenInfo: _synonymTokenInfo, ...cacheableSynonyms } = data;
+      synonymsCache[query] = cacheableSynonyms;
       
       return data;
     },
     onSuccess: (data: SynonymComparisonResponse) => {
       setSynonymsResults(data);
+      if (data?.tokenInfo) {
+        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+      }
     },
-    onError: () => {
+    onError: (error: unknown) => {
       toast({
         title: language === "en" ? "Generation failed" : "生成失敗",
-        description: language === "en" ? "Failed to generate synonyms" : "無法生成同義字",
+        description: parseTokenError(
+          error,
+          language === "en"
+            ? "Failed to generate synonyms"
+            : "無法生成同義字",
+        ),
         variant: "destructive",
       });
     },
