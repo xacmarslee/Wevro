@@ -97,14 +97,14 @@ export async function registerRoutes(app: Express): Promise<void> {
       } catch (error: any) {
         if (error?.code === "INSUFFICIENT_TOKENS") {
           const tokenBalance = Number(error.tokenBalance ?? 0);
-          return res.status(402).json({
-            error: "INSUFFICIENT_TOKENS",
-            message:
+        return res.status(402).json({
+          error: "INSUFFICIENT_TOKENS",
+          message:
               "Mind map expansion requires at least 0.5 tokens. Please recharge before expanding.",
-            tokenBalance,
+          tokenBalance,
             requiredTokens: 0.5,
             usedMindmapExpansions: error.usedMindmapExpansions ?? 0,
-          });
+        });
         }
 
         throw error;

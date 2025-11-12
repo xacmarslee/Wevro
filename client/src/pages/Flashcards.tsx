@@ -207,10 +207,13 @@ return (
   <div className="relative flex flex-col h-full">
     {isMindMapGenerating && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-2 text-center">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-lg font-medium">
             {language === "en" ? "Generating flashcards..." : "字卡生成中..."}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {language === "en" ? "This may take a few seconds." : "這可能會需要幾秒鐘時間。"}
           </p>
         </div>
       </div>

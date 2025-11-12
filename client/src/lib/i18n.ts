@@ -48,6 +48,7 @@ export const translations = {
     
     // Messages
     generating: "Generating...",
+    generatingHint: "This may take a few seconds.",
     loading: "Loading...",
     noCards: "No flashcards yet. Create a mind map first!",
     emptyMap: "Start by entering a word above.",
@@ -99,6 +100,7 @@ export const translations = {
     
     // Messages
     generating: "生成中...",
+    generatingHint: "這可能會需要幾秒鐘時間。",
     loading: "載入中...",
     noCards: "尚未建立字卡。請先建立心智圖！",
     emptyMap: "請在上方輸入單字開始。",

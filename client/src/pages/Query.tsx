@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -38,9 +38,13 @@ export default function Query() {
   const [expandedSenses, setExpandedSenses] = useState<Set<string>>(new Set());
   const [expandedIdioms, setExpandedIdioms] = useState<Set<string>>(new Set());
   const [expandedCollocations, setExpandedCollocations] = useState<Set<string>>(new Set());
+  const [examplesNotFound, setExamplesNotFound] = useState(false);
+  const [synonymsNotFound, setSynonymsNotFound] = useState(false);
   const { language } = useLanguage();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const examplesNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const synonymsNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const parseTokenError = (error: unknown, fallback: string) => {
     if (error instanceof Error && error.message.startsWith("402")) {
@@ -54,6 +58,53 @@ export default function Query() {
     }
     return fallback;
   };
+
+  const isNotFoundError = (error: unknown): boolean => {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    const message = error.message.toLowerCase();
+    if (message.startsWith("404")) {
+      return true;
+    }
+    if (message.includes("not found")) {
+      return true;
+    }
+    try {
+      const payload = error.message.split(":").slice(1).join(":").trim();
+      if (!payload) return false;
+      const parsed = JSON.parse(payload);
+      const parsedMessage = String(parsed?.message ?? parsed?.error ?? "").toLowerCase();
+      return parsedMessage.includes("not found");
+    } catch {
+      return false;
+    }
+  };
+
+  const showTransientMessage = (
+    setter: (value: boolean) => void,
+    timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
+  ) => {
+    setter(true);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    timerRef.current = setTimeout(() => {
+      setter(false);
+      timerRef.current = null;
+    }, 1500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (examplesNotFoundTimerRef.current) {
+        clearTimeout(examplesNotFoundTimerRef.current);
+      }
+      if (synonymsNotFoundTimerRef.current) {
+        clearTimeout(synonymsNotFoundTimerRef.current);
+      }
+    };
+  }, []);
 
   // Examples generation mutation
   const examplesMutation = useMutation({
@@ -77,7 +128,19 @@ export default function Query() {
       return data;
     },
     onSuccess: (data: ExamplesResponse) => {
+      const hasContent =
+        (data.senses?.length ?? 0) > 0 ||
+        (data.idioms?.some((i) => i.examples.length > 0) ?? false) ||
+        (data.collocations?.some((c) => c.examples.length > 0) ?? false);
+
+      if (!hasContent) {
+        setExamplesResults(null);
+        showTransientMessage(setExamplesNotFound, examplesNotFoundTimerRef);
+        return;
+      }
+
       setExamplesResults(data);
+      setExamplesNotFound(false);
       // Reset expansion states
       setExpandedSenses(new Set());
       setExpandedIdioms(new Set());
@@ -87,6 +150,11 @@ export default function Query() {
       }
     },
     onError: (error: unknown) => {
+      if (isNotFoundError(error)) {
+        setExamplesResults(null);
+        showTransientMessage(setExamplesNotFound, examplesNotFoundTimerRef);
+        return;
+      }
       toast({
         title: language === "en" ? "Generation failed" : "生成失敗",
         description: parseTokenError(
@@ -118,12 +186,24 @@ export default function Query() {
       return data;
     },
     onSuccess: (data: SynonymComparisonResponse) => {
+      if (!data.synonyms || data.synonyms.length === 0) {
+        setSynonymsResults(null);
+        showTransientMessage(setSynonymsNotFound, synonymsNotFoundTimerRef);
+        return;
+      }
+
       setSynonymsResults(data);
+      setSynonymsNotFound(false);
       if (data?.tokenInfo) {
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
       }
     },
     onError: (error: unknown) => {
+      if (isNotFoundError(error)) {
+        setSynonymsResults(null);
+        showTransientMessage(setSynonymsNotFound, synonymsNotFoundTimerRef);
+        return;
+      }
       toast({
         title: language === "en" ? "Generation failed" : "生成失敗",
         description: parseTokenError(
@@ -137,9 +217,17 @@ export default function Query() {
     },
   });
 
+  const loadingHint =
+    language === "en" ? "This may take a few seconds." : "這可能會需要幾秒鐘時間。";
+  const generatingExamplesLabel =
+    language === "en" ? "Generating example sentences..." : "例句生成中...";
+  const generatingSynonymsLabel =
+    language === "en" ? "Generating synonym comparison..." : "同義字比較生成中...";
+
   const handleExamplesSearch = (query: string, counts?: { sense: number; phrase: number }) => {
     if (!query.trim()) return;
     setExamplesInput(query);
+    setExamplesNotFound(false);
     // Default: 3 examples per sense, 2 examples per idiom/collocation
     const defaultCounts = counts || { sense: 3, phrase: 2 };
     examplesMutation.mutate({ query: query.trim(), counts: defaultCounts });
@@ -148,6 +236,7 @@ export default function Query() {
   const handleSynonymsSearch = (query: string) => {
     if (!query.trim()) return;
     setSynonymsInput(query);
+    setSynonymsNotFound(false);
     synonymsMutation.mutate(query.trim());
   };
 
@@ -284,10 +373,24 @@ return (
               )}
               {language === "en" ? "Generate Examples" : "生成例句"}
             </Button>
+          {examplesNotFound && (
+            <div className="text-sm text-destructive text-center">
+              {language === "en" ? "Word not found." : "查無此字"}
+            </div>
+          )}
           </div>
 
+          {/* Examples Loading */}
+          {examplesMutation.isPending && (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-primary">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+              <p className="text-sm font-medium">{generatingExamplesLabel}</p>
+              <p className="text-xs text-muted-foreground">{loadingHint}</p>
+            </div>
+          )}
+
           {/* Examples Results */}
-          {examplesResults && (
+          {examplesResults && !examplesMutation.isPending && (
             <>
               {/* Senses */}
               {examplesResults.senses && examplesResults.senses.length > 0 && (
@@ -480,10 +583,24 @@ return (
               )}
               {language === "en" ? "Find Synonyms" : "查找同義字"}
             </Button>
+          {synonymsNotFound && (
+            <div className="text-sm text-destructive text-center">
+              {language === "en" ? "Word not found." : "查無此字"}
+            </div>
+          )}
           </div>
 
+          {/* Synonyms Loading */}
+          {synonymsMutation.isPending && (
+            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-primary">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+              <p className="text-sm font-medium">{generatingSynonymsLabel}</p>
+              <p className="text-xs text-muted-foreground">{loadingHint}</p>
+            </div>
+          )}
+
           {/* Synonyms Results */}
-          {synonymsResults && synonymsResults.synonyms && synonymsResults.synonyms.length > 0 && (
+          {synonymsResults && !synonymsMutation.isPending && synonymsResults.synonyms && synonymsResults.synonyms.length > 0 && (
             <div className="space-y-6">
               {synonymsResults.synonyms.map((synonym) => (
                 <div key={synonym.word} className="space-y-3">

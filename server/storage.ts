@@ -542,16 +542,16 @@ export class DbStorage implements IStorage {
       return this.consumeMindmapExpansion(userId);
     }
 
-    await db.insert(tokenTransactions).values({
-      id: randomUUID(),
-      userId,
+      await db.insert(tokenTransactions).values({
+        id: randomUUID(),
+        userId,
       amount: toTokenString(-MINDMAP_EXPANSION_COST),
-      type: "consume",
-      feature: "mindmapExpansion",
-      metadata: {
+        type: "consume",
+        feature: "mindmapExpansion",
+        metadata: {
         costPerExpansion: MINDMAP_EXPANSION_COST,
-      },
-    });
+        },
+      });
 
     return {
       tokenBalance: newBalance,
