@@ -80,11 +80,21 @@ export function useMindMapHistory(initialNodes: MindMapNode[] = []) {
    * 重置歷史記錄
    */
   const resetHistory = useCallback((nodes: MindMapNode[]) => {
-    console.log("[useMindMapHistory] resetHistory called with nodes:", nodes.length);
+    console.log("[useMindMapHistory] resetHistory called with nodes:", nodes.length, nodes);
+    // 確保 nodes 是數組且不為空
+    const nodesArray = Array.isArray(nodes) ? [...nodes] : [];
+    console.log("[useMindMapHistory] resetHistory - nodesArray:", nodesArray.length, nodesArray);
     // 使用函數式更新確保狀態正確設置
-    setHistory(() => [[...nodes]]);
-    setHistoryIndex(() => 0);
-    console.log("[useMindMapHistory] resetHistory completed, new history length:", 1);
+    setHistory(() => {
+      const newHistory = [[...nodesArray]];
+      console.log("[useMindMapHistory] resetHistory - newHistory:", newHistory.length, newHistory[0]?.length);
+      return newHistory;
+    });
+    setHistoryIndex(() => {
+      console.log("[useMindMapHistory] resetHistory - setting historyIndex to 0");
+      return 0;
+    });
+    console.log("[useMindMapHistory] resetHistory completed");
   }, []);
 
   /**
