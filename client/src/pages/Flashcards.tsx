@@ -2,7 +2,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -68,16 +68,29 @@ export default function Flashcards() {
   };
 
   // Fetch user's flashcard decks (only when authenticated)
-  const { data: decks = [], isLoading } = useQuery({
+  const { data: decks = [], isLoading, error, status } = useQuery({
     queryKey: ["/api/flashcards"],
     queryFn: async () => {
-      console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated);
+      console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated, "authReady:", authReady);
       const data = await fetchJsonWithAuth<FlashcardDeck[]>("/api/flashcards");
       console.log("[Flashcards] Decks loaded:", data);
       return data;
     },
     enabled: isAuthenticated && authReady,
+    retry: false,
   });
+
+  // 調試日誌
+  useEffect(() => {
+    console.log("[Flashcards] Query state:", {
+      isAuthenticated,
+      authReady,
+      isLoading,
+      status,
+      error: error?.message,
+      decksCount: decks.length,
+    });
+  }, [isAuthenticated, authReady, isLoading, status, error, decks.length]);
 
   const { data: isMindMapGenerating = false } = useQuery({
     queryKey: ["/api/flashcards", "creating"],
@@ -233,9 +246,20 @@ return (
     </div>
 
     <div className="flex-1 px-6 pb-24 pt-6">
-      {isLoading ? (
+      {!isAuthenticated || !authReady ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <p className="text-destructive">{language === "en" ? "Failed to load flashcard decks" : "載入字卡組失敗"}</p>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] })}>
+            {language === "en" ? "Retry" : "重試"}
+          </Button>
         </div>
       ) : decks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">

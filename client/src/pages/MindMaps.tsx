@@ -50,17 +50,30 @@ export default function MindMaps() {
   const [newWord, setNewWord] = useState("");
 
   // Fetch user's mind maps (only when authenticated)
-  const { data: mindMaps = [], isLoading } = useQuery({
+  const { data: mindMaps = [], isLoading, error, status } = useQuery({
     queryKey: ["/api/mindmaps"],
     queryFn: async () => {
-      console.log("[MindMaps] Fetching mind maps list, isAuthenticated:", isAuthenticated);
+      console.log("[MindMaps] Fetching mind maps list, isAuthenticated:", isAuthenticated, "authReady:", authReady);
       const data = await fetchJsonWithAuth<any[]>("/api/mindmaps");
       console.log("[MindMaps] Fetch response:", { ok: true });
       console.log("[MindMaps] Mind maps loaded:", data);
       return data;
     },
     enabled: isAuthenticated && authReady,
+    retry: false,
   });
+
+  // 調試日誌
+  useEffect(() => {
+    console.log("[MindMaps] Query state:", {
+      isAuthenticated,
+      authReady,
+      isLoading,
+      status,
+      error: error?.message,
+      mindMapsCount: mindMaps.length,
+    });
+  }, [isAuthenticated, authReady, isLoading, status, error, mindMaps.length]);
 
   // Rename mutation
   const renameMutation = useMutation({
@@ -148,9 +161,20 @@ return (
 
     <div className="flex-1 px-6 pb-24 pt-6">
 
-      {isLoading ? (
+      {!isAuthenticated || !authReady ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <p className="text-destructive">{language === "en" ? "Failed to load mind maps" : "載入心智圖失敗"}</p>
+          <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] })}>
+            {language === "en" ? "Retry" : "重試"}
+          </Button>
         </div>
       ) : mindMaps.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
