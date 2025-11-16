@@ -231,8 +231,23 @@ export default function MindMapEditor() {
     if (persistence.isLoading) return;
     if (nodes.length > 0) return;
     if (isCenterDialogOpen) return;
+    // 如果已經有 initialWord（從 URL 參數），就不顯示對話框，直接創建節點
+    if (initialWord) {
+      const newNode: MindMapNode = {
+        id: crypto.randomUUID(),
+        word: initialWord,
+        x: 0,
+        y: 0,
+        isCenter: true,
+      };
+      history.resetHistory([newNode]);
+      setCenterNodeId(newNode.id);
+      setFocusNodeId(newNode.id);
+      window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
+      return;
+    }
 
-    setCenterWordInput(initialWord || "");
+    setCenterWordInput("");
     setIsCenterDialogOpen(true);
   }, [
     mindMapId,
@@ -240,6 +255,7 @@ export default function MindMapEditor() {
     persistence.isLoading,
     isCenterDialogOpen,
     initialWord,
+    history.resetHistory,
   ]);
 
 
