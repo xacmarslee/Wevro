@@ -1,0 +1,20 @@
+# Android 簽名配置範例
+# 複製此檔案為 key.properties 並填入實際值
+# ⚠️ key.properties 已在 .gitignore 中，不會被提交到 Git
+
+# 金鑰庫密碼
+storePassword=你的金鑰庫密碼
+
+# 金鑰密碼（通常與金鑰庫密碼相同）
+keyPassword=你的金鑰密碼
+
+# 金鑰別名
+keyAlias=wevro
+
+# 金鑰庫檔案路徑（相對於 android/ 目錄）
+# 如果 keystore 在 android/ 目錄下，使用相對路徑：
+storeFile=wevro-release.keystore
+
+# 或者使用絕對路徑（Windows 範例）：
+# storeFile=C:/secure/wevro/wevro-release.keystore
+
