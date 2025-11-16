@@ -97,6 +97,7 @@ export default function MindMapEditor() {
       history.resetHistory([newNode]);
       setCenterNodeId(newNode.id);
       setFocusNodeId(newNode.id);
+      setIsHydrating(false); // 新心智圖不需要 hydration，直接設置為 false
       window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
       return;
     }
@@ -226,7 +227,10 @@ export default function MindMapEditor() {
   useEffect(() => {
     if (mindMapId) return;
     if (persistence.isLoading) return;
-    if (nodes.length > 0) return;
+    if (nodes.length > 0) {
+      setIsHydrating(false); // 如果有節點，確保 hydration 完成
+      return;
+    }
     // 如果已經有 initialWord（從 URL 參數），直接創建節點
     if (initialWord) {
       const newNode: MindMapNode = {
@@ -239,6 +243,7 @@ export default function MindMapEditor() {
       history.resetHistory([newNode]);
       setCenterNodeId(newNode.id);
       setFocusNodeId(newNode.id);
+      setIsHydrating(false); // 新心智圖不需要 hydration
       window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
       return;
     }
