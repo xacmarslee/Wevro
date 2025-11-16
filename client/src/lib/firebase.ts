@@ -24,9 +24,29 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// Validate Firebase configuration
+const missingConfig = Object.entries(firebaseConfig)
+  .filter(([_, value]) => !value)
+  .map(([key]) => key);
+
+if (missingConfig.length > 0) {
+  console.error("❌ Firebase 配置缺失:", missingConfig);
+  console.error("當前配置:", firebaseConfig);
+}
+
+// Initialize Firebase with error handling
+let app;
+let auth;
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  console.log("✅ Firebase 初始化成功");
+} catch (error) {
+  console.error("❌ Firebase 初始化失敗:", error);
+  // 創建一個假的 auth 對象以避免後續錯誤
+  // 這會導致認證功能無法使用，但至少 app 不會完全崩潰
+  throw new Error(`Firebase 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
+}
 
 // Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
