@@ -107,6 +107,10 @@ export class DbStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
+    // 檢查用戶是否已存在
+    const existingUser = await this.getUser(userData.id);
+    const isNewUser = !existingUser;
+    
     const [user] = await db
       .insert(users)
       .values(userData)
@@ -119,17 +123,31 @@ export class DbStorage implements IStorage {
       })
       .returning();
     
-    // 同時確保 quota 記錄存在（新用戶送 30 點）
-    await db
-      .insert(userQuotas)
-      .values({
-        userId: user.id,
-        plan: "free",
-        tokenBalance: toTokenString(30),
-        monthlyTokens: 0,
-        quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      })
-      .onConflictDoNothing(); // 如果已存在就忽略
+    // 如果是新用戶，創建 quota 記錄並給予 30 點
+    if (isNewUser) {
+      await db
+        .insert(userQuotas)
+        .values({
+          userId: user.id,
+          plan: "free",
+          tokenBalance: toTokenString(30),
+          monthlyTokens: 0,
+          quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        })
+        .onConflictDoNothing(); // 如果已存在就忽略（防止競態條件）
+    } else {
+      // 如果用戶已存在但沒有 quota，也創建一個（但不給免費點數）
+      await db
+        .insert(userQuotas)
+        .values({
+          userId: user.id,
+          plan: "free",
+          tokenBalance: toTokenString(0),
+          monthlyTokens: 0,
+          quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        })
+        .onConflictDoNothing();
+    }
     
     return user;
   }

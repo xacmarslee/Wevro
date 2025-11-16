@@ -39,6 +39,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       // If user doesn't exist in database, create from Firebase token data
       if (!user && req.firebaseUser) {
         // Use data from decoded token (no need for getUserByUid which requires Service Account)
+        // 這會自動創建用戶並給予新用戶 30 token
         user = await storage.upsertUser({
           id: userId,
           email: req.firebaseUser.email || null,
@@ -46,6 +47,7 @@ export async function registerRoutes(app: Express): Promise<void> {
           lastName: req.firebaseUser.name?.split(' ').slice(1).join(' ') || null,
           profileImageUrl: req.firebaseUser.picture || null,
         });
+        console.log(`✅ Created new user: ${userId}, email: ${req.firebaseUser.email}`);
       }
       
       res.json(user);

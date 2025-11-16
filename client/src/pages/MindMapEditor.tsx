@@ -68,9 +68,6 @@ export default function MindMapEditor() {
   const cachedMindMaps = queryClient.getQueryData<MindMap[]>(["/api/mindmaps"]) || [];
   const cachedMindMap = mindMapId ? cachedMindMaps.find((map) => map.id === mindMapId) : undefined;
 
-  const [isCenterDialogOpen, setIsCenterDialogOpen] = useState(false);
-  const [centerWordInput, setCenterWordInput] = useState("");
-  const [centerDialogConfirmed, setCenterDialogConfirmed] = useState(false);
   const hydrationGuardRef = useRef(false);
   const hydratedFromCacheRef = useRef(false);
 
@@ -230,8 +227,7 @@ export default function MindMapEditor() {
     if (mindMapId) return;
     if (persistence.isLoading) return;
     if (nodes.length > 0) return;
-    if (isCenterDialogOpen) return;
-    // 如果已經有 initialWord（從 URL 參數），就不顯示對話框，直接創建節點
+    // 如果已經有 initialWord（從 URL 參數），直接創建節點
     if (initialWord) {
       const newNode: MindMapNode = {
         id: crypto.randomUUID(),
@@ -246,16 +242,15 @@ export default function MindMapEditor() {
       window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
       return;
     }
-
-    setCenterWordInput("");
-    setIsCenterDialogOpen(true);
+    // 如果沒有 initialWord，直接重定向到心智圖列表
+    setLocation("/mindmaps");
   }, [
     mindMapId,
     nodes.length,
     persistence.isLoading,
-    isCenterDialogOpen,
     initialWord,
     history.resetHistory,
+    setLocation,
   ]);
 
 
@@ -342,33 +337,6 @@ export default function MindMapEditor() {
     history.clearHistory(); // 清空歷史記錄（保留當前狀態）
   };
 
-  const handleOpenCenterDialog = () => {
-    const centerNode = nodes.find((n) => n.isCenter);
-    setCenterWordInput(centerNode?.word || initialWord || "");
-    setIsCenterDialogOpen(true);
-  };
-
-  const handleConfirmCenter = () => {
-    const word = centerWordInput.trim();
-    if (!word) return;
-
-    const newNode: MindMapNode = {
-      id: crypto.randomUUID(),
-      word,
-      x: 0,
-      y: 0,
-      isCenter: true,
-    };
-
-    history.resetHistory([newNode]);
-    setCenterNodeId(newNode.id);
-    setFocusNodeId(newNode.id);
-    setInitialWord(word);
-    setCenterDialogConfirmed(true);
-    setIsCenterDialogOpen(false);
-    setCenterWordInput("");
-    persistence.setIsSaved(false);
-  };
 
   // 建立字卡
   const handleCreateFlashcards = () => {
@@ -519,59 +487,6 @@ export default function MindMapEditor() {
               onClick={handleConfirmAddNode}
               disabled={!nodeOps.newNodeWord.trim()}
               data-testid="button-confirm-add-node"
-              size="icon"
-              className="shrink-0"
-            >
-              <Plus className="h-5 w-5" />
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-      
-      {/* 建立中心節點對話框 */}
-      <Dialog
-        open={isCenterDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            if (centerDialogConfirmed) {
-              setCenterDialogConfirmed(false);
-            } else if (!persistence.isLoading && nodes.length === 0) {
-              setCenterWordInput("");
-              setIsCenterDialogOpen(false);
-              setLocation("/mindmaps");
-              return;
-            }
-            setCenterWordInput("");
-          } else {
-            const centerNode = nodes.find((n) => n.isCenter);
-            setCenterWordInput(centerNode?.word || initialWord || "");
-          }
-          setIsCenterDialogOpen(open);
-        }}
-      >
-        <DialogContent className="max-w-sm rounded-2xl p-6" data-testid="dialog-set-center">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-center">
-              {language === "en" ? "Set Center Word" : "設定中心字"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex gap-2">
-            <Input
-              value={centerWordInput}
-              onChange={(e) => setCenterWordInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && centerWordInput.trim()) handleConfirmCenter();
-                if (e.key === "Escape") setIsCenterDialogOpen(false);
-              }}
-              placeholder={language === "en" ? "Enter the main word..." : "輸入中心字..."}
-              autoFocus
-              data-testid="input-center-word"
-              className="flex-1"
-            />
-            <Button
-              onClick={handleConfirmCenter}
-              disabled={!centerWordInput.trim()}
-              data-testid="button-confirm-center"
               size="icon"
               className="shrink-0"
             >
