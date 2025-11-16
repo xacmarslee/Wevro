@@ -12,15 +12,17 @@ export function useMindMapHistory(initialNodes: MindMapNode[] = []) {
   const [historyIndex, setHistoryIndex] = useState(0);
   
   // 使用 useMemo 確保 currentNodes 總是反映最新的 history 和 historyIndex
+  // 使用 history.length 和 historyIndex 作為依賴，因為 history 數組引用可能不會改變
   const currentNodes = useMemo(() => {
     const nodes = history[historyIndex] ?? [];
     console.log("[useMindMapHistory] Computing currentNodes:", {
       historyLength: history.length,
       historyIndex,
       nodesCount: nodes.length,
+      firstNodeWord: nodes[0]?.word,
     });
     return nodes;
-  }, [history, historyIndex]);
+  }, [history, historyIndex, history.length]);
 
   /**
    * 更新節點並記錄到歷史
