@@ -83,18 +83,18 @@ function AuthenticatedRoutes() {
 function App() {
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <LanguageProvider>
-            <StartPageProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </StartPageProvider>
-          </LanguageProvider>
-        </ThemeProvider>
-      </QueryClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <LanguageProvider>
+          <StartPageProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+            </TooltipProvider>
+          </StartPageProvider>
+        </LanguageProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
     </ErrorBoundary>
   );
 }

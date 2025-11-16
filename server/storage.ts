@@ -123,30 +123,24 @@ export class DbStorage implements IStorage {
       })
       .returning();
     
-    // 如果是新用戶，創建 quota 記錄並給予 30 點
+    // 如果是新用戶，確保 quota 記錄存在（新用戶送 30 點）
     if (isNewUser) {
-      await db
-        .insert(userQuotas)
-        .values({
-          userId: user.id,
-          plan: "free",
-          tokenBalance: toTokenString(30),
-          monthlyTokens: 0,
-          quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        })
-        .onConflictDoNothing(); // 如果已存在就忽略（防止競態條件）
-    } else {
-      // 如果用戶已存在但沒有 quota，也創建一個（但不給免費點數）
-      await db
-        .insert(userQuotas)
-        .values({
-          userId: user.id,
-          plan: "free",
-          tokenBalance: toTokenString(0),
-          monthlyTokens: 0,
-          quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        })
-        .onConflictDoNothing();
+      try {
+        await db
+          .insert(userQuotas)
+          .values({
+            userId: user.id,
+            plan: "free",
+            tokenBalance: toTokenString(30),
+            monthlyTokens: 0,
+            quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          })
+          .onConflictDoNothing(); // 如果已存在就忽略
+        console.log(`✅ Created quota for new user: ${user.id} (30 tokens)`);
+      } catch (error) {
+        console.error(`❌ Failed to create quota for user ${user.id}:`, error);
+        // 即使失敗也繼續，getUserQuota 會處理 fallback
+      }
     }
     
     return user;

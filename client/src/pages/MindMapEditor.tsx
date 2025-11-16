@@ -242,7 +242,7 @@ export default function MindMapEditor() {
       window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
       return;
     }
-    // 如果沒有 initialWord，直接重定向到心智圖列表
+    // 如果沒有 initialWord，直接重定向到心智圖列表（不顯示對話框）
     setLocation("/mindmaps");
   }, [
     mindMapId,

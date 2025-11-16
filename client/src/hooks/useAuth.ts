@@ -56,7 +56,14 @@ export function useAuth() {
       }
 
       await throwIfResNotOk(response);
-      return await response.json();
+      const userData = await response.json();
+      
+      // 如果是新用戶，確保 quota 已創建（觸發 quota 查詢）
+      if (userData) {
+        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+      }
+      
+      return userData;
     },
     enabled: !!firebaseUser && authReady,
     retry: false,

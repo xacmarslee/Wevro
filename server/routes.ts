@@ -35,11 +35,11 @@ export async function registerRoutes(app: Express): Promise<void> {
       
       // Try to get user from database
       let user = await storage.getUser(userId);
+      const isNewUser = !user;
       
       // If user doesn't exist in database, create from Firebase token data
       if (!user && req.firebaseUser) {
         // Use data from decoded token (no need for getUserByUid which requires Service Account)
-        // 這會自動創建用戶並給予新用戶 30 token
         user = await storage.upsertUser({
           id: userId,
           email: req.firebaseUser.email || null,
@@ -47,7 +47,16 @@ export async function registerRoutes(app: Express): Promise<void> {
           lastName: req.firebaseUser.name?.split(' ').slice(1).join(' ') || null,
           profileImageUrl: req.firebaseUser.picture || null,
         });
-        console.log(`✅ Created new user: ${userId}, email: ${req.firebaseUser.email}`);
+        
+        // 如果是新用戶，確保 quota 已創建（upsertUser 會處理，但這裡再確認一次）
+        if (isNewUser) {
+          try {
+            await storage.getUserQuota(userId);
+            console.log(`✅ Verified quota for new user: ${userId}`);
+          } catch (error) {
+            console.error(`❌ Failed to verify quota for new user ${userId}:`, error);
+          }
+        }
       }
       
       res.json(user);
