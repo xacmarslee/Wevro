@@ -107,9 +107,15 @@ export default function MindMapEditor() {
 
   // 從 URL 參數獲取初始單字（建立新心智圖時）
   useEffect(() => {
-    console.log("[MindMapEditor] URL param effect:", { mindMapId, url: window.location.href });
+    console.log("[MindMapEditor] URL param effect:", { mindMapId, url: window.location.href, nodesCount: nodes.length });
     if (mindMapId) {
       console.log("[MindMapEditor] Has mindMapId, skipping URL param handling");
+      return;
+    }
+
+    // 如果已經有節點，不需要重新創建
+    if (nodes.length > 0) {
+      console.log("[MindMapEditor] Already has nodes, skipping URL param handling");
       return;
     }
 
@@ -140,7 +146,7 @@ export default function MindMapEditor() {
 
     console.log("[MindMapEditor] No word param, redirecting to /mindmaps");
     setLocation("/mindmaps");
-  }, [mindMapId, setLocation, history.resetHistory]);
+  }, [mindMapId, setLocation, history.resetHistory, nodes.length]);
   
   // 載入現有心智圖
   useEffect(() => {
@@ -267,39 +273,8 @@ export default function MindMapEditor() {
     }
   }, [nodes, hasNodes, centerNodeId, focusNodeId]);
 
-  useEffect(() => {
-    if (mindMapId) return;
-    if (persistence.isLoading) return;
-    if (nodes.length > 0) {
-      setIsHydrating(false); // 如果有節點，確保 hydration 完成
-      return;
-    }
-    // 如果已經有 initialWord（從 URL 參數），直接創建節點
-    if (initialWord) {
-      const newNode: MindMapNode = {
-        id: crypto.randomUUID(),
-        word: initialWord,
-        x: 0,
-        y: 0,
-        isCenter: true,
-      };
-      history.resetHistory([newNode]);
-      setCenterNodeId(newNode.id);
-      setFocusNodeId(newNode.id);
-      setIsHydrating(false); // 新心智圖不需要 hydration
-      window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
-      return;
-    }
-    // 如果沒有 initialWord，直接重定向到心智圖列表（不顯示對話框）
-    setLocation("/mindmaps");
-  }, [
-    mindMapId,
-    nodes.length,
-    persistence.isLoading,
-    initialWord,
-    history.resetHistory,
-    setLocation,
-  ]);
+  // 這個 useEffect 已經被移除，因為 URL param effect 已經處理了新心智圖的創建
+  // 保留這個註釋以說明邏輯已被合併到上面的 useEffect 中
 
 
   // Undo
