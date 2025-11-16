@@ -82,6 +82,14 @@ export default function MindMapEditor() {
   const hasOnlyCenterNode = nodes.length === 1 && !!nodes[0]?.isCenter;
   // 新心智圖不需要 hydration，所以初始值應該是 false（如果沒有 mindMapId）
   const [isHydrating, setIsHydrating] = useState(() => !!mindMapId);
+  
+  // 確保節點已正確設置（用於調試）
+  console.log("[MindMapEditor] Current nodes from history:", {
+    nodesCount: nodes.length,
+    historyLength: history.historyLength,
+    historyIndex: history.historyIndex,
+    currentNodes: nodes.map(n => ({ id: n.id, word: n.word })),
+  });
 
   // 調試日誌：節點和狀態
   useEffect(() => {
@@ -119,11 +127,13 @@ export default function MindMapEditor() {
         y: 0,
         isCenter: true,
       };
+      // 使用 setState 的回調形式確保狀態更新
       history.resetHistory([newNode]);
       setCenterNodeId(newNode.id);
       setFocusNodeId(newNode.id);
       setIsHydrating(false); // 新心智圖不需要 hydration，直接設置為 false
       console.log("[MindMapEditor] Node created, isHydrating set to false, nodes:", [newNode]);
+      console.log("[MindMapEditor] After resetHistory, history.currentNodes:", history.currentNodes);
       window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
       return;
     }

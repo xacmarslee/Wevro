@@ -69,8 +69,11 @@ export function useMindMapHistory(initialNodes: MindMapNode[] = []) {
    * 重置歷史記錄
    */
   const resetHistory = useCallback((nodes: MindMapNode[]) => {
-    setHistory([[...nodes]]);
-    setHistoryIndex(0);
+    console.log("[useMindMapHistory] resetHistory called with nodes:", nodes.length);
+    // 使用函數式更新確保狀態正確設置
+    setHistory(() => [[...nodes]]);
+    setHistoryIndex(() => 0);
+    console.log("[useMindMapHistory] resetHistory completed, new history length:", 1);
   }, []);
 
   /**
