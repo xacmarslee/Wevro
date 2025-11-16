@@ -20,9 +20,13 @@ export function useAuth() {
       setFirebaseUser(user);
 
       if (!user) {
+        // 登出時清除所有緩存
         localStorage.removeItem("firebaseToken");
         queryClient.setQueryData(["/api/auth/user"], null);
         queryClient.setQueryData(["/api/quota"], null);
+        // 清除所有用戶相關的查詢緩存
+        queryClient.removeQueries({ queryKey: ["/api/mindmaps"] });
+        queryClient.removeQueries({ queryKey: ["/api/flashcards"] });
         setAuthReady(true);
         setIsLoading(false);
         return;
@@ -31,6 +35,12 @@ export function useAuth() {
       try {
         const idToken = await user.getIdToken(true);
         localStorage.setItem("firebaseToken", idToken);
+        
+        // 登入時清除舊用戶的緩存，確保新用戶看到正確的資料
+        queryClient.removeQueries({ queryKey: ["/api/mindmaps"] });
+        queryClient.removeQueries({ queryKey: ["/api/flashcards"] });
+        
+        // 然後重新獲取用戶資料
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
       } catch (error) {
