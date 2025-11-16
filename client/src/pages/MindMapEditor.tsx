@@ -48,6 +48,12 @@ export default function MindMapEditor() {
   const [, setLocation] = useLocation();
   const mindMapId = params?.id !== "new" ? params?.id : undefined;
   
+  console.log("[MindMapEditor] Mounted/Updated:", {
+    paramsId: params?.id,
+    mindMapId,
+    url: window.location.href,
+  });
+  
   // 語言和翻譯
   const { language } = useLanguage();
   const t = useTranslation(language);
@@ -76,16 +82,32 @@ export default function MindMapEditor() {
   const hasOnlyCenterNode = nodes.length === 1 && !!nodes[0]?.isCenter;
   const [isHydrating, setIsHydrating] = useState(true);
 
+  // 調試日誌：節點和狀態
+  useEffect(() => {
+    console.log("[MindMapEditor] State update:", {
+      mindMapId,
+      nodesCount: nodes.length,
+      hasNodes,
+      isHydrating,
+      centerNodeId,
+      initialWord,
+    });
+  }, [mindMapId, nodes.length, hasNodes, isHydrating, centerNodeId, initialWord]);
+
   // 從 URL 參數獲取初始單字（建立新心智圖時）
   useEffect(() => {
+    console.log("[MindMapEditor] URL param effect:", { mindMapId, url: window.location.href });
     if (mindMapId) {
+      console.log("[MindMapEditor] Has mindMapId, skipping URL param handling");
       return;
     }
 
     const urlParams = new URLSearchParams(window.location.search);
     const wordParam = urlParams.get("word")?.trim();
+    console.log("[MindMapEditor] URL word param:", wordParam);
 
     if (wordParam) {
+      console.log("[MindMapEditor] Creating new node from word param:", wordParam);
       setInitialWord(wordParam);
       const newNode: MindMapNode = {
         id: crypto.randomUUID(),
@@ -98,15 +120,23 @@ export default function MindMapEditor() {
       setCenterNodeId(newNode.id);
       setFocusNodeId(newNode.id);
       setIsHydrating(false); // 新心智圖不需要 hydration，直接設置為 false
+      console.log("[MindMapEditor] Node created, isHydrating set to false, nodes:", [newNode]);
       window.dispatchEvent(new CustomEvent("mindmap-nodes-ready", { detail: { nodes: [newNode] } }));
       return;
     }
 
+    console.log("[MindMapEditor] No word param, redirecting to /mindmaps");
     setLocation("/mindmaps");
   }, [mindMapId, setLocation, history.resetHistory]);
   
   // 載入現有心智圖
   useEffect(() => {
+    console.log("[MindMapEditor] mindMapId changed:", { mindMapId, isNew: !mindMapId });
+    if (!mindMapId) {
+      // 新心智圖不需要 hydration
+      setIsHydrating(false);
+      return;
+    }
     hydrationGuardRef.current = false;
     setIsHydrating(true);
   }, [mindMapId]);
