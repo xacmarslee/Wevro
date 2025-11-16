@@ -91,9 +91,11 @@ export default function MindMapEditor() {
       hasNodes,
       isHydrating,
       centerNodeId,
+      focusNodeId,
       initialWord,
+      nodes: nodes.map(n => ({ id: n.id, word: n.word, isCenter: n.isCenter })),
     });
-  }, [mindMapId, nodes.length, hasNodes, isHydrating, centerNodeId, initialWord]);
+  }, [mindMapId, nodes.length, hasNodes, isHydrating, centerNodeId, focusNodeId, initialWord, nodes]);
 
   // 從 URL 參數獲取初始單字（建立新心智圖時）
   useEffect(() => {

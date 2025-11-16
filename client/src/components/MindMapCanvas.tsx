@@ -26,6 +26,7 @@ export function MindMapCanvas({
   focusNodeId,
   maxNodes = 60,
 }: MindMapCanvasProps) {
+  console.log("[MindMapCanvas] Rendering with nodes:", nodes.length, "centerNodeId:", centerNodeId);
   const containerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 80, y: 80 });
