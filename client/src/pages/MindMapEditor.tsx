@@ -80,7 +80,8 @@ export default function MindMapEditor() {
   const nodes = history.currentNodes ?? [];
   const hasNodes = nodes.length > 0;
   const hasOnlyCenterNode = nodes.length === 1 && !!nodes[0]?.isCenter;
-  const [isHydrating, setIsHydrating] = useState(true);
+  // 新心智圖不需要 hydration，所以初始值應該是 false（如果沒有 mindMapId）
+  const [isHydrating, setIsHydrating] = useState(() => !!mindMapId);
 
   // 調試日誌：節點和狀態
   useEffect(() => {
