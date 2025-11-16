@@ -4,12 +4,23 @@
  * 管理心智圖的歷史記錄，提供 Undo/Redo 功能
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { type MindMapNode } from "@shared/schema";
 
 export function useMindMapHistory(initialNodes: MindMapNode[] = []) {
   const [history, setHistory] = useState<MindMapNode[][]>([[...initialNodes]]);
   const [historyIndex, setHistoryIndex] = useState(0);
+  
+  // 使用 useMemo 確保 currentNodes 總是反映最新的 history 和 historyIndex
+  const currentNodes = useMemo(() => {
+    const nodes = history[historyIndex] ?? [];
+    console.log("[useMindMapHistory] Computing currentNodes:", {
+      historyLength: history.length,
+      historyIndex,
+      nodesCount: nodes.length,
+    });
+    return nodes;
+  }, [history, historyIndex]);
 
   /**
    * 更新節點並記錄到歷史
@@ -87,7 +98,7 @@ export function useMindMapHistory(initialNodes: MindMapNode[] = []) {
 
   return {
     // 狀態
-    currentNodes: history[historyIndex],
+    currentNodes,
     canUndo: historyIndex > 0,
     canRedo: historyIndex < history.length - 1,
     historyLength: history.length,
