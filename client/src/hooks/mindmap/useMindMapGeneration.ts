@@ -13,6 +13,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
+import { trackMindMapExpansion } from "@/lib/analytics";
 
 export function useMindMapGeneration() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -162,6 +163,13 @@ export function useMindMapGeneration() {
         category,
         isCenter: false,
       }));
+
+      // Track Analytics event
+      trackMindMapExpansion(
+        category,
+        newNodes.length,
+        result.tokenInfo?.tokensCharged || 0
+      );
 
       return [...currentNodes, ...newNodes];
       

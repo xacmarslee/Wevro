@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Search, Copy, Check, BookOpen, Languages, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import LogoText from "@/components/LogoText";
 import TokenDisplay from "@/components/TokenDisplay";
+import { trackExampleGeneration, trackSynonymComparison } from "@/lib/analytics";
 import type {
   ExamplesResponse,
   SynonymComparisonResponse,
@@ -127,7 +128,7 @@ export default function Query() {
       
       return data;
     },
-    onSuccess: (data: ExamplesResponse) => {
+    onSuccess: (data: ExamplesResponse, variables: { query: string; counts?: { sense: number; phrase: number } }) => {
       const hasContent =
         (data.senses?.length ?? 0) > 0 ||
         (data.idioms?.some((i) => i.examples.length > 0) ?? false) ||
@@ -148,6 +149,13 @@ export default function Query() {
       if (data?.tokenInfo) {
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
       }
+
+      // Track Analytics event
+      trackExampleGeneration(variables.query, {
+        senses: data.senses?.length || 0,
+        idioms: data.idioms?.length || 0,
+        collocations: data.collocations?.length || 0,
+      });
     },
     onError: (error: unknown) => {
       if (isNotFoundError(error)) {
@@ -185,7 +193,7 @@ export default function Query() {
       
       return data;
     },
-    onSuccess: (data: SynonymComparisonResponse) => {
+    onSuccess: (data: SynonymComparisonResponse, query: string) => {
       if (!data.synonyms || data.synonyms.length === 0) {
         setSynonymsResults(null);
         showTransientMessage(setSynonymsNotFound, synonymsNotFoundTimerRef);
@@ -197,6 +205,9 @@ export default function Query() {
       if (data?.tokenInfo) {
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
       }
+
+      // Track Analytics event
+      trackSynonymComparison(query, data.synonyms.length);
     },
     onError: (error: unknown) => {
       if (isNotFoundError(error)) {

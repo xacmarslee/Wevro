@@ -1,8 +1,7 @@
 # Dependencies
 node_modules
 
-# Android 簽名相關（重要！不要提交）
-*.keystore
+# Android 簽�??��?（�?要�?不�??�交�?*.keystore
 *.jks
 key.properties
 android/key.properties
@@ -77,3 +76,7 @@ ios/App/Pods/
 # Test
 coverage/
 .nyc_output/
+
+
+# Materials folder (not tracked)
+materials/

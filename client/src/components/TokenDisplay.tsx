@@ -5,6 +5,8 @@ import { useLocation } from "wouter";
 import { Coins } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
+import { setAnalyticsUserProperties } from "@/lib/analytics";
+import { useEffect } from "react";
 
 interface TokenDisplayProps {
   variant?: "header" | "full";
@@ -66,6 +68,16 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
     maximumFractionDigits: 2,
   });
   const displayBalance = formatter.format(tokenBalance);
+
+  // Update Analytics user properties when quota is loaded
+  useEffect(() => {
+    if (quota) {
+      setAnalyticsUserProperties({
+        plan: quota.plan || 'free',
+        language: language,
+      });
+    }
+  }, [quota, language]);
 
   if (variant === "header") {
     // Header 右上角顯示（icon + 數字）

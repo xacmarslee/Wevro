@@ -100,6 +100,16 @@ function EnglishPolicy() {
       </ul>
       <p><em>We do NOT collect device IDs, location data, or browsing history.</em></p>
 
+      <h3>2.5 App Usage Analytics</h3>
+      <p>We use Firebase Analytics to understand app usage patterns. This helps us improve the app and identify which features are most valuable to users.</p>
+      <ul>
+        <li>Feature usage (e.g., number of times you generate example sentences or create flashcards)</li>
+        <li>Device type and operating system version</li>
+        <li>Language preference (English or Traditional Chinese)</li>
+        <li>App version</li>
+      </ul>
+      <p><em>Analytics data is anonymous and aggregated. We cannot identify individual users from analytics data.</em></p>
+
       <h2>3. How We Use Your Information</h2>
       <p>We use your information ONLY to:</p>
       <ul>
@@ -116,9 +126,10 @@ function EnglishPolicy() {
       
       <h3>4.1 Firebase (Google)</h3>
       <ul>
-        <li><strong>Purpose:</strong> User authentication only</li>
+        <li><strong>Purpose:</strong> User authentication and app usage analytics</li>
         <li><strong>Data Shared:</strong> Email address and authentication tokens</li>
-        <li><strong>NOT Used:</strong> Firebase Analytics, Firebase Crashlytics, or other tracking services</li>
+        <li><strong>Analytics:</strong> We use Firebase Analytics to understand how users interact with our app. This includes anonymous usage statistics such as feature usage (e.g., how many times users generate example sentences), device type, and language preference. No personal information (email, name) is shared with Analytics.</li>
+        <li><strong>NOT Used:</strong> Firebase Crashlytics or other tracking services</li>
         <li><strong>Privacy Policy:</strong> <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase Privacy</a></li>
       </ul>
 
@@ -198,7 +209,7 @@ function EnglishPolicy() {
         contact us:
       </p>
       <ul>
-        <li><strong>Email:</strong> xacmarslee@gmail.com</li>
+        <li><strong>Email:</strong> support@wevro.co</li>
         <li><strong>App:</strong> Settings → Account</li>
       </ul>
 
@@ -283,6 +294,16 @@ function ChinesePolicy() {
       </ul>
       <p><em>我們「不會」收集裝置 ID、位置資訊或瀏覽歷史。</em></p>
 
+      <h3>2.5 應用程式使用分析</h3>
+      <p>我們使用 Firebase Analytics 來了解應用程式使用模式。這有助於我們改進應用程式並識別哪些功能對使用者最有價值。</p>
+      <ul>
+        <li>功能使用情況（例如您生成例句或建立字卡的次數）</li>
+        <li>裝置類型和作業系統版本</li>
+        <li>語言偏好（英文或繁體中文）</li>
+        <li>應用程式版本</li>
+      </ul>
+      <p><em>分析資料是匿名且匯總的。我們無法從分析資料中識別個別使用者。</em></p>
+
       <h2>3. 我們如何使用您的資訊</h2>
       <p>我們「僅」將您的資訊用於：</p>
       <ul>
@@ -299,9 +320,10 @@ function ChinesePolicy() {
       
       <h3>4.1 Firebase (Google)</h3>
       <ul>
-        <li><strong>用途：</strong>僅用於使用者身份驗證</li>
+        <li><strong>用途：</strong>使用者身份驗證和應用程式使用分析</li>
         <li><strong>共享數據：</strong>電子郵件地址和身份驗證令牌</li>
-        <li><strong>未使用：</strong>Firebase Analytics、Firebase Crashlytics 或其他追蹤服務</li>
+        <li><strong>分析服務：</strong>我們使用 Firebase Analytics 來了解使用者如何使用我們的應用程式。這包括匿名使用統計資料，例如功能使用情況（例如使用者生成例句的次數）、裝置類型和語言偏好。不會將個人資訊（電子郵件、姓名）與 Analytics 共享。</li>
+        <li><strong>未使用：</strong>Firebase Crashlytics 或其他追蹤服務</li>
         <li><strong>隱私政策：</strong><a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase 隱私</a></li>
       </ul>
 
@@ -373,7 +395,7 @@ function ChinesePolicy() {
       <h2>11. 聯繫我們</h2>
       <p>如果您對本隱私政策或您的數據有疑問或疑慮，請聯繫我們：</p>
       <ul>
-        <li><strong>電子郵件：</strong>xacmarslee@gmail.com</li>
+        <li><strong>電子郵件：</strong>support@wevro.co</li>
         <li><strong>應用程式：</strong>設定 → 帳號管理</li>
       </ul>
 

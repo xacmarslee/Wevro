@@ -13,6 +13,7 @@ import {
   reauthenticateWithCredential,
   type User
 } from 'firebase/auth';
+import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
 // Firebase configuration - these should be set in .env
 const firebaseConfig = {
@@ -37,10 +38,30 @@ if (missingConfig.length > 0) {
 // Initialize Firebase with error handling
 let app;
 let auth;
+let analytics: Analytics | null = null;
+
 try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   console.log("✅ Firebase 初始化成功");
+  
+  // Initialize Analytics (only in browser environment)
+  if (typeof window !== 'undefined') {
+    isSupported().then((supported) => {
+      if (supported) {
+        try {
+          analytics = getAnalytics(app);
+          console.log("✅ Firebase Analytics 初始化成功");
+        } catch (error) {
+          console.warn("⚠️ Firebase Analytics 初始化失敗（非致命）:", error);
+        }
+      } else {
+        console.warn("⚠️ Firebase Analytics 不支援此環境");
+      }
+    }).catch((error) => {
+      console.warn("⚠️ Firebase Analytics 支援檢查失敗:", error);
+    });
+  }
 } catch (error) {
   console.error("❌ Firebase 初始化失敗:", error);
   // 創建一個假的 auth 對象以避免後續錯誤
@@ -124,7 +145,7 @@ export const changePassword = async (currentPassword: string, newPassword: strin
   }
 };
 
-export { auth };
+export { auth, analytics };
 export type { User as FirebaseUser };
 
 

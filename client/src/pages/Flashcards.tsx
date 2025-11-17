@@ -37,6 +37,7 @@ import { apiRequest, fetchJsonWithAuth, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { trackFlashcardDeckCreated } from "@/lib/analytics";
 import type { FlashcardDeck } from "@shared/schema";
 
 export default function Flashcards() {
@@ -138,7 +139,7 @@ export default function Flashcards() {
       console.log("[Flashcards] Deck created successfully:", data);
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       console.log("[Flashcards] onSuccess triggered, invalidating queries");
       queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
       if (data?.tokenInfo) {
@@ -151,6 +152,13 @@ export default function Flashcards() {
         title: language === "en" ? "Success" : "成功",
         description: language === "en" ? "Deck created successfully" : "字卡組建立成功",
       });
+
+      // Track Analytics event
+      trackFlashcardDeckCreated(
+        variables.name,
+        data.cards?.length || 0,
+        data.tokenInfo?.tokensCharged || 0
+      );
     },
     onError: (error: Error) => {
       console.error("[Flashcards] Create failed:", error);

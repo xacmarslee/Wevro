@@ -7,6 +7,7 @@ import { Brain, Layers, Search, Mail, Sparkles } from "lucide-react";
 import { signInWithGoogle, signInWithEmail, registerWithEmail } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { trackSignUp, trackLogin } from "@/lib/analytics";
 
 export default function Landing() {
   const { language } = useLanguage();
@@ -22,6 +23,7 @@ export default function Landing() {
     try {
       setLoading(true);
       await signInWithGoogle();
+      trackLogin('google');
       setLocation("/");
     } catch (error: any) {
       toast({
@@ -40,8 +42,10 @@ export default function Landing() {
       setLoading(true);
       if (isRegistering) {
         await registerWithEmail(email, password);
+        trackSignUp('email');
       } else {
         await signInWithEmail(email, password);
+        trackLogin('email');
       }
       setLocation("/");
     } catch (error: any) {

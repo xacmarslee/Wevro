@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { fetchJsonWithAuth } from "@/lib/queryClient";
+import { trackMindMapCreated } from "@/lib/analytics";
 
 export function useMindMapPersistence(mindMapId?: string) {
   const [isSaved, setIsSaved] = useState(false);
@@ -63,6 +64,10 @@ export function useMindMapPersistence(mindMapId?: string) {
         });
         const data = await response.json();
         console.log("[MindMap] Created successfully:", data);
+        
+        // Track Analytics event (only for new mind maps)
+        trackMindMapCreated();
+        
         return data;
       }
     },

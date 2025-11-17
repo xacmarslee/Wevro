@@ -224,7 +224,7 @@ function EnglishTerms() {
         If you have questions about these Terms, please contact us:
       </p>
       <ul>
-        <li><strong>Email:</strong> xacmarslee@gmail.com</li>
+        <li><strong>Email:</strong> support@wevro.co</li>
         <li><strong>App:</strong> Settings → Account</li>
       </ul>
     </>
@@ -397,7 +397,7 @@ function ChineseTerms() {
       <h2>15. 聯繫我們</h2>
       <p>如果您對這些條款有疑問，請聯繫我們：</p>
       <ul>
-        <li><strong>電子郵件：</strong>xacmarslee@gmail.com</li>
+        <li><strong>電子郵件：</strong>support@wevro.co</li>
         <li><strong>應用程式：</strong>設定 → 帳號管理</li>
       </ul>
     </>

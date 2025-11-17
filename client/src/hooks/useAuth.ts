@@ -5,6 +5,7 @@ import { onAuthChange, type FirebaseUser } from "@/lib/firebase";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
+import { setAnalyticsUserId, setAnalyticsUserProperties } from "@/lib/analytics";
 
 export function useAuth() {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -27,6 +28,10 @@ export function useAuth() {
         // 清除所有用戶相關的查詢緩存
         queryClient.removeQueries({ queryKey: ["/api/mindmaps"] });
         queryClient.removeQueries({ queryKey: ["/api/flashcards"] });
+        
+        // 清除 Analytics 用戶 ID
+        setAnalyticsUserId(null);
+        
         setAuthReady(true);
         setIsLoading(false);
         return;
@@ -71,6 +76,10 @@ export function useAuth() {
       // 如果是新用戶，確保 quota 已創建（觸發 quota 查詢）
       if (userData) {
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+        
+        // 設定 Analytics 用戶 ID 和屬性
+        setAnalyticsUserId(userData.id);
+        // 用戶屬性會從 quota 查詢中更新（在 quota 查詢成功後）
       }
       
       return userData;
