@@ -64,12 +64,21 @@ export default function Account() {
         window.location.href = "/";
       }, 1000);
     },
-    onError: () => {
+    onError: (error: unknown) => {
+      console.error("Delete account error:", error);
+      let errorMessage = language === "en" 
+        ? "Failed to delete account. Please try again." 
+        : "刪除帳號失敗，請重試。";
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null && 'message' in error) {
+        errorMessage = String(error.message);
+      }
+      
       toast({
         title: language === "en" ? "Error" : "錯誤",
-        description: language === "en" 
-          ? "Failed to delete account. Please try again." 
-          : "刪除帳號失敗，請重試。",
+        description: errorMessage,
         variant: "destructive",
       });
     },

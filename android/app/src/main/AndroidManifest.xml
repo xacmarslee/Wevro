@@ -18,6 +18,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- OAuth 回調處理 - Firebase Auth 使用 HTTPS URL -->
+            <!-- 注意：請將 your-project.firebaseapp.com 替換為實際的 Firebase Auth Domain -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <!-- Firebase Auth OAuth 回調 URL -->
+                <data android:scheme="https" android:host="wevro-pro.firebaseapp.com" android:pathPrefix="/__/auth/handler" />
+            </intent-filter>
+            <!-- 備用：處理所有 wevro-pro.firebaseapp.com 的 HTTPS URL -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="wevro-pro.firebaseapp.com" />
+            </intent-filter>
         </activity>
 
         <provider

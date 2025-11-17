@@ -84,15 +84,35 @@ export async function registerRoutes(app: Express): Promise<void> {
       const userId = getUserId(req);
       
       // Delete user from database (cascading delete via foreign keys)
-      await storage.deleteUser(userId);
+      const dbDeleteSuccess = await storage.deleteUser(userId);
+      if (!dbDeleteSuccess) {
+        console.warn(`User ${userId} not found in database, continuing with Firebase deletion`);
+      }
       
       // Delete user from Firebase
-      await deleteFirebaseUser(userId);
+      try {
+        await deleteFirebaseUser(userId);
+      } catch (firebaseError: any) {
+        // If Firebase user doesn't exist, that's okay (might have been deleted already)
+        if (firebaseError?.code !== 'auth/user-not-found') {
+          console.error("Error deleting Firebase user:", firebaseError);
+          // Continue anyway if database deletion succeeded
+          if (!dbDeleteSuccess) {
+            throw firebaseError;
+          }
+        }
+      }
       
       res.json({ success: true, message: "Account deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting user:", error);
-      res.status(500).json({ message: "Failed to delete account" });
+      const errorMessage = error?.message || "Failed to delete account";
+      const errorCode = error?.code || "UNKNOWN_ERROR";
+      res.status(500).json({ 
+        message: errorMessage,
+        code: errorCode,
+        error: "Failed to delete account" 
+      });
     }
   });
   // Generate related words for a category

@@ -18,6 +18,10 @@ const config: CapacitorConfig = {
       androidSpinnerStyle: "small",
       iosSpinnerStyle: "small",
     }
+  },
+  // OAuth 回調 URL scheme
+  server: {
+    androidScheme: 'https'
   }
 };
 

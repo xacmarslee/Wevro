@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Brain, Layers, Search, Mail, Sparkles } from "lucide-react";
-import { signInWithGoogle, signInWithEmail, registerWithEmail } from "@/lib/firebase";
+import { signInWithGoogle, signInWithEmail, registerWithEmail, handleOAuthRedirect } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { trackSignUp, trackLogin } from "@/lib/analytics";
@@ -18,6 +18,31 @@ export default function Landing() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Handle OAuth redirect result on mount (for mobile apps)
+  useEffect(() => {
+    const checkOAuthRedirect = async () => {
+      try {
+        const user = await handleOAuthRedirect();
+        if (user) {
+          trackLogin('google');
+          setLocation("/");
+        }
+      } catch (error: any) {
+        console.error('OAuth redirect error:', error);
+        // Only show error if it's not a cancelled redirect
+        if (error?.code !== 'auth/popup-closed-by-user') {
+          toast({
+            title: language === "en" ? "Error" : "錯誤",
+            description: error.message || (language === "en" ? "Failed to sign in" : "登入失敗"),
+            variant: "destructive",
+          });
+        }
+      }
+    };
+
+    checkOAuthRedirect();
+  }, [setLocation, toast, language]);
 
   const handleGoogleSignIn = async () => {
     try {

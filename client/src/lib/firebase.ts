@@ -3,6 +3,8 @@ import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -72,13 +74,72 @@ try {
 // Google Auth Provider
 const googleProvider = new GoogleAuthProvider();
 
+// Check if running in Capacitor (mobile app)
+const isCapacitor = () => {
+  if (typeof window === 'undefined') return false;
+  
+  // Check for Capacitor global object
+  if ((window as any).Capacitor !== undefined) {
+    return true;
+  }
+  
+  // Check for Capacitor protocol
+  if (window.location.protocol === 'capacitor:') {
+    return true;
+  }
+  
+  // Check for Android/iOS user agent
+  const ua = window.navigator.userAgent.toLowerCase();
+  if (ua.includes('android') || ua.includes('iphone') || ua.includes('ipad')) {
+    // Additional check: if running in WebView (not browser)
+    if (ua.includes('wv') || !ua.includes('chrome')) {
+      return true;
+    }
+  }
+  
+  return false;
+};
+
 // Auth functions
 export const signInWithGoogle = async () => {
   try {
-    const result = await signInWithPopup(auth, googleProvider);
-    return result.user;
-  } catch (error) {
+    // In mobile apps (Capacitor), use redirect instead of popup
+    if (isCapacitor()) {
+      console.log('📱 檢測到移動應用環境，使用重定向登入');
+      await signInWithRedirect(auth, googleProvider);
+      // signInWithRedirect 不會返回結果，需要等待回調
+      // 結果會在 getRedirectResult 中處理
+      return null;
+    } else {
+      // In web browser, use popup
+      const result = await signInWithPopup(auth, googleProvider);
+      return result.user;
+    }
+  } catch (error: any) {
     console.error('Error signing in with Google:', error);
+    // If popup is blocked or failed in mobile, fallback to redirect
+    if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
+      if (!isCapacitor()) {
+        console.log('🔄 Popup 被阻止，改用重定向登入');
+        await signInWithRedirect(auth, googleProvider);
+        return null;
+      }
+    }
+    throw error;
+  }
+};
+
+// Handle OAuth redirect result (for mobile apps and popup fallback)
+export const handleOAuthRedirect = async () => {
+  try {
+    const result = await getRedirectResult(auth);
+    if (result && result.user) {
+      console.log('✅ OAuth 重定向登入成功');
+      return result.user;
+    }
+    return null;
+  } catch (error) {
+    console.error('Error handling OAuth redirect:', error);
     throw error;
   }
 };
