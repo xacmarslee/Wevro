@@ -79,7 +79,6 @@ export default function MindMapEditor() {
 
   const nodes = history.currentNodes ?? [];
   const hasNodes = nodes.length > 0;
-  const hasOnlyCenterNode = nodes.length === 1 && !!nodes[0]?.isCenter;
   // 新心智圖不需要 hydration，所以初始值應該是 false（如果沒有 mindMapId）
   const [isHydrating, setIsHydrating] = useState(() => !!mindMapId);
   
@@ -460,15 +459,6 @@ export default function MindMapEditor() {
           </div>
         )}
 
-        {hasOnlyCenterNode && !generation.isGenerating && (
-          <div className="pointer-events-none absolute left-1/2 bottom-6 z-30 -translate-x-1/2">
-            <div className="rounded-full bg-background/95 px-4 py-2 text-sm text-muted-foreground shadow-lg">
-              {language === "en"
-                ? "Only the center node is shown. Use the category buttons or + icons to expand your mind map."
-                : "目前只有中心節點，試著使用上方的類別按鈕或畫布上的＋來擴充心智圖。"}
-            </div>
-          </div>
-        )}
 
         <MindMapCanvas
           nodes={nodes}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,12 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { trackSignUp, trackLogin } from "@/lib/analytics";
 
+// 檢查是否在 Capacitor 環境中
+const isCapacitor = () => {
+  if (typeof window === 'undefined') return false;
+  return (window as any).Capacitor !== undefined || window.location.protocol === 'capacitor:';
+};
+
 export default function Landing() {
   const { language } = useLanguage();
   const { toast } = useToast();
@@ -18,20 +24,46 @@ export default function Landing() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle OAuth redirect result on mount (for mobile apps)
+  // Handle OAuth redirect result on mount and app resume (for mobile apps)
   useEffect(() => {
+    let hasCheckedRedirect = false; // 防止重複調用 getRedirectResult
+    
     const checkOAuthRedirect = async () => {
+      // getRedirectResult 只能被調用一次，之後會返回 null
+      // 如果已經檢查過，就不再檢查
+      if (hasCheckedRedirect) {
+        console.log('⚠️ 已經檢查過 OAuth redirect，跳過重複檢查');
+        return;
+      }
+      
       try {
         const user = await handleOAuthRedirect();
+        hasCheckedRedirect = true; // 標記已檢查
+        
         if (user) {
+          console.log('✅ OAuth redirect 成功，用戶已登入');
+          // 清除超時（如果存在）
+          if (loadingTimeoutRef.current) {
+            clearTimeout(loadingTimeoutRef.current);
+            loadingTimeoutRef.current = null;
+          }
+          setLoading(false); // 清除 loading 狀態
           trackLogin('google');
           setLocation("/");
         }
       } catch (error: any) {
         console.error('OAuth redirect error:', error);
+        hasCheckedRedirect = true; // 即使出錯也標記為已檢查
+        // 清除超時（如果存在）
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
+        setLoading(false); // 清除 loading 狀態
         // Only show error if it's not a cancelled redirect
-        if (error?.code !== 'auth/popup-closed-by-user') {
+        if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/redirect-cancelled-by-user') {
           toast({
             title: language === "en" ? "Error" : "錯誤",
             description: error.message || (language === "en" ? "Failed to sign in" : "登入失敗"),
@@ -41,23 +73,88 @@ export default function Landing() {
       }
     };
 
+    // 立即檢查一次（用於 app 啟動時或通過深度連結打開時）
     checkOAuthRedirect();
+
+    // 在移動端，監聽 app resume 事件（用戶從瀏覽器切換回 app 時）
+    if (isCapacitor()) {
+      // 使用 window focus 事件來檢測 app 恢復到前台
+      // 這在移動端 WebView 中也能正常工作
+      const handleFocus = async () => {
+        console.log('📱 App 恢復到前台，檢查 OAuth redirect...');
+        // 只有在還沒檢查過時才檢查
+        if (!hasCheckedRedirect) {
+          await checkOAuthRedirect();
+        }
+      };
+
+      // 監聽 window focus 事件
+      window.addEventListener('focus', handleFocus);
+      
+      // 也監聽 visibility change 事件作為備用
+      const handleVisibilityChange = async () => {
+        if (!document.hidden && !hasCheckedRedirect) {
+          console.log('📱 App 可見性改變，檢查 OAuth redirect...');
+          await checkOAuthRedirect();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
   }, [setLocation, toast, language]);
+
+  // 組件卸載時清除超時
+  useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      await signInWithGoogle();
-      trackLogin('google');
-      setLocation("/");
+      const user = await signInWithGoogle();
+      
+      // 在移動端，signInWithGoogle 會返回 null（因為使用 redirect）
+      // 在桌面端，會返回 user 對象
+      if (user) {
+        // 桌面端：立即登入成功
+        trackLogin('google');
+        setLocation("/");
+        setLoading(false);
+      } else {
+        // 移動端：使用 redirect，會在 app resume 時通過 handleOAuthRedirect 處理
+        // 設置超時機制：如果 60 秒內沒有完成認證，清除 loading 狀態
+        // 這可以防止用戶關閉瀏覽器後 loading 一直顯示
+        
+        // 清除之前的超時（如果存在）
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+        }
+        
+        loadingTimeoutRef.current = setTimeout(() => {
+          console.log('⚠️ Google 登入超時，清除 loading 狀態');
+          setLoading(false);
+          loadingTimeoutRef.current = null;
+        }, 60000); // 60 秒超時
+        
+        console.log('📱 移動端：已啟動 Google 登入重定向，等待回調...');
+      }
     } catch (error: any) {
+      console.error('Google sign in error:', error);
+      setLoading(false);
       toast({
         title: language === "en" ? "Error" : "錯誤",
         description: error.message || (language === "en" ? "Failed to sign in" : "登入失敗"),
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -113,9 +210,9 @@ export default function Landing() {
             <span style={{ fontFamily: 'Poiret One, cursive', fontWeight: 900, textShadow: '0 0 0.5px currentColor, 0 0 0.5px currentColor' }}>evro</span>
           </h1>
           
-          <div className="flex items-center justify-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-            <p className="text-lg text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 w-full min-w-0 px-4">
+            <Sparkles className="h-4 w-4 sm:h-5 sm:w-5 text-primary animate-pulse shrink-0" />
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground whitespace-nowrap truncate">
               {language === "en" 
                 ? "AI-Powered Vocabulary Learning"
                 : "AI 驅動的英文單字學習"}

@@ -209,9 +209,9 @@ export default function Account() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-auto pb-24">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <div className="sticky top-0 z-10 bg-background border-b">
         <div className="px-6 py-4 flex items-center gap-3">
           <Button
             variant="ghost"
@@ -227,7 +227,7 @@ export default function Account() {
         </div>
       </div>
 
-      <div className="flex-1 p-6 space-y-6">
+      <div className="flex-1 overflow-auto p-6 space-y-6 pb-24">
         {/* Account Info Card */}
         <Card>
           <CardContent className="pt-6 space-y-4">

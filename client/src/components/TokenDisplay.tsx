@@ -43,6 +43,17 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
 
   console.log('[TokenDisplay] State:', { isAuthenticated, isLoading, hasQuota: !!quota, error });
 
+  // Update Analytics user properties when quota is loaded
+  // ⚠️ 必須在所有條件性 return 之前調用，遵守 React Hooks 規則
+  useEffect(() => {
+    if (quota) {
+      setAnalyticsUserProperties({
+        plan: quota.plan || 'free',
+        language: language,
+      });
+    }
+  }, [quota, language]);
+
   if (!isAuthenticated) {
     console.log('[TokenDisplay] Not authenticated, hiding');
     return null;
@@ -63,24 +74,33 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
 
   const tokenBalance = Number(quota.tokenBalance ?? 0);
   const locale = language === "en" ? "en-US" : "zh-TW";
-  const formatter = new Intl.NumberFormat(locale, {
-    minimumFractionDigits: Number.isInteger(tokenBalance) ? 0 : 1,
-    maximumFractionDigits: 2,
-  });
-  const displayBalance = formatter.format(tokenBalance);
-
-  // Update Analytics user properties when quota is loaded
-  useEffect(() => {
-    if (quota) {
-      setAnalyticsUserProperties({
-        plan: quota.plan || 'free',
-        language: language,
-      });
+  
+  // Header 顯示：最多三位數，超過顯示 999+
+  const getHeaderDisplay = (balance: number): string => {
+    if (balance >= 1000) {
+      return "999+";
     }
-  }, [quota, language]);
+    const formatter = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: Number.isInteger(balance) ? 0 : 1,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(balance);
+  };
+  
+  // 完整顯示：帶千位逗號
+  const getFullDisplay = (balance: number): string => {
+    const formatter = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: Number.isInteger(balance) ? 0 : 1,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(balance);
+  };
+  
+  const headerDisplay = getHeaderDisplay(tokenBalance);
+  const fullDisplay = getFullDisplay(tokenBalance);
 
   if (variant === "header") {
-    // Header 右上角顯示（icon + 數字）
+    // Header 右上角顯示（icon + 數字，最多三位數）
     return (
       <Button
         variant="ghost"
@@ -90,7 +110,7 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
       >
         <Coins className="h-4 w-4 text-yellow-600" />
         <span className="font-medium text-yellow-600">
-          {displayBalance}
+          {headerDisplay}
         </span>
       </Button>
     );
@@ -113,8 +133,8 @@ export default function TokenDisplay({ variant = "header", className = "" }: Tok
           </div>
           <div className="text-xs text-muted-foreground">
             {language === "en"
-              ? `${displayBalance} tokens remaining`
-              : `剩餘 ${displayBalance} 點`}
+              ? `${fullDisplay} tokens remaining`
+              : `剩餘 ${fullDisplay} 點`}
           </div>
         </div>
       </div>

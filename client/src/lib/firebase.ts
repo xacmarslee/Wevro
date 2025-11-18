@@ -45,6 +45,22 @@ let analytics: Analytics | null = null;
 try {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
+  
+  // 在移動端，設置自定義的 redirect URL
+  // Firebase Auth 會使用這個 URL 作為 OAuth 回調
+  if (typeof window !== 'undefined') {
+    const isCapacitorEnv = () => {
+      return (window as any).Capacitor !== undefined || window.location.protocol === 'capacitor:';
+    };
+    
+    if (isCapacitorEnv()) {
+      // 設置 Firebase Auth 的 redirect URL 為自定義 scheme
+      // 這樣完成認證後會通過深度連結跳回 app
+      // 注意：Firebase 會自動處理，但我們需要確保配置正確
+      console.log("📱 移動端環境：Firebase Auth 將使用深度連結進行 OAuth 回調");
+    }
+  }
+  
   console.log("✅ Firebase 初始化成功");
   
   // Initialize Analytics (only in browser environment)
@@ -70,9 +86,6 @@ try {
   // 這會導致認證功能無法使用，但至少 app 不會完全崩潰
   throw new Error(`Firebase 初始化失敗: ${error instanceof Error ? error.message : String(error)}`);
 }
-
-// Google Auth Provider
-const googleProvider = new GoogleAuthProvider();
 
 // Check if running in Capacitor (mobile app)
 const isCapacitor = () => {
@@ -100,15 +113,30 @@ const isCapacitor = () => {
   return false;
 };
 
+// Google Auth Provider
+const googleProvider = new GoogleAuthProvider();
+
+// 設置自定義 URL scheme 用於移動端 OAuth 回調
+if (isCapacitor()) {
+  // 在移動端，設置自定義 URL scheme 作為重定向 URL
+  // Firebase 會使用這個 scheme 來回調到 app
+  googleProvider.setCustomParameters({
+    prompt: 'select_account'
+  });
+}
+
 // Auth functions
 export const signInWithGoogle = async () => {
   try {
-    // In mobile apps (Capacitor), use redirect instead of popup
+    // In mobile apps (Capacitor), use redirect (will open browser)
+    // The redirect will use deep link to return to app
     if (isCapacitor()) {
-      console.log('📱 檢測到移動應用環境，使用重定向登入');
+      console.log('📱 檢測到移動應用環境，使用重定向登入（將在瀏覽器中打開）');
+      // signInWithRedirect 會自動打開瀏覽器進行 Google 認證
+      // 完成後會通過深度連結（wevro:// 或 https://wevro-pro.firebaseapp.com）跳回 app
       await signInWithRedirect(auth, googleProvider);
       // signInWithRedirect 不會返回結果，需要等待回調
-      // 結果會在 getRedirectResult 中處理
+      // 結果會在 getRedirectResult 中處理（在 app 通過深度連結重新打開時）
       return null;
     } else {
       // In web browser, use popup
@@ -117,7 +145,7 @@ export const signInWithGoogle = async () => {
     }
   } catch (error: any) {
     console.error('Error signing in with Google:', error);
-    // If popup is blocked or failed in mobile, fallback to redirect
+    // If popup is blocked or failed, fallback to redirect
     if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
       if (!isCapacitor()) {
         console.log('🔄 Popup 被阻止，改用重定向登入');

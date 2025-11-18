@@ -15,7 +15,7 @@ export default function PrivacyPolicy() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b">
+      <div className="sticky top-0 z-10 bg-background border-b">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button
             variant="ghost"
@@ -53,7 +53,7 @@ function EnglishPolicy() {
 
       <h2>1. Introduction</h2>
       <p>
-        Welcome to Wevro ("we," "our," or "us"). We are committed to protecting your privacy 
+        Welcome to Wevro. We are committed to protecting your privacy 
         and ensuring the security of your personal information. This Privacy Policy explains 
         how we collect, use, and protect your information when you use our mobile application 
         and services.
@@ -66,11 +66,8 @@ function EnglishPolicy() {
       <ul>
         <li><strong>Email address</strong> (required for login)</li>
         <li><strong>Password</strong> (encrypted, only if using email registration)</li>
-        <li><strong>Google profile data</strong> (only if signing in with Google):
-          <ul>
-            <li>Display name (optional, automatically provided by Google)</li>
-            <li>Profile photo (optional, automatically provided by Google)</li>
-          </ul>
+        <li><strong>Google profile data</strong> (only if signing in with Google)
+
         </li>
       </ul>
       <p><em>Note: We do NOT ask you to provide your name separately. Name information only comes from Google sign-in if you choose that option.</em></p>
@@ -80,7 +77,7 @@ function EnglishPolicy() {
       <ul>
         <li>Mind maps (words and their relationships)</li>
         <li>Flashcard decks (words and definitions)</li>
-        <li>Learning progress (which cards you've marked as known)</li>
+        
       </ul>
 
       <h3>2.3 Usage Data</h3>
@@ -128,17 +125,13 @@ function EnglishPolicy() {
       <ul>
         <li><strong>Purpose:</strong> User authentication and app usage analytics</li>
         <li><strong>Data Shared:</strong> Email address and authentication tokens</li>
-        <li><strong>Analytics:</strong> We use Firebase Analytics to understand how users interact with our app. This includes anonymous usage statistics such as feature usage (e.g., how many times users generate example sentences), device type, and language preference. No personal information (email, name) is shared with Analytics.</li>
-        <li><strong>NOT Used:</strong> Firebase Crashlytics or other tracking services</li>
         <li><strong>Privacy Policy:</strong> <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase Privacy</a></li>
       </ul>
 
       <h3>4.2 OpenAI</h3>
       <ul>
         <li><strong>Purpose:</strong> Generate AI content (word definitions, example sentences, synonym comparisons)</li>
-        <li><strong>Data Shared:</strong> ONLY the English words/phrases you query (e.g., "happy", "accomplish")</li>
-        <li><strong>NOT Shared:</strong> Your email, profile data, or any other personal information</li>
-        <li><strong>Data Retention:</strong> OpenAI does not store the words we send after processing</li>
+        <li><strong>Data Shared:</strong> Only the English words/phrases you query</li>
         <li><strong>Privacy Policy:</strong> <a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI Privacy</a></li>
       </ul>
 
@@ -155,7 +148,7 @@ function EnglishPolicy() {
       </p>
       <ul>
         <li><strong>Encryption:</strong> All data is encrypted in transit (HTTPS) and at rest</li>
-        <li><strong>Authentication:</strong> Secure Firebase authentication with token-based sessions</li>
+        <li><strong>Authentication:</strong> Secure Firebase authentication</li>
         <li><strong>Access Control:</strong> Strict access controls to prevent unauthorized access</li>
         <li><strong>Regular Backups:</strong> Automated backups to prevent data loss</li>
       </ul>
@@ -183,9 +176,9 @@ function EnglishPolicy() {
 
       <h2>8. Children's Privacy</h2>
       <p>
-        Wevro is not intended for children under 13 years old. We do not knowingly collect 
-        personal information from children under 13. If you believe we have collected 
-        information from a child under 13, please contact us immediately.
+        Wevro is not intended for children under 9 years old. We do not knowingly collect 
+        personal information from children under 9. If you believe we have collected 
+        information from a child under 9, please contact us immediately.
       </p>
 
       <h2>9. International Data Transfers</h2>
@@ -210,7 +203,6 @@ function EnglishPolicy() {
       </p>
       <ul>
         <li><strong>Email:</strong> support@wevro.co</li>
-        <li><strong>App:</strong> Settings → Account</li>
       </ul>
 
       <h2>12. GDPR Compliance (For EU Users)</h2>
@@ -249,7 +241,7 @@ function ChinesePolicy() {
 
       <h2>1. 簡介</h2>
       <p>
-        歡迎使用 Wevro（「我們」、「我們的」）。我們致力於保護您的隱私並確保您個人資料的安全。
+        歡迎使用 Wevro。我們致力於保護您的隱私並確保您個人資料的安全。
         本隱私政策說明當您使用我們的行動應用程式和服務時，我們如何收集、使用和保護您的資訊。
       </p>
 
@@ -261,10 +253,7 @@ function ChinesePolicy() {
         <li><strong>電子郵件地址</strong>（用於登入，必需）</li>
         <li><strong>密碼</strong>（已加密，僅在使用 Email 註冊時）</li>
         <li><strong>Google 個人資料</strong>（僅在使用 Google 登入時）：
-          <ul>
-            <li>顯示名稱（選用，由 Google 自動提供）</li>
-            <li>大頭照（選用，由 Google 自動提供）</li>
-          </ul>
+
         </li>
       </ul>
       <p><em>注意：我們「不會」要求您填寫姓名。姓名資訊僅在您選擇 Google 登入時由 Google 自動提供。</em></p>
@@ -274,7 +263,7 @@ function ChinesePolicy() {
       <ul>
         <li>心智圖（單字及其關聯）</li>
         <li>字卡組（單字和定義）</li>
-        <li>學習進度（您標記為已知的字卡）</li>
+        
       </ul>
 
       <h3>2.3 使用數據</h3>
@@ -322,17 +311,13 @@ function ChinesePolicy() {
       <ul>
         <li><strong>用途：</strong>使用者身份驗證和應用程式使用分析</li>
         <li><strong>共享數據：</strong>電子郵件地址和身份驗證令牌</li>
-        <li><strong>分析服務：</strong>我們使用 Firebase Analytics 來了解使用者如何使用我們的應用程式。這包括匿名使用統計資料，例如功能使用情況（例如使用者生成例句的次數）、裝置類型和語言偏好。不會將個人資訊（電子郵件、姓名）與 Analytics 共享。</li>
-        <li><strong>未使用：</strong>Firebase Crashlytics 或其他追蹤服務</li>
         <li><strong>隱私政策：</strong><a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">Firebase 隱私</a></li>
       </ul>
 
       <h3>4.2 OpenAI</h3>
       <ul>
         <li><strong>用途：</strong>生成 AI 內容（單字定義、例句、同義詞比較）</li>
-        <li><strong>共享數據：</strong>「僅」您查詢的英文單字/短語（例如：「happy」、「accomplish」）</li>
-        <li><strong>不會共享：</strong>您的電子郵件、個人資料或任何其他個人資訊</li>
-        <li><strong>資料保留：</strong>OpenAI 處理完畢後不會儲存我們發送的單字</li>
+        <li><strong>共享數據：</strong>僅您查詢的英文單字/短語</li>
         <li><strong>隱私政策：</strong><a href="https://openai.com/privacy" target="_blank" rel="noopener">OpenAI 隱私</a></li>
       </ul>
 
@@ -347,7 +332,7 @@ function ChinesePolicy() {
       <p>我們實施業界標準的安全措施來保護您的數據：</p>
       <ul>
         <li><strong>加密：</strong>所有數據在傳輸（HTTPS）和儲存時都經過加密</li>
-        <li><strong>身份驗證：</strong>使用基於令牌的會話進行安全的 Firebase 身份驗證</li>
+        <li><strong>身份驗證：</strong>安全的 Firebase 身份驗證</li>
         <li><strong>訪問控制：</strong>嚴格的訪問控制以防止未經授權的訪問</li>
         <li><strong>定期備份：</strong>自動備份以防止數據丟失</li>
       </ul>
@@ -375,8 +360,8 @@ function ChinesePolicy() {
 
       <h2>8. 兒童隱私</h2>
       <p>
-        Wevro 不適用於 13 歲以下的兒童。我們不會故意收集 13 歲以下兒童的個人資訊。
-        如果您認為我們收集了 13 歲以下兒童的資訊，請立即與我們聯繫。
+        Wevro 不適用於 9 歲以下的兒童。我們不會故意收集 9 歲以下兒童的個人資訊。
+        如果您認為我們收集了 9 歲以下兒童的資訊，請立即與我們聯繫。
       </p>
 
       <h2>9. 國際數據傳輸</h2>
@@ -396,7 +381,6 @@ function ChinesePolicy() {
       <p>如果您對本隱私政策或您的數據有疑問或疑慮，請聯繫我們：</p>
       <ul>
         <li><strong>電子郵件：</strong>support@wevro.co</li>
-        <li><strong>應用程式：</strong>設定 → 帳號管理</li>
       </ul>
 
       <h2>12. GDPR 合規（歐盟用戶）</h2>

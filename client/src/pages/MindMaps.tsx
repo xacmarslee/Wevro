@@ -50,6 +50,7 @@ export default function MindMaps() {
   const [newWord, setNewWord] = useState("");
 
   // Fetch user's mind maps (only when authenticated)
+  // 使用 React Query 的緩存數據來優化載入體驗
   const { data: mindMaps = [], isLoading, error, status } = useQuery({
     queryKey: ["/api/mindmaps"],
     queryFn: async () => {
@@ -61,6 +62,10 @@ export default function MindMaps() {
     },
     enabled: isAuthenticated && authReady,
     retry: false,
+    // 使用緩存數據作為初始顯示，避免空白 loading
+    placeholderData: (previousData) => previousData,
+    // 如果緩存數據存在且未過期，立即顯示緩存數據
+    staleTime: 5 * 60 * 1000, // 5 分鐘內視為新鮮數據
   });
 
   // 調試日誌
@@ -148,14 +153,14 @@ return (
   <div className="flex flex-col h-full">
     <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="px-6 py-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <LogoText className="text-2xl font-bold text-primary" />
-          <div className="h-6 w-px bg-border" />
-          <h2 className="text-2xl font-semibold">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <LogoText className="text-xl sm:text-2xl font-bold text-primary shrink-0" />
+          <div className="h-6 w-px bg-border shrink-0" />
+          <h2 className="text-xl sm:text-2xl font-semibold whitespace-nowrap truncate">
             {language === "en" ? "Mind Maps" : "心智圖"}
           </h2>
         </div>
-        <TokenDisplay variant="header" />
+        <TokenDisplay variant="header" className="shrink-0" />
       </div>
     </div>
 

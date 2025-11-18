@@ -6,6 +6,8 @@
 
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,15 +24,43 @@ import {
 import { Check, Sparkles, Zap, ChevronLeft, Coins, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
 
 export default function Pricing() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { isAuthenticated } = useAuth();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  
+  // 獲取用戶點數
+  const { data: quota } = useQuery({
+    queryKey: ["/api/quota"],
+    queryFn: async () => {
+      const response = await fetchWithAuth("/api/quota");
+      if (response.status === 401) {
+        return null;
+      }
+      await throwIfResNotOk(response);
+      return await response.json();
+    },
+    enabled: isAuthenticated,
+  });
   
   // TODO: 從後端獲取用戶訂閱狀態
   const isSubscribed = false; // 暫時為 false，待整合後端後更新
+  
+  // 格式化點數顯示（帶千位逗號和小數點）
+  const formatTokenBalance = (balance: number): string => {
+    const locale = language === "en" ? "en-US" : "zh-TW";
+    const formatter = new Intl.NumberFormat(locale, {
+      minimumFractionDigits: Number.isInteger(balance) ? 0 : 1,
+      maximumFractionDigits: 2,
+    });
+    return formatter.format(balance);
+  };
+  
+  const currentTokenBalance = quota?.tokenBalance ?? 0;
 
   const handleSubscribe = () => {
     // TODO: 實作 In-App Purchase
@@ -64,9 +94,9 @@ export default function Pricing() {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-auto pb-24">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+      <div className="sticky top-0 z-10 bg-background border-b">
         <div className="px-6 py-4 flex items-center gap-3">
           <Button
             variant="ghost"
@@ -82,7 +112,28 @@ export default function Pricing() {
         </div>
       </div>
 
-      <div className="flex-1 p-6 space-y-8">
+      <div className="flex-1 overflow-auto p-6 space-y-8 pb-24">
+        {/* 當前點數 */}
+        {isAuthenticated && (
+          <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Coins className="h-6 w-6 text-yellow-600" />
+                  <div>
+                    <div className="text-sm text-muted-foreground">
+                      {language === "en" ? "Current Tokens" : "當前點數"}
+                    </div>
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {formatTokenBalance(currentTokenBalance)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* 點數說明 */}
         <div className="space-y-3">
           <h3 className="font-semibold text-lg">
@@ -154,16 +205,24 @@ export default function Pricing() {
                 <Check className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <span className="text-sm">
                   {language === "en" 
-                    ? "Unlimited mind map expansion" 
-                    : "無限制心智圖擴展"}
+                    ? "Access to all AI features" 
+                    : "可使用所有 AI 功能"}
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <Check className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
                 <span className="text-sm">
                   {language === "en" 
-                    ? "Unlimited flashcard practice" 
-                    : "無限制字卡練習"}
+                    ? "Tokens never expire" 
+                    : "點數永久有效"}
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <Check className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+                <span className="text-sm">
+                  {language === "en" 
+                    ? "No credit card required" 
+                    : "無需綁定信用卡"}
                 </span>
               </div>
             </div>
@@ -200,9 +259,6 @@ export default function Pricing() {
               <p className="text-xs text-muted-foreground mt-1">
                 {language === "en" ? "~NT$ 210 per month" : "約 NT$ 210 / 月"}
               </p>
-              <p className="text-xs font-semibold text-primary mt-1">
-                {language === "en" ? "Less than $0.25 per day!" : "每天不到 $0.25！"}
-              </p>
             </div>
             
             <div className="space-y-2">
@@ -229,14 +285,6 @@ export default function Pricing() {
                 <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <span className="text-sm">
                   {language === "en" 
-                    ? "Mind map expansion: 0.5 token per success (every two expands deduct 1 token)" 
-                    : "心智圖擴展：每次成功展開扣 0.5 點（兩次展開扣 1 點）"}
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">
-                  {language === "en" 
                     ? "Additional tokens at 20% discount" 
                     : "額外購買點數享 8 折優惠"}
                 </span>
@@ -255,14 +303,6 @@ export default function Pricing() {
                   {language === "en" 
                     ? "Priority support" 
                     : "優先客服支援"}
-                </span>
-              </div>
-              <div className="flex items-start gap-2">
-                <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">
-                  {language === "en" 
-                    ? "Advanced statistics" 
-                    : "進階統計分析"}
                 </span>
               </div>
             </div>

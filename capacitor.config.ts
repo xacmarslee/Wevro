@@ -19,9 +19,9 @@ const config: CapacitorConfig = {
       iosSpinnerStyle: "small",
     }
   },
-  // OAuth 回調 URL scheme
+  // OAuth 回調 URL scheme - 使用自定義 scheme 以支持 Firebase Auth 深度連結
   server: {
-    androidScheme: 'https'
+    androidScheme: 'wevro'
   }
 };
 

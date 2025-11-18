@@ -15,9 +15,16 @@ export function useAuth() {
 
   // Listen to Firebase auth state changes
   useEffect(() => {
+    let previousUserId: string | null = null;
+    
     const unsubscribe = onAuthChange(async (user) => {
       setIsLoading(true);
       setAuthReady(false);
+      
+      const currentUserId = user?.uid || null;
+      const isUserChanged = previousUserId !== null && previousUserId !== currentUserId;
+      previousUserId = currentUserId;
+      
       setFirebaseUser(user);
 
       if (!user) {
@@ -38,20 +45,41 @@ export function useAuth() {
       }
 
       try {
-        const idToken = await user.getIdToken(true);
+        // 先設置 authReady，讓查詢可以開始（使用緩存的 token）
+        // 這樣可以並行執行，而不是串行等待
+        const cachedToken = localStorage.getItem("firebaseToken");
+        if (cachedToken) {
+          // 如果有緩存的 token，先設置 authReady，讓查詢可以開始
+          setAuthReady(true);
+        }
+        
+        // 然後在背景刷新 token（不阻塞）
+        const idToken = await user.getIdToken(false); // 使用 false 避免不必要的刷新
         localStorage.setItem("firebaseToken", idToken);
         
-        // 登入時清除舊用戶的緩存，確保新用戶看到正確的資料
-        queryClient.removeQueries({ queryKey: ["/api/mindmaps"] });
-        queryClient.removeQueries({ queryKey: ["/api/flashcards"] });
+        // 只有在用戶切換時才清除緩存，避免每次登入都清除
+        if (isUserChanged) {
+          console.log("[useAuth] User changed, clearing cache");
+          queryClient.removeQueries({ queryKey: ["/api/mindmaps"] });
+          queryClient.removeQueries({ queryKey: ["/api/flashcards"] });
+        } else {
+          // 用戶未變更，只 invalidate（會使用緩存數據，然後在背景更新）
+          console.log("[useAuth] Same user, invalidating queries (will use cache)");
+          queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
+        }
         
         // 然後重新獲取用戶資料
         queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+        
+        // 確保 authReady 已設置
+        setAuthReady(true);
       } catch (error) {
         console.error("❌ Auth error:", error);
-      } finally {
+        // 即使出錯也設置 authReady，避免永遠卡在 loading
         setAuthReady(true);
+      } finally {
         setIsLoading(false);
       }
     });

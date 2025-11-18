@@ -15,7 +15,7 @@ export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="border-b">
+      <div className="sticky top-0 z-10 bg-background border-b">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button
             variant="ghost"
@@ -98,13 +98,14 @@ function EnglishTerms() {
       <h3>4.1 Free Tier</h3>
       <ul>
         <li>30 tokens upon registration</li>
-        <li>1 token per day for daily login</li>
-        <li>Unlimited mind map creation</li>
-        <li>Unlimited dictionary lookups</li>
+        <li>Access to all AI features</li>
+        <li>Tokens never expire</li>
+        <li>No credit card required</li>
       </ul>
 
       <h3>4.2 Token Consumption</h3>
       <ul>
+        <li>Mind map expansion: 0.5 token per successful expand (1 token for every two expands)</li>
         <li>Flashcard generation: 1 token per 10 cards</li>
         <li>Example sentences: 2 tokens per query</li>
         <li>Synonym comparison: 2 tokens per query</li>
@@ -112,8 +113,16 @@ function EnglishTerms() {
 
       <h3>4.3 Pro Subscription (Optional)</h3>
       <p>
-        Pro subscription provides 180 tokens per month and additional benefits. Subscription 
-        terms and pricing are displayed in the app and may change with notice.
+        Pro subscription provides 180 tokens per month ($6.99/month) and includes:
+      </p>
+      <ul>
+        <li>All free features included</li>
+        <li>Additional tokens at 20% discount</li>
+        <li>No ads</li>
+        <li>Priority support</li>
+      </ul>
+      <p>
+        Subscription terms and pricing are displayed in the app and may change with notice.
       </p>
 
       <h2>5. User Content</h2>
@@ -225,7 +234,6 @@ function EnglishTerms() {
       </p>
       <ul>
         <li><strong>Email:</strong> support@wevro.co</li>
-        <li><strong>App:</strong> Settings → Account</li>
       </ul>
     </>
   );
@@ -282,14 +290,15 @@ function ChineseTerms() {
       
       <h3>4.1 免費方案</h3>
       <ul>
-        <li>註冊時獲得 30 點</li>
-        <li>每日登入獲得 1 點</li>
-        <li>無限制建立心智圖</li>
-        <li>無限制字典查詢</li>
+        <li>註冊送 30 點</li>
+        <li>可使用所有 AI 功能</li>
+        <li>點數永久有效</li>
+        <li>無需綁定信用卡</li>
       </ul>
 
       <h3>4.2 點數消耗</h3>
       <ul>
+        <li>心智圖擴展：每次成功展開扣 0.5 點（兩次展開扣 1 點）</li>
         <li>字卡生成：每 10 張卡片 1 點</li>
         <li>例句生成：每次查詢 2 點</li>
         <li>同義詞比較：每次查詢 2 點</li>
@@ -297,8 +306,16 @@ function ChineseTerms() {
 
       <h3>4.3 Pro 訂閱（可選）</h3>
       <p>
-        Pro 訂閱每月提供 180 點和額外福利。訂閱條款和定價顯示在應用程式中，
-        可能會在通知後變更。
+        Pro 訂閱每月提供 180 點（$6.99/月），包含：
+      </p>
+      <ul>
+        <li>包含所有免費功能</li>
+        <li>額外購買點數享 8 折優惠</li>
+        <li>無廣告</li>
+        <li>優先客服支援</li>
+      </ul>
+      <p>
+        訂閱條款和定價顯示在應用程式中，可能會在通知後變更。
       </p>
 
       <h2>5. 用戶內容</h2>
@@ -398,7 +415,6 @@ function ChineseTerms() {
       <p>如果您對這些條款有疑問，請聯繫我們：</p>
       <ul>
         <li><strong>電子郵件：</strong>support@wevro.co</li>
-        <li><strong>應用程式：</strong>設定 → 帳號管理</li>
       </ul>
     </>
   );
