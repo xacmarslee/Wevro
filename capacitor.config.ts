@@ -19,9 +19,11 @@ const config: CapacitorConfig = {
       iosSpinnerStyle: "small",
     }
   },
-  // OAuth 回調 URL scheme - 使用自定義 scheme 以支持 Firebase Auth 深度連結
+  // OAuth 回調 URL scheme - 使用 https 以支持 Firebase Auth 和 Google API
+  // 注意：自定義 scheme (wevro://) 在 Android WebView 117+ 會有問題
+  // 改用 https 可以讓 Google API 正常加載
   server: {
-    androidScheme: 'wevro'
+    androidScheme: 'https'
   }
 };
 

@@ -221,7 +221,14 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
 
       // Generate examples using OpenAI
-      const examples = await generateExampleSentences(query, sensesCount, phraseCount);
+      let examples;
+      try {
+        examples = await generateExampleSentences(query, sensesCount, phraseCount);
+      } catch (genError: any) {
+        console.error("Error in generateExampleSentences:", genError);
+        // Re-throw to be caught by outer catch block
+        throw genError;
+      }
 
       let tokenInfo;
       const hasContent =
@@ -230,11 +237,17 @@ export async function registerRoutes(app: Express): Promise<void> {
         (examples?.collocations?.length ?? 0) > 0;
 
       if (hasContent) {
-        tokenInfo = await storage.consumeTokens(userId, tokensRequired, "exampleGeneration", {
-          query,
-          sensesCount,
-          phraseCount,
-        });
+        try {
+          tokenInfo = await storage.consumeTokens(userId, tokensRequired, "exampleGeneration", {
+            query,
+            sensesCount,
+            phraseCount,
+          });
+        } catch (tokenError: any) {
+          console.error("Error consuming tokens:", tokenError);
+          // Re-throw to be caught by outer catch block
+          throw tokenError;
+        }
       }
 
       console.log(`✅ Successfully generated examples for "${query}"`);
@@ -252,16 +265,25 @@ export async function registerRoutes(app: Express): Promise<void> {
         });
       }
 
-      if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+      // Check for insufficient tokens error (from consumeTokens or other sources)
+      if (
+        (error instanceof Error && (error.message === "INSUFFICIENT_TOKENS" || (error as any).code === "INSUFFICIENT_TOKENS")) ||
+        (error as any)?.code === "INSUFFICIENT_TOKENS"
+      ) {
+        const tokenBalance = Number((error as any)?.tokenBalance ?? 0);
         return res.status(402).json({
           error: "INSUFFICIENT_TOKENS",
           message: "點數不足。例句生成每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+          tokenBalance,
         });
       }
 
+      // Log the full error for debugging
+      console.error("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+
       res.status(500).json({
         error: "Failed to generate examples",
-        message: error.message || "無法生成例句，請稍後再試",
+        message: error instanceof Error ? error.message : (error as any)?.message || "無法生成例句，請稍後再試",
       });
     }
   });
@@ -297,14 +319,27 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
 
       // Generate synonym comparison using OpenAI
-      const synonyms = await generateSynonymComparison(query);
+      let synonyms;
+      try {
+        synonyms = await generateSynonymComparison(query);
+      } catch (genError: any) {
+        console.error("Error in generateSynonymComparison:", genError);
+        // Re-throw to be caught by outer catch block
+        throw genError;
+      }
 
       let tokenInfo;
       if ((synonyms?.synonyms?.length ?? 0) > 0) {
-        tokenInfo = await storage.consumeTokens(userId, tokensRequired, "synonymComparison", {
-          query,
-          synonymCount: synonyms.synonyms.length,
-        });
+        try {
+          tokenInfo = await storage.consumeTokens(userId, tokensRequired, "synonymComparison", {
+            query,
+            synonymCount: synonyms.synonyms.length,
+          });
+        } catch (tokenError: any) {
+          console.error("Error consuming tokens:", tokenError);
+          // Re-throw to be caught by outer catch block
+          throw tokenError;
+        }
       }
 
       console.log(`✅ Successfully generated synonyms for "${query}"`);
@@ -322,16 +357,25 @@ export async function registerRoutes(app: Express): Promise<void> {
         });
       }
 
-      if (error instanceof Error && error.message === "INSUFFICIENT_TOKENS") {
+      // Check for insufficient tokens error (from consumeTokens or other sources)
+      if (
+        (error instanceof Error && (error.message === "INSUFFICIENT_TOKENS" || (error as any).code === "INSUFFICIENT_TOKENS")) ||
+        (error as any)?.code === "INSUFFICIENT_TOKENS"
+      ) {
+        const tokenBalance = Number((error as any)?.tokenBalance ?? 0);
         return res.status(402).json({
           error: "INSUFFICIENT_TOKENS",
           message: "點數不足。同義字比較每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+          tokenBalance,
         });
       }
 
+      // Log the full error for debugging
+      console.error("Full error object:", JSON.stringify(error, Object.getOwnPropertyNames(error)));
+
       res.status(500).json({
         error: "Failed to generate synonyms",
-        message: error.message || "無法生成同義字，請稍後再試",
+        message: error instanceof Error ? error.message : (error as any)?.message || "無法生成同義字，請稍後再試",
       });
     }
   });

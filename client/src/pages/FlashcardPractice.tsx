@@ -134,7 +134,7 @@ export default function FlashcardPractice() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b px-6 py-4 flex items-center gap-4">
+      <div className="border-b px-6 py-4 flex items-center gap-4 safe-area-top">
         <Button
           variant="ghost"
           size="icon"

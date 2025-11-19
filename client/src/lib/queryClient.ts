@@ -29,9 +29,36 @@ function resolveRequestInfo(input: RequestInfo | URL): RequestInfo | URL {
 
 export async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    console.error(`[API Error] ${res.status}: ${text}`);
-    throw new Error(`${res.status}: ${text}`);
+    let errorText = res.statusText;
+    let errorData: any = null;
+    
+    try {
+      const contentType = res.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const text = await res.clone().text();
+        errorData = JSON.parse(text);
+        errorText = errorData?.message || errorData?.error || text || res.statusText;
+      } else {
+        const text = await res.text();
+        errorText = text || res.statusText;
+      }
+    } catch (e) {
+      // 如果解析失敗，嘗試取得原始文字
+      try {
+        errorText = await res.text() || res.statusText;
+      } catch {
+        errorText = res.statusText;
+      }
+    }
+    
+    console.error(`[API Error] ${res.status}:`, errorText, errorData);
+    
+    // 如果有結構化錯誤資料，將其作為 JSON 字串傳遞
+    if (errorData) {
+      throw new Error(`${res.status}: ${JSON.stringify(errorData)}`);
+    }
+    
+    throw new Error(`${res.status}: ${errorText}`);
   }
 }
 
@@ -75,14 +102,38 @@ export async function apiRequest(
     };
   }
 
-  console.log(`[API Request] ${method} ${url}`, data ? { data } : "");
+  const resolvedUrl = typeof url === "string" ? resolveRequestInfo(url) : url;
+  const finalUrl = typeof resolvedUrl === "string" ? resolvedUrl : resolvedUrl.toString();
+  
+  console.log(`[API Request] ${method} ${url}`, {
+    resolvedUrl: finalUrl,
+    apiBaseUrl: API_BASE_URL || "not set",
+    data: data ? { data } : undefined,
+  });
 
-  const res = await fetchWithAuth(url, init);
+  let res: Response;
+  try {
+    res = await fetchWithAuth(url, init);
+  } catch (error) {
+    console.error(`[API Request Failed] ${method} ${url}`, {
+      error,
+      resolvedUrl: finalUrl,
+      apiBaseUrl: API_BASE_URL || "not set",
+    });
+    // 重新拋出錯誤，但新增更多上下文
+    if (error instanceof Error) {
+      if (error.message.includes("Failed to fetch") || error.message.includes("NetworkError")) {
+        throw new Error(`Network error: Cannot connect to ${finalUrl}. Please check your connection and API configuration.`);
+      }
+    }
+    throw error;
+  }
 
   console.log(`[API Response] ${method} ${url}`, {
     status: res.status,
     statusText: res.statusText,
     ok: res.ok,
+    url: finalUrl,
   });
 
   await throwIfResNotOk(res);

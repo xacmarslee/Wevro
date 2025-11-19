@@ -95,7 +95,7 @@ FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}
 4. Railway 會提供 CNAME 記錄
 
 5. 前往你的網域提供商（GoDaddy、Namecheap 等）
-6. 添加 CNAME 記錄：
+6. 新增 CNAME 記錄：
    ```
    Type: CNAME
    Name: @

@@ -34,16 +34,43 @@ export async function createApp(): Promise<Express> {
     .map((item) => item.trim())
     .filter(Boolean);
 
+  // Add default allowed origins for Capacitor/local development
+  const defaultAllowedOrigins = [
+    "https://localhost",      // Capacitor Android/iOS default
+    "http://localhost",       // Local development
+    "capacitor://localhost",  // Capacitor alternative scheme
+    "ionic://localhost",      // Ionic/Capacitor alternative scheme
+  ];
+
+  // Combine environment origins with defaults, avoiding duplicates
+  const allAllowedOrigins = [
+    ...new Set([...allowedOrigins, ...defaultAllowedOrigins])
+  ];
+
   const corsOptions: CorsOptions = {
     origin(origin, callback) {
       if (!origin) {
+        // Allow requests with no origin (like mobile apps or curl requests)
         return callback(null, true);
       }
 
-      if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      // Always allow localhost origins (for Capacitor/local development)
+      if (defaultAllowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
+      // If no origins configured in env, allow all (for development flexibility)
+      if (allowedOrigins.length === 0) {
+        return callback(null, true);
+      }
+
+      // Production mode: also check against configured allowed list
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      // Log rejected origin for debugging
+      console.warn(`[CORS] Origin ${origin} is not allowed. Allowed origins: ${allAllowedOrigins.join(", ")}`);
       return callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,

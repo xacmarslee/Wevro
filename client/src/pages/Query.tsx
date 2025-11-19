@@ -47,16 +47,83 @@ export default function Query() {
   const examplesNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const synonymsNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const parseTokenError = (error: unknown, fallback: string) => {
-    if (error instanceof Error && error.message.startsWith("402")) {
-      const payload = error.message.split(":").slice(1).join(":").trim();
-      try {
-        const parsed = JSON.parse(payload);
-        return parsed?.message ?? fallback;
-      } catch {
-        return fallback;
+  const parseError = (error: unknown, fallback: string) => {
+    if (error instanceof Error) {
+      const message = error.message;
+      
+      // 嘗試解析包含狀態碼的錯誤 (例如: "402: {...}" 或 "500: {...}")
+      if (/^\d{3}:/.test(message)) {
+        const statusCode = message.match(/^(\d{3})/)?.[1];
+        const payload = message.split(":").slice(1).join(":").trim();
+        
+        // 嘗試解析 JSON 負載
+        if (payload.startsWith("{") || payload.startsWith("[")) {
+          try {
+            const parsed = JSON.parse(payload);
+            if (parsed?.message) {
+              return parsed.message;
+            }
+            if (parsed?.error && parsed?.message) {
+              return `${parsed.error}: ${parsed.message}`;
+            }
+            if (parsed?.error) {
+              return parsed.error;
+            }
+          } catch {
+            // JSON 解析失敗，繼續處理
+          }
+        }
+        
+        // 如果有非空負載且不是 JSON，直接使用
+        if (payload && !payload.startsWith("{") && !payload.startsWith("[")) {
+          return payload;
+        }
+        
+        // 根據狀態碼提供預設訊息
+        if (statusCode === "401") {
+          return language === "en" 
+            ? "Authentication failed. Please log in again." 
+            : "認證失敗，請重新登入";
+        }
+        if (statusCode === "403") {
+          return language === "en"
+            ? "Access denied"
+            : "存取被拒絕";
+        }
+        if (statusCode === "402") {
+          return language === "en"
+            ? "Insufficient tokens"
+            : "點數不足";
+        }
+        if (statusCode === "500") {
+          return language === "en"
+            ? "Server error. Please try again later."
+            : "伺服器錯誤，請稍後再試";
+        }
+        if (statusCode === "503") {
+          return language === "en"
+            ? "Service unavailable. Please try again later."
+            : "服務暫時無法使用，請稍後再試";
+        }
+      }
+      
+      // 檢查是否是網路錯誤
+      if (message.includes("Failed to fetch") || 
+          message.includes("NetworkError") || 
+          message.includes("Network error") ||
+          message.includes("fetch") ||
+          message.includes("Cannot connect")) {
+        return language === "en"
+          ? "Network error. Please check your connection and API configuration."
+          : "網路錯誤，請檢查您的網路連線和 API 設定";
+      }
+      
+      // 如果有具體的錯誤訊息，使用它
+      if (message && message !== fallback) {
+        return message;
       }
     }
+    
     return fallback;
   };
 
@@ -163,13 +230,14 @@ export default function Query() {
         showTransientMessage(setExamplesNotFound, examplesNotFoundTimerRef);
         return;
       }
+      console.error("Examples generation error:", error);
       toast({
         title: language === "en" ? "Generation failed" : "生成失敗",
-        description: parseTokenError(
+        description: parseError(
           error,
           language === "en"
-            ? "Failed to generate example sentences"
-            : "無法生成例句",
+            ? "Failed to generate example sentences. Please check your connection and try again."
+            : "無法生成例句，請檢查網路連線後重試",
         ),
         variant: "destructive",
       });
@@ -215,13 +283,14 @@ export default function Query() {
         showTransientMessage(setSynonymsNotFound, synonymsNotFoundTimerRef);
         return;
       }
+      console.error("Synonyms generation error:", error);
       toast({
         title: language === "en" ? "Generation failed" : "生成失敗",
-        description: parseTokenError(
+        description: parseError(
           error,
           language === "en"
-            ? "Failed to generate synonyms"
-            : "無法生成同義字",
+            ? "Failed to generate synonyms. Please check your connection and try again."
+            : "無法生成同義字，請檢查網路連線後重試",
         ),
         variant: "destructive",
       });
@@ -323,7 +392,7 @@ export default function Query() {
 
 return (
   <div className="flex flex-col h-full">
-    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
       <div className="px-6 py-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <LogoText className="text-xl sm:text-2xl font-bold text-primary shrink-0" />

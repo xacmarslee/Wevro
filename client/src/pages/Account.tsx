@@ -211,7 +211,7 @@ export default function Account() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b">
+      <div className="sticky top-0 z-10 bg-background border-b safe-area-top">
         <div className="px-6 py-4 flex items-center gap-3">
           <Button
             variant="ghost"

@@ -15,7 +15,7 @@ export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b">
+      <div className="sticky top-0 z-10 bg-background border-b safe-area-top">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button
             variant="ghost"

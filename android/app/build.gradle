@@ -42,6 +42,12 @@ android {
             }
         }
     }
+    splits {
+        abi {
+            enable true
+            universalApk true  // 生成包含所有架构的通用 APK
+        }
+    }
 }
 
 repositories {

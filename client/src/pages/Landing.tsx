@@ -8,6 +8,7 @@ import { signInWithGoogle, signInWithEmail, registerWithEmail, handleOAuthRedire
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { trackSignUp, trackLogin } from "@/lib/analytics";
+import { App } from '@capacitor/app';
 
 // 檢查是否在 Capacitor 環境中
 const isCapacitor = () => {
@@ -28,22 +29,21 @@ export default function Landing() {
 
   // Handle OAuth redirect result on mount and app resume (for mobile apps)
   useEffect(() => {
-    let hasCheckedRedirect = false; // 防止重複調用 getRedirectResult
+    let redirectCheckedRef = { checked: false }; // 使用 ref 來追蹤是否已檢查
     
     const checkOAuthRedirect = async () => {
       // getRedirectResult 只能被調用一次，之後會返回 null
-      // 如果已經檢查過，就不再檢查
-      if (hasCheckedRedirect) {
-        console.log('⚠️ 已經檢查過 OAuth redirect，跳過重複檢查');
-        return;
-      }
+      // 但如果用戶從瀏覽器返回，應該重新檢查
+      // 注意：getRedirectResult 在成功後會清除狀態，所以如果已經處理過，會返回 null
       
       try {
+        console.log('🔄 檢查 OAuth redirect 結果...');
         const user = await handleOAuthRedirect();
-        hasCheckedRedirect = true; // 標記已檢查
         
         if (user) {
-          console.log('✅ OAuth redirect 成功，用戶已登入');
+          console.log('✅ OAuth redirect 成功，用戶已登入:', user.email);
+          redirectCheckedRef.checked = true; // 標記已成功處理
+          
           // 清除超時（如果存在）
           if (loadingTimeoutRef.current) {
             clearTimeout(loadingTimeoutRef.current);
@@ -52,40 +52,104 @@ export default function Landing() {
           setLoading(false); // 清除 loading 狀態
           trackLogin('google');
           setLocation("/");
+        } else {
+          console.log('ℹ️ OAuth redirect 結果為 null（可能尚未完成或已處理過）');
         }
       } catch (error: any) {
-        console.error('OAuth redirect error:', error);
-        hasCheckedRedirect = true; // 即使出錯也標記為已檢查
+        console.error('❌ OAuth redirect error:', error);
+        
         // 清除超時（如果存在）
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
           loadingTimeoutRef.current = null;
         }
-        setLoading(false); // 清除 loading 狀態
+        
         // Only show error if it's not a cancelled redirect
-        if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/redirect-cancelled-by-user') {
-          toast({
-            title: language === "en" ? "Error" : "錯誤",
-            description: error.message || (language === "en" ? "Failed to sign in" : "登入失敗"),
-            variant: "destructive",
-          });
+        if (error?.code !== 'auth/popup-closed-by-user' && 
+            error?.code !== 'auth/redirect-cancelled-by-user' &&
+            error?.code !== 'auth/redirect-cancelled-by-user') {
+          // 只有在不是取消操作時才顯示錯誤
+          if (!redirectCheckedRef.checked) {
+            setLoading(false); // 清除 loading 狀態
+            toast({
+              title: language === "en" ? "Error" : "錯誤",
+              description: error.message || (language === "en" ? "Failed to sign in" : "登入失敗"),
+              variant: "destructive",
+            });
+          }
+        } else {
+          // 用戶取消了登入，清除 loading 狀態
+          setLoading(false);
         }
       }
     };
 
     // 立即檢查一次（用於 app 啟動時或通過深度連結打開時）
-    checkOAuthRedirect();
-
-    // 在移動端，監聽 app resume 事件（用戶從瀏覽器切換回 app 時）
+    // 如果是通過 deep link 打開的，等待一小段時間讓 WebView 加載完成
     if (isCapacitor()) {
+      const currentUrl = window.location.href;
+      console.log('📱 App 啟動，當前 URL:', currentUrl);
+      
+      // 檢查是否是 Firebase Auth 回調 URL
+      if (currentUrl.includes('__/auth/handler') || currentUrl.includes('firebaseapp.com')) {
+        console.log('✅ 檢測到 Firebase Auth 回調 URL，等待 WebView 加載...');
+        // 等待 WebView 完全加載後再檢查
+        setTimeout(async () => {
+          await checkOAuthRedirect();
+        }, 1000);
+      } else {
+        // 正常啟動，立即檢查
+        checkOAuthRedirect();
+      }
+    } else {
+      checkOAuthRedirect();
+    }
+
+    // 在移動端，監聽 app resume 事件和 deep link 事件
+    if (isCapacitor()) {
+      // 使用 Capacitor App 插件監聽 deep link 事件
+      const handleAppUrl = async (event: { url: string }) => {
+        console.log('🔗 收到 App URL 事件:', event.url);
+        console.log('📋 事件詳情:', JSON.stringify(event, null, 2));
+        
+        // 檢查是否是 Firebase Auth 回調 URL
+        if (event.url.includes('__/auth/handler') || event.url.includes('firebaseapp.com')) {
+          console.log('✅ 檢測到 Firebase Auth 回調 URL');
+          console.log('📋 當前 window.location.href:', window.location.href);
+          
+          // 如果當前 URL 不是回調 URL，導航到回調 URL
+          // 這樣 Firebase Auth 才能正確處理重定向結果
+          if (!window.location.href.includes('__/auth/handler') && 
+              !window.location.href.includes('firebaseapp.com')) {
+            console.log('🔄 導航到 Firebase Auth 回調 URL...');
+            console.log('📋 目標 URL:', event.url);
+            
+            // 使用 window.location.href 導航到回調 URL
+            // 這樣 Firebase Auth 才能正確處理重定向結果
+            window.location.href = event.url;
+            return; // 等待導航完成
+          }
+          
+          // 如果已經在回調 URL，等待一小段時間讓 Firebase 處理重定向
+          console.log('⏳ 已經在回調 URL，等待 Firebase 處理重定向...');
+          setTimeout(async () => {
+            console.log('🔄 開始檢查 OAuth redirect 結果...');
+            await checkOAuthRedirect();
+          }, 1000);
+        } else {
+          console.log('ℹ️ 不是 Firebase Auth 回調 URL，忽略');
+        }
+      };
+
+      // 監聽 app 通過 deep link 打開
+      App.addListener('appUrlOpen', handleAppUrl);
+
       // 使用 window focus 事件來檢測 app 恢復到前台
       // 這在移動端 WebView 中也能正常工作
       const handleFocus = async () => {
-        console.log('📱 App 恢復到前台，檢查 OAuth redirect...');
-        // 只有在還沒檢查過時才檢查
-        if (!hasCheckedRedirect) {
-          await checkOAuthRedirect();
-        }
+        console.log('📱 App 恢復到前台，重新檢查 OAuth redirect...');
+        // 每次 app 恢復到前台時都檢查（getRedirectResult 會處理重複調用）
+        await checkOAuthRedirect();
       };
 
       // 監聽 window focus 事件
@@ -93,16 +157,40 @@ export default function Landing() {
       
       // 也監聽 visibility change 事件作為備用
       const handleVisibilityChange = async () => {
-        if (!document.hidden && !hasCheckedRedirect) {
-          console.log('📱 App 可見性改變，檢查 OAuth redirect...');
+        if (!document.hidden) {
+          console.log('📱 App 可見性改變為可見，重新檢查 OAuth redirect...');
           await checkOAuthRedirect();
         }
       };
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // 監聽頁面顯示事件（當 app 從背景恢復時）
+      const handlePageshow = async (event: PageTransitionEvent) => {
+        if (event.persisted) {
+          console.log('📱 頁面從緩存恢復，檢查 OAuth redirect...');
+          await checkOAuthRedirect();
+        }
+      };
+      window.addEventListener('pageshow', handlePageshow);
+
+      // 監聽 app 狀態改變事件
+      const handleAppStateChange = async (state: { isActive: boolean }) => {
+        if (state.isActive) {
+          console.log('📱 App 變為活動狀態，檢查 OAuth redirect...');
+          // 等待一小段時間讓 Firebase 處理重定向
+          setTimeout(async () => {
+            await checkOAuthRedirect();
+          }, 500);
+        }
+      };
+
+      App.addListener('appStateChange', handleAppStateChange);
 
       return () => {
+        App.removeAllListeners();
         window.removeEventListener('focus', handleFocus);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('pageshow', handlePageshow);
       };
     }
   }, [setLocation, toast, language]);
@@ -119,13 +207,16 @@ export default function Landing() {
 
   const handleGoogleSignIn = async () => {
     try {
+      console.log('🔵 開始 Google 登入流程...');
       setLoading(true);
+      
       const user = await signInWithGoogle();
       
       // 在移動端，signInWithGoogle 會返回 null（因為使用 redirect）
       // 在桌面端，會返回 user 對象
       if (user) {
         // 桌面端：立即登入成功
+        console.log('✅ 桌面端登入成功');
         trackLogin('google');
         setLocation("/");
         setLoading(false);
@@ -146,13 +237,45 @@ export default function Landing() {
         }, 60000); // 60 秒超時
         
         console.log('📱 移動端：已啟動 Google 登入重定向，等待回調...');
+        // 注意：loading 狀態保持為 true，直到 OAuth 回調完成或超時
       }
     } catch (error: any) {
-      console.error('Google sign in error:', error);
+      console.error('❌ Google 登入錯誤:', error);
+      console.error('錯誤詳情:', {
+        code: error?.code,
+        message: error?.message,
+        name: error?.name
+      });
+      
+      // 確保清除 loading 狀態
       setLoading(false);
+      
+      // 清除超時（如果存在）
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      
+      // 提供更友好的錯誤訊息
+      let errorMessage = error?.message || (language === "en" ? "Failed to sign in" : "登入失敗");
+      
+      if (error?.code === 'auth/popup-blocked') {
+        errorMessage = language === "en" 
+          ? "Popup blocked. Please allow popups for this site." 
+          : "彈窗被阻止。請允許此網站的彈窗。";
+      } else if (error?.code === 'auth/popup-closed-by-user') {
+        errorMessage = language === "en" 
+          ? "Sign in cancelled." 
+          : "登入已取消。";
+      } else if (error?.message?.includes('無法打開瀏覽器')) {
+        errorMessage = language === "en"
+          ? "Cannot open browser. Please check app permissions."
+          : "無法打開瀏覽器。請檢查應用權限設置。";
+      }
+      
       toast({
         title: language === "en" ? "Error" : "錯誤",
-        description: error.message || (language === "en" ? "Failed to sign in" : "登入失敗"),
+        description: errorMessage,
         variant: "destructive",
       });
     }

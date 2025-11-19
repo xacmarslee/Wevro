@@ -191,7 +191,7 @@ export function useMindMapExport() {
           categorySpan.style.lineHeight = '1.15';
           contentDiv.appendChild(categorySpan);
         } else if (isCenter) {
-          // 中心節點：添加透明的第二行作為佔位符
+          // 中心節點：新增透明的第二行作為佔位符
           const placeholderSpan = document.createElement('div');
           placeholderSpan.textContent = '中心字';
           placeholderSpan.style.fontSize = '12px';
@@ -206,13 +206,37 @@ export function useMindMapExport() {
       });
       
       // 使用 html2canvas 截圖
-      const canvas = await html2canvas(tempContainer, {
-        backgroundColor,
-        scale: SCALE,
-        logging: false,
-        useCORS: true,
-        allowTaint: true,
-      });
+      // 在移動端 WebView 中，html2canvas 可能無法正常工作
+      // 新增錯誤處理和備用方案
+      let canvas: HTMLCanvasElement;
+      try {
+        canvas = await html2canvas(tempContainer, {
+          backgroundColor,
+          scale: SCALE,
+          logging: false,
+          useCORS: true,
+          allowTaint: true,
+          // 在移動端，可能需要這些選項
+          foreignObjectRendering: false,
+        });
+        
+        // 檢查 canvas 是否有效
+        if (!canvas || !canvas.getContext) {
+          throw new Error('Canvas creation failed');
+        }
+      } catch (canvasError: any) {
+        console.error('html2canvas error:', canvasError);
+        // 清理臨時容器
+        document.body.removeChild(tempContainer);
+        toast({
+          title: language === "en" ? "Export failed" : "匯出失敗",
+          description: language === "en" 
+            ? "Canvas export is not supported in this environment. Please use a different device or browser." 
+            : "此環境不支援畫布匯出。請使用其他裝置或瀏覽器。",
+          variant: "destructive",
+        });
+        return;
+      }
       
       // 清理臨時容器
       document.body.removeChild(tempContainer);
@@ -224,8 +248,20 @@ export function useMindMapExport() {
         : 'mindmap.png';
       
       link.download = filename;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      try {
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } catch (dataUrlError) {
+        console.error('toDataURL error:', dataUrlError);
+        toast({
+          title: language === "en" ? "Export failed" : "匯出失敗",
+          description: language === "en" 
+            ? "Failed to generate image data" 
+            : "無法生成圖片數據",
+          variant: "destructive",
+        });
+        return;
+      }
       
     } catch (error) {
       console.error('Export error:', error);

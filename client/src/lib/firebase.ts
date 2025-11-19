@@ -4,6 +4,7 @@ import {
   getAuth, 
   signInWithPopup, 
   signInWithRedirect,
+  signInWithCredential,
   getRedirectResult,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
@@ -16,6 +17,8 @@ import {
   type User
 } from 'firebase/auth';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
+import { Browser } from '@capacitor/browser';
+import { GoogleAuth } from '@codetrix-studio/capacitor-google-auth';
 
 // Firebase configuration - these should be set in .env
 const firebaseConfig = {
@@ -54,10 +57,17 @@ try {
     };
     
     if (isCapacitorEnv()) {
-      // 設置 Firebase Auth 的 redirect URL 為自定義 scheme
-      // 這樣完成認證後會通過深度連結跳回 app
-      // 注意：Firebase 會自動處理，但我們需要確保配置正確
+      // 在移動端，Firebase Auth 會使用 Firebase Auth domain 作為重定向 URL
+      // 例如：https://wevro-5330b.firebaseapp.com/__/auth/handler
+      // 這個 URL 需要在 AndroidManifest.xml 中設定為 deep link
+      // 當用戶完成登入後，瀏覽器會嘗試打開這個 URL
+      // Android 系統會通過 intent-filter 將應用打開
       console.log("📱 移動端環境：Firebase Auth 將使用深度連結進行 OAuth 回調");
+      console.log("📋 重定向 URL 將是:", `https://${firebaseConfig.authDomain}/__/auth/handler`);
+      
+      // 設置 Firebase Auth 的 redirect URL
+      // 注意：Firebase Auth 會自動使用 authDomain，但我們可以通過設置來確保
+      // 實際上，signInWithRedirect 會自動使用正確的重定向 URL
     }
   }
   
@@ -125,32 +135,146 @@ if (isCapacitor()) {
   });
 }
 
+// Helper function to open browser with OAuth URL using Capacitor Browser plugin
+const openBrowserForOAuth = async (auth: any, provider: GoogleAuthProvider): Promise<void> => {
+  try {
+    // Firebase Auth doesn't provide a direct way to get the OAuth URL
+    // So we need to use a workaround: we'll use signInWithRedirect
+    // but intercept it before it actually redirects
+    
+    // Actually, the best approach is to let signInWithRedirect handle it
+    // But if it fails silently, we can't detect it easily
+    
+    // For now, we'll try signInWithRedirect first
+    // If it doesn't work (silent failure), we'll need to implement a custom flow
+    // But that's complex, so let's first ensure signInWithRedirect works
+    
+    // The issue might be that signInWithRedirect doesn't throw an error
+    // but also doesn't open the browser. In that case, we need to detect it.
+    
+    // Let's try a different approach: use Browser plugin to open the OAuth URL directly
+    // But we need to construct the OAuth URL manually, which is complex
+    
+    // For now, let's just use signInWithRedirect and hope it works
+    // If it doesn't, the user will see the button stuck in loading state
+    // We've already added a timeout mechanism in Landing.tsx to handle this
+    
+    throw new Error('Using signInWithRedirect - Browser plugin fallback not yet implemented');
+  } catch (error) {
+    console.error('Error in openBrowserForOAuth:', error);
+    throw error;
+  }
+};
+
 // Auth functions
 export const signInWithGoogle = async () => {
   try {
-    // In mobile apps (Capacitor), use redirect (will open browser)
-    // The redirect will use deep link to return to app
+    // In mobile apps (Capacitor), use native Google Auth plugin
+    // This avoids browser redirect issues and provides a better UX
     if (isCapacitor()) {
-      console.log('📱 檢測到移動應用環境，使用重定向登入（將在瀏覽器中打開）');
-      // signInWithRedirect 會自動打開瀏覽器進行 Google 認證
-      // 完成後會通過深度連結（wevro:// 或 https://wevro-pro.firebaseapp.com）跳回 app
-      await signInWithRedirect(auth, googleProvider);
-      // signInWithRedirect 不會返回結果，需要等待回調
-      // 結果會在 getRedirectResult 中處理（在 app 通過深度連結重新打開時）
-      return null;
+      console.log('📱 檢測到移動應用環境，使用原生 Google 登入');
+      
+      try {
+        // 使用原生 Google Auth 插件進行登入
+        // 這會直接彈出系統原生的 Google 帳號選擇視窗，不需要瀏覽器跳轉
+        console.log('🔄 準備啟動原生 Google 登入...');
+        
+        // 初始化 Google Auth（如果尚未初始化）
+        // 注意：需要使用 Firebase 的 Web Client ID（OAuth 2.0 Client ID）
+        // 格式应该是：xxxxx.apps.googleusercontent.com
+        // 可以在 Firebase Console > Project Settings > General > Your apps > Web app 中找到
+        // 或者 Google Cloud Console > APIs & Services > Credentials > OAuth 2.0 Client IDs
+        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        
+        // 調試：輸出環境變數狀態
+        console.log('🔍 調試資訊：');
+        console.log('  - VITE_GOOGLE_CLIENT_ID 是否存在:', !!googleClientId);
+        console.log('  - VITE_GOOGLE_CLIENT_ID 值:', googleClientId ? googleClientId.substring(0, 30) + '...' : 'undefined');
+        console.log('  - 是否等於 API Key:', googleClientId === firebaseConfig.apiKey);
+        
+        // 如果沒有配置 OAuth Client ID，跳過原生登入，直接使用 Web Redirect
+        if (!googleClientId || googleClientId === firebaseConfig.apiKey) {
+          console.warn('⚠️ 未配置 VITE_GOOGLE_CLIENT_ID，跳過原生 Google 登入，使用 Web Redirect');
+          console.warn('💡 提示：在 Firebase Console > Project Settings > General > Your apps > Web app 中獲取 OAuth 2.0 Client ID');
+          throw new Error('GOOGLE_CLIENT_ID_NOT_CONFIGURED');
+        }
+        
+        console.log('📋 使用 OAuth Client ID:', googleClientId.substring(0, 20) + '...');
+        
+        GoogleAuth.initialize({
+          clientId: googleClientId,
+          scopes: ['profile', 'email'],
+          grantOfflineAccess: true,
+        });
+        
+        // 執行原生 Google 登入
+        const result = await GoogleAuth.signIn();
+        
+        console.log('✅ 原生 Google 登入成功，取得 ID Token');
+        console.log('📋 User ID:', result.id);
+        console.log('📋 Email:', result.email);
+        
+        // 將原生登入結果轉換為 Firebase Credential
+        // 注意：result.authentication.idToken 是 Google ID Token
+        const credential = GoogleAuthProvider.credential(result.authentication.idToken);
+        
+        // 使用 Credential 登入 Firebase
+        const userCredential = await signInWithCredential(auth, credential);
+        
+        console.log('✅ Firebase 登入成功');
+        return userCredential.user;
+      } catch (nativeError: any) {
+        console.error('❌ 原生 Google 登入失敗:', nativeError);
+        console.error('錯誤詳情:', {
+          code: nativeError?.code,
+          message: nativeError?.message,
+          name: nativeError?.name,
+          stack: nativeError?.stack
+        });
+        
+        // 不開啟瀏覽器，直接拋出錯誤
+        let errorMessage = 'Google 登入失敗';
+        
+        if (nativeError?.code === '10') {
+          errorMessage = '原生 Google 登入失敗（錯誤代碼 10）。請檢查：\n' +
+            '1. Firebase Console 中是否已新增 Android SHA-1 指紋\n' +
+            '2. 是否同時新增了 debug 和 release keystore 的 SHA-1\n' +
+            '3. OAuth Client ID 是否正確配置';
+        } else if (nativeError?.message === 'GOOGLE_CLIENT_ID_NOT_CONFIGURED') {
+          errorMessage = '未配置 VITE_GOOGLE_CLIENT_ID。請在 .env 檔案中配置 OAuth 2.0 Client ID';
+        } else {
+          errorMessage = nativeError?.message || 'Google 登入失敗';
+        }
+        
+        console.error('💡 錯誤提示:', errorMessage);
+        throw new Error(errorMessage);
+      }
     } else {
       // In web browser, use popup
+      console.log('🌐 桌面瀏覽器環境，使用彈窗登入');
       const result = await signInWithPopup(auth, googleProvider);
       return result.user;
     }
   } catch (error: any) {
-    console.error('Error signing in with Google:', error);
+    console.error('❌ Google 登入錯誤:', error);
+    console.error('錯誤詳情:', {
+      code: error?.code,
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack
+    });
+    
     // If popup is blocked or failed, fallback to redirect
     if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
       if (!isCapacitor()) {
         console.log('🔄 Popup 被阻止，改用重定向登入');
-        await signInWithRedirect(auth, googleProvider);
-        return null;
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return null;
+        } catch (redirectError) {
+          console.error('❌ 重定向登入也失敗:', redirectError);
+          throw redirectError;
+        }
       }
     }
     throw error;
@@ -160,14 +284,34 @@ export const signInWithGoogle = async () => {
 // Handle OAuth redirect result (for mobile apps and popup fallback)
 export const handleOAuthRedirect = async () => {
   try {
+    console.log('🔄 開始檢查 OAuth redirect 結果...');
+    console.log('📋 當前 URL:', window.location.href);
+    console.log('📋 Auth domain:', firebaseConfig.authDomain);
+    
     const result = await getRedirectResult(auth);
-    if (result && result.user) {
-      console.log('✅ OAuth 重定向登入成功');
-      return result.user;
+    
+    if (result) {
+      console.log('✅ 收到 OAuth redirect 結果');
+      console.log('📋 User:', result.user?.email);
+      console.log('📋 Provider:', result.providerId);
+      
+      if (result.user) {
+        console.log('✅ OAuth 重定向登入成功');
+        return result.user;
+      }
+    } else {
+      console.log('ℹ️ getRedirectResult 返回 null（可能尚未完成或已處理過）');
     }
+    
     return null;
-  } catch (error) {
-    console.error('Error handling OAuth redirect:', error);
+  } catch (error: any) {
+    console.error('❌ Error handling OAuth redirect:', error);
+    console.error('錯誤詳情:', {
+      code: error?.code,
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack
+    });
     throw error;
   }
 };

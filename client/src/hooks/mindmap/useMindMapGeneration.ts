@@ -85,7 +85,7 @@ export function useMindMapGeneration() {
   });
 
   /**
-   * 生成並添加新節點
+   * 生成並新增新節點
    */
   const generateNodes = async (
     centerNode: MindMapNode,

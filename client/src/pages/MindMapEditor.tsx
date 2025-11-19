@@ -374,7 +374,7 @@ export default function MindMapEditor() {
     <div className="flex flex-col min-h-screen">
       {/* 工具列 */}
       {(history.currentNodes.length > 0 || history.historyLength > 1) && (
-        <div className="sticky top-0 z-40 border-b px-6 py-3 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="sticky top-0 z-40 border-b px-6 py-3 flex items-center justify-between bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
