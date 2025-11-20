@@ -169,9 +169,16 @@ const openBrowserForOAuth = async (auth: any, provider: GoogleAuthProvider): Pro
 // Auth functions
 export const signInWithGoogle = async () => {
   try {
+    // Check if we're in a real Capacitor environment AND GoogleAuth is available
+    // This prevents trying to use native plugins in web browsers
+    const isRealCapacitor = isCapacitor() && 
+                            typeof GoogleAuth !== 'undefined' && 
+                            typeof GoogleAuth.initialize === 'function' &&
+                            typeof GoogleAuth.signIn === 'function';
+    
     // In mobile apps (Capacitor), use native Google Auth plugin
     // This avoids browser redirect issues and provides a better UX
-    if (isCapacitor()) {
+    if (isRealCapacitor) {
       console.log('📱 檢測到移動應用環境，使用原生 Google 登入');
       
       try {
@@ -232,28 +239,26 @@ export const signInWithGoogle = async () => {
           stack: nativeError?.stack
         });
         
-        // 不開啟瀏覽器，直接拋出錯誤
-        let errorMessage = 'Google 登入失敗';
-        
-        if (nativeError?.code === '10') {
-          errorMessage = '原生 Google 登入失敗（錯誤代碼 10）。請檢查：\n' +
-            '1. Firebase Console 中是否已新增 Android SHA-1 指紋\n' +
-            '2. 是否同時新增了 debug 和 release keystore 的 SHA-1\n' +
-            '3. OAuth Client ID 是否正確配置';
-        } else if (nativeError?.message === 'GOOGLE_CLIENT_ID_NOT_CONFIGURED') {
-          errorMessage = '未配置 VITE_GOOGLE_CLIENT_ID。請在 .env 檔案中配置 OAuth 2.0 Client ID';
-        } else {
-          errorMessage = nativeError?.message || 'Google 登入失敗';
-        }
-        
-        console.error('💡 錯誤提示:', errorMessage);
-        throw new Error(errorMessage);
+        // 如果原生登入失敗，回退到 Web 登入方法
+        console.log('🔄 原生登入失敗，回退到 Web 登入方法');
+        // 繼續執行到下面的 Web 登入邏輯
       }
-    } else {
-      // In web browser, use popup
-      console.log('🌐 桌面瀏覽器環境，使用彈窗登入');
+    }
+    
+    // Web browser environment or fallback from native login failure
+    // Use popup first, fallback to redirect if popup is blocked
+    console.log('🌐 Web 環境，使用彈窗登入');
+    try {
       const result = await signInWithPopup(auth, googleProvider);
       return result.user;
+    } catch (popupError: any) {
+      // If popup is blocked or failed, fallback to redirect
+      if (popupError?.code === 'auth/popup-blocked' || popupError?.code === 'auth/popup-closed-by-user') {
+        console.log('🔄 Popup 被阻止，改用重定向登入');
+        await signInWithRedirect(auth, googleProvider);
+        return null;
+      }
+      throw popupError;
     }
   } catch (error: any) {
     console.error('❌ Google 登入錯誤:', error);
