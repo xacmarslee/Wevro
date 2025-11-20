@@ -55,17 +55,21 @@ export async function createApp(): Promise<Express> {
       }
 
       // Always allow localhost origins (for Capacitor/local development)
+      // This includes https://localhost, http://localhost, capacitor://localhost, etc.
       if (defaultAllowedOrigins.includes(origin)) {
+        console.log(`[CORS] Allowing default origin: ${origin}`);
         return callback(null, true);
       }
 
       // If no origins configured in env, allow all (for development flexibility)
       if (allowedOrigins.length === 0) {
+        console.log(`[CORS] No origins configured, allowing: ${origin}`);
         return callback(null, true);
       }
 
       // Production mode: also check against configured allowed list
       if (allowedOrigins.includes(origin)) {
+        console.log(`[CORS] Allowing configured origin: ${origin}`);
         return callback(null, true);
       }
 
@@ -74,11 +78,21 @@ export async function createApp(): Promise<Express> {
       return callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Content-Type', 'Authorization'],
   };
 
   const corsMiddleware = cors(corsOptions);
+  
+  // Apply CORS middleware to all routes
   app.use(corsMiddleware);
+  
+  // Explicitly handle OPTIONS requests for all routes (preflight)
   app.options("*", corsMiddleware);
+  
+  // Also handle OPTIONS for /api routes specifically
+  app.options("/api/*", corsMiddleware);
 
   app.use(
     express.json({
