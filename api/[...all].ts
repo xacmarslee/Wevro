@@ -28,19 +28,22 @@ export default async function handler(req: any, res: any) {
     origin: origin,
   });
 
+  // Set CORS headers for ALL requests (not just OPTIONS)
+  // This ensures CORS headers are present in all responses
+  if (isOriginAllowed(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+    console.log(`[vercel] CORS headers set for origin: ${origin}`);
+  } else {
+    console.warn(`[vercel] Origin not allowed: ${origin}`);
+  }
+
   // Handle OPTIONS preflight requests explicitly
   if (req.method === "OPTIONS") {
     console.log("[vercel] Handling OPTIONS preflight request");
-    
-    // Set CORS headers
-    if (isOriginAllowed(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin || "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-      res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
-    }
-    
     res.status(200).end();
     return;
   }
