@@ -1,5 +1,5 @@
 // Firebase Configuration and Initialization
-import { initializeApp } from 'firebase/app';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
   signInWithPopup, 
@@ -14,7 +14,8 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
-  type User
+  type User,
+  type Auth
 } from 'firebase/auth';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 import { Browser } from '@capacitor/browser';
@@ -41,8 +42,8 @@ if (missingConfig.length > 0) {
 }
 
 // Initialize Firebase with error handling
-let app;
-let auth;
+let app: FirebaseApp;
+let auth: Auth;
 let analytics: Analytics | null = null;
 
 try {
@@ -239,9 +240,30 @@ export const signInWithGoogle = async () => {
           stack: nativeError?.stack
         });
         
+        // 構建詳細的錯誤訊息
+        let errorMessage = 'Native Google sign-in failed. ';
+        
+        // 檢查常見錯誤代碼
+        if (nativeError?.code === '10') {
+          errorMessage += 'Error 10: Developer error. Check: 1) VITE_GOOGLE_CLIENT_ID is correct (Web Client ID from Firebase), 2) SHA-1 fingerprints are added to Firebase Console, 3) Wait 5-10 minutes after adding SHA-1. ';
+        } else if (nativeError?.code === '12500') {
+          errorMessage += 'Error 12500: Sign-in cancelled by user. ';
+        } else if (nativeError?.code) {
+          errorMessage += `Error code: ${nativeError.code}. `;
+        }
+        
+        if (nativeError?.message) {
+          errorMessage += `Details: ${nativeError.message}. `;
+        }
+        
+        // 添加診斷資訊
+        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        errorMessage += `Diagnostics: VITE_GOOGLE_CLIENT_ID=${googleClientId ? 'SET' : 'MISSING'}. `;
+        errorMessage += 'Please check: 1) VITE_GOOGLE_CLIENT_ID in .env (must be Web Client ID, not Android Client ID), 2) SHA-1 fingerprints (Debug and Release) added to Firebase Console, 3) google-services.json is up-to-date, 4) Wait 5-10 minutes after Firebase changes.';
+        
         // 在移動端，原生登入失敗時不應該回退到 Web 登入（會開瀏覽器）
         // 直接拋出錯誤，讓用戶知道問題
-        throw new Error(`Native Google sign-in failed: ${nativeError?.message || nativeError?.code || 'Unknown error'}. Please check Firebase configuration and SHA-1 certificate fingerprints.`);
+        throw new Error(errorMessage);
       }
     }
     
