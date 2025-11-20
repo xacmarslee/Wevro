@@ -14,8 +14,8 @@ android {
         applicationId "com.wevro.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 9
-        versionName "1.0.9"
+        versionCode 10
+        versionName "1.0.10"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -28,7 +28,11 @@ android {
             if (keystorePropertiesFile.exists()) {
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
-                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+                // 修正：使用 rootProject.file() 來正確解析相對於 android/ 目錄的路徑
+                def keystoreFile = keystoreProperties['storeFile']
+                if (keystoreFile) {
+                    storeFile keystoreFile.startsWith('/') ? file(keystoreFile) : rootProject.file(keystoreFile)
+                }
                 storePassword keystoreProperties['storePassword']
             }
         }
