@@ -28,55 +28,47 @@ declare global {
 export async function createApp(): Promise<Express> {
   const app = express();
 
+  // Unified allowed origins list
+  const ALLOWED_ORIGINS = [
+    "https://wevro.co",
+    "https://www.wevro.co",
+    "capacitor://localhost",
+    "http://localhost",
+    "https://localhost",
+    "ionic://localhost",
+  ];
+
+  // Add any additional origins from environment variables
   const rawAllowedOrigins = process.env.ALLOWED_ORIGINS || process.env.FRONTEND_ORIGIN || "";
-  const allowedOrigins = rawAllowedOrigins
+  const envOrigins = rawAllowedOrigins
     .split(/[\s,]+/)
     .map((item) => item.trim())
     .filter(Boolean);
 
-  // Add default allowed origins for Capacitor/local development
-  const defaultAllowedOrigins = [
-    "https://localhost",      // Capacitor Android/iOS default (if not using hostname)
-    "http://localhost",       // Local development
-    "capacitor://localhost",  // Capacitor alternative scheme
-    "ionic://localhost",      // Ionic/Capacitor alternative scheme
-    "https://wevro.co",        // Capacitor with hostname (no www)
-    "https://www.wevro.co",    // Production web app (with www)
-  ];
-
-  // Combine environment origins with defaults, avoiding duplicates
-  const allAllowedOrigins = [
-    ...new Set([...allowedOrigins, ...defaultAllowedOrigins])
-  ];
+  const allAllowedOrigins = Array.from(
+    new Set([...ALLOWED_ORIGINS, ...envOrigins])
+  );
 
   const corsOptions: CorsOptions = {
     origin(origin, callback) {
+      // Log the incoming origin for debugging
+      console.log(`[CORS] Request origin: ${origin || 'none'}`);
+
       if (!origin) {
         // Allow requests with no origin (like mobile apps or curl requests)
+        console.log(`[CORS] Allowing request with no origin`);
         return callback(null, true);
       }
 
-      // Always allow localhost origins (for Capacitor/local development)
-      // This includes https://localhost, http://localhost, capacitor://localhost, etc.
-      if (defaultAllowedOrigins.includes(origin)) {
-        console.log(`[CORS] Allowing default origin: ${origin}`);
-        return callback(null, true);
-      }
-
-      // If no origins configured in env, allow all (for development flexibility)
-      if (allowedOrigins.length === 0) {
-        console.log(`[CORS] No origins configured, allowing: ${origin}`);
-        return callback(null, true);
-      }
-
-      // Production mode: also check against configured allowed list
-      if (allowedOrigins.includes(origin)) {
-        console.log(`[CORS] Allowing configured origin: ${origin}`);
+      // Check if origin is in the allowed list
+      if (allAllowedOrigins.includes(origin)) {
+        console.log(`[CORS] ✅ Allowing origin: ${origin}`);
+        // ✅ CORRECT: callback second parameter must be true, not origin string
         return callback(null, true);
       }
 
       // Log rejected origin for debugging
-      console.warn(`[CORS] Origin ${origin} is not allowed. Allowed origins: ${allAllowedOrigins.join(", ")}`);
+      console.warn(`[CORS] ❌ Origin ${origin} is not allowed. Allowed origins: ${allAllowedOrigins.join(", ")}`);
       return callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,
@@ -92,9 +84,6 @@ export async function createApp(): Promise<Express> {
   
   // Explicitly handle OPTIONS requests for all routes (preflight)
   app.options("*", corsMiddleware);
-  
-  // Also handle OPTIONS for /api routes specifically
-  app.options("/api/*", corsMiddleware);
 
   app.use(
     express.json({

@@ -5,66 +5,54 @@ import { createApp } from "./lib/create-app.js";
 
 const appPromise = createApp();
 
-// Default allowed origins for Capacitor/local development
-const defaultAllowedOrigins = [
-  "https://localhost",      // Capacitor Android/iOS default (if not using hostname)
-  "http://localhost",       // Local development
-  "capacitor://localhost",  // Capacitor alternative scheme
-  "ionic://localhost",      // Ionic/Capacitor alternative scheme
-  "https://wevro.co",       // Capacitor with hostname (no www)
-  "https://www.wevro.co",   // Production web app (with www)
+// Unified allowed origins list (must match create-app.ts)
+const ALLOWED_ORIGINS = [
+  "https://wevro.co",
+  "https://www.wevro.co",
+  "capacitor://localhost",
+  "http://localhost",
+  "https://localhost",
+  "ionic://localhost",
 ];
 
 function isOriginAllowed(origin: string | undefined): boolean {
   if (!origin) return true; // Allow requests with no origin
-  return defaultAllowedOrigins.includes(origin);
+  return ALLOWED_ORIGINS.includes(origin);
 }
 
 export default async function handler(req: any, res: any) {
-  // 读取 origin，支持多种可能的 header 名称
-  const origin = req.headers.origin || req.headers.Origin || req.headers['x-forwarded-host'] || req.headers.host;
+  // ✅ CORRECT: Only read from origin header, not host
+  const origin = req.headers.origin || req.headers.Origin;
   
   console.log("[vercel] incoming", {
     method: req.method,
     url: req.url,
-    originalUrl: req.originalUrl,
-    origin: origin,
-    allHeaders: Object.keys(req.headers).filter(k => k.toLowerCase().includes('origin') || k.toLowerCase().includes('host')),
+    origin: origin || 'none',
   });
 
-  // 处理 OPTIONS preflight 请求
+  // Handle OPTIONS preflight requests
+  // Note: Express CORS middleware will handle CORS for all other requests
   if (req.method === "OPTIONS") {
     console.log("[vercel] Handling OPTIONS preflight request");
     
-    // 设置 CORS headers
     if (isOriginAllowed(origin)) {
-      // 关键：必须使用请求的实际 origin，不能使用固定的值
+      // ✅ Only set necessary headers for preflight
       res.setHeader("Access-Control-Allow-Origin", origin || "*");
+      res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-      res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
-      console.log(`[vercel] OPTIONS: CORS headers set for origin: ${origin}`);
+      console.log(`[vercel] ✅ OPTIONS: CORS headers set for origin: ${origin}`);
     } else {
-      console.warn(`[vercel] OPTIONS: Origin not allowed: ${origin}`);
+      console.warn(`[vercel] ❌ OPTIONS: Origin not allowed: ${origin}. Allowed: ${ALLOWED_ORIGINS.join(", ")}`);
     }
     
     res.status(200).end();
     return;
   }
 
-  // 对于所有其他请求，也设置 CORS headers
-  // 这确保所有响应都包含正确的 CORS header
-  if (isOriginAllowed(origin)) {
-    // 关键：必须使用请求的实际 origin
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    console.log(`[vercel] CORS headers set for origin: ${origin}`);
-  } else {
-    console.warn(`[vercel] Origin not allowed: ${origin}. Allowed: ${defaultAllowedOrigins.join(", ")}`);
-  }
+  // For all other requests, let Express CORS middleware handle it
+  // Don't manually set CORS headers here to avoid conflicts
 
   const app = await appPromise;
 
