@@ -497,18 +497,11 @@ export class DbStorage implements IStorage {
   }
 
   async ensureMindmapExpansionAllowance(userId: string): Promise<MindmapExpansionSnapshot> {
-    const [quota] = await db
-      .select()
-      .from(userQuotas)
-      .where(eq(userQuotas.userId, userId))
-      .limit(1);
-
-    if (!quota) {
-      throw new Error("QUOTA_NOT_INITIALIZED");
-    }
+    // 使用 getUserQuota 確保 quota 存在（如果不存在會自動創建）
+    const quota = await this.getUserQuota(userId);
 
     const snapshot: MindmapExpansionSnapshot = {
-      tokenBalance: toNumber(quota.tokenBalance),
+      tokenBalance: quota.tokenBalance,
       usedMindmapExpansions: quota.usedMindmapExpansions ?? 0,
     };
 
