@@ -1,7 +1,7 @@
 # Dependencies
 node_modules
 
-# Android ç°½å??¸é?ï¼ˆé?è¦ï?ä¸è??äº¤ï¼?*.keystore
+# Android ç°½ï¿½??ï¿½ï¿½?ï¼ˆï¿½?è¦ï¿½?ä¸ï¿½??ï¿½äº¤ï¿½?*.keystore
 *.jks
 key.properties
 android/key.properties
@@ -55,6 +55,7 @@ android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
 android/key.properties
 android/*.keystore
+android/app/google-services.json
 ios/App/App/public/
 ios/App/App/capacitor.config.json
 ios/App/Pods/
