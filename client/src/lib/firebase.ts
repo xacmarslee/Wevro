@@ -239,20 +239,25 @@ export const signInWithGoogle = async () => {
           stack: nativeError?.stack
         });
         
-        // 如果原生登入失敗，回退到 Web 登入方法
-        console.log('🔄 原生登入失敗，回退到 Web 登入方法');
-        // 繼續執行到下面的 Web 登入邏輯
+        // 在移動端，原生登入失敗時不應該回退到 Web 登入（會開瀏覽器）
+        // 直接拋出錯誤，讓用戶知道問題
+        throw new Error(`Native Google sign-in failed: ${nativeError?.message || nativeError?.code || 'Unknown error'}. Please check Firebase configuration and SHA-1 certificate fingerprints.`);
       }
     }
     
-    // Web browser environment or fallback from native login failure
-    // Use popup first, fallback to redirect if popup is blocked
+    // If we're in Capacitor but native login didn't work, don't fallback to web
+    if (isCapacitor()) {
+      // 在移動端，如果原生登入失敗，不應該回退到 Web 登入（會開瀏覽器）
+      throw new Error('Native Google sign-in is required on mobile. Please check: 1) VITE_GOOGLE_CLIENT_ID is configured, 2) SHA-1 certificate fingerprints are added to Firebase Console, 3) google-services.json is present.');
+    }
+    
+    // Web environment only: Use popup first, fallback to redirect if popup is blocked
     console.log('🌐 Web 環境，使用彈窗登入');
     try {
       const result = await signInWithPopup(auth, googleProvider);
       return result.user;
     } catch (popupError: any) {
-      // If popup is blocked or failed, fallback to redirect
+      // If popup is blocked or failed, fallback to redirect (web only)
       if (popupError?.code === 'auth/popup-blocked' || popupError?.code === 'auth/popup-closed-by-user') {
         console.log('🔄 Popup 被阻止，改用重定向登入');
         await signInWithRedirect(auth, googleProvider);
@@ -269,7 +274,7 @@ export const signInWithGoogle = async () => {
       stack: error?.stack
     });
     
-    // If popup is blocked or failed, fallback to redirect
+    // If popup is blocked or failed, fallback to redirect (web only)
     if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
       if (!isCapacitor()) {
         console.log('🔄 Popup 被阻止，改用重定向登入');
@@ -385,5 +390,6 @@ export const changePassword = async (currentPassword: string, newPassword: strin
 
 export { auth, analytics };
 export type { User as FirebaseUser };
+
 
 
