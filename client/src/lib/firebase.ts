@@ -14,6 +14,8 @@ import {
   updatePassword,
   EmailAuthProvider,
   reauthenticateWithCredential,
+  sendEmailVerification,
+  reload,
   type User,
   type Auth
 } from 'firebase/auth';
@@ -361,6 +363,14 @@ export const signInWithEmail = async (email: string, password: string) => {
 export const registerWithEmail = async (email: string, password: string) => {
   try {
     const result = await createUserWithEmailAndPassword(auth, email, password);
+    // 註冊成功後自動發送驗證 email
+    try {
+      await sendEmailVerification(result.user);
+      console.log('✅ 驗證 email 已發送');
+    } catch (verificationError) {
+      console.warn('⚠️ 發送驗證 email 失敗（非致命）:', verificationError);
+      // 不拋出錯誤，因為註冊已成功
+    }
     return result.user;
   } catch (error) {
     console.error('Error registering with email:', error);
@@ -407,6 +417,69 @@ export const changePassword = async (currentPassword: string, newPassword: strin
     }
     
     throw error;
+  }
+};
+
+/**
+ * 發送 Email 驗證
+ * @param user - Firebase User 物件（可選，預設使用當前用戶）
+ */
+export const sendEmailVerificationToUser = async (user?: User) => {
+  try {
+    const currentUser = user || auth.currentUser;
+    if (!currentUser) {
+      throw new Error('No user is currently signed in');
+    }
+
+    // 如果 email 已經驗證，不需要再發送
+    if (currentUser.emailVerified) {
+      console.log('ℹ️ Email 已經驗證');
+      return;
+    }
+
+    await sendEmailVerification(currentUser);
+    console.log('✅ 驗證 email 已發送');
+  } catch (error: any) {
+    console.error('Error sending email verification:', error);
+    
+    // Provide more specific error messages
+    if (error.code === 'auth/too-many-requests') {
+      throw new Error('Too many requests. Please try again later.');
+    }
+    
+    throw error;
+  }
+};
+
+/**
+ * 重新發送 Email 驗證
+ * @param user - Firebase User 物件（可選，預設使用當前用戶）
+ */
+export const resendEmailVerification = async (user?: User) => {
+  return sendEmailVerificationToUser(user);
+};
+
+/**
+ * 檢查 Email 是否已驗證
+ * @param user - Firebase User 物件（可選，預設使用當前用戶）
+ * @returns 是否已驗證
+ */
+export const checkEmailVerified = async (user?: User): Promise<boolean> => {
+  try {
+    const currentUser = user || auth.currentUser;
+    if (!currentUser) {
+      return false;
+    }
+
+    // 重新載入用戶資料以獲取最新的驗證狀態
+    await reload(currentUser);
+    
+    return currentUser.emailVerified;
+  } catch (error) {
+    console.error('Error checking email verification:', error);
+    // 如果重新載入失敗，返回當前的驗證狀態
+    const currentUser = user || auth.currentUser;
+    return currentUser?.emailVerified || false;
   }
 };
 

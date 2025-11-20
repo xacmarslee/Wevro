@@ -65,12 +65,8 @@ function EnglishPolicy() {
       <p>When you create an account, we collect:</p>
       <ul>
         <li><strong>Email address</strong> (required for login)</li>
-        <li><strong>Password</strong> (encrypted, only if using email registration)</li>
-        <li><strong>Google profile data</strong> (only if signing in with Google)
-
-        </li>
+        <li><strong>Password</strong> (encrypted)</li>
       </ul>
-      <p><em>Note: We do NOT ask you to provide your name separately. Name information only comes from Google sign-in if you choose that option.</em></p>
 
       <h3>2.2 Learning Content</h3>
       <p>We store the content you create:</p>
@@ -251,12 +247,8 @@ function ChinesePolicy() {
       <p>當您建立帳號時，我們會收集：</p>
       <ul>
         <li><strong>電子郵件地址</strong>（用於登入，必需）</li>
-        <li><strong>密碼</strong>（已加密，僅在使用 Email 註冊時）</li>
-        <li><strong>Google 個人資料</strong>（僅在使用 Google 登入時）：
-
-        </li>
+        <li><strong>密碼</strong>（已加密）</li>
       </ul>
-      <p><em>注意：我們「不會」要求您填寫姓名。姓名資訊僅在您選擇 Google 登入時由 Google 自動提供。</em></p>
 
       <h3>2.2 學習內容</h3>
       <p>我們儲存您建立的內容：</p>

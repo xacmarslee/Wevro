@@ -63,7 +63,12 @@ export async function createApp(): Promise<Express> {
       // Check if origin is in the allowed list
       if (allAllowedOrigins.includes(origin)) {
         console.log(`[CORS] ✅ Allowing origin: ${origin}`);
-        // ✅ CORRECT: callback second parameter must be true, not origin string
+        return callback(null, true);
+      }
+
+      // Allow any localhost port for development
+      if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+        console.log(`[CORS] ✅ Allowing localhost origin: ${origin}`);
         return callback(null, true);
       }
 

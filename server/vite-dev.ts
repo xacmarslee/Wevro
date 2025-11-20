@@ -22,7 +22,12 @@ export function log(message: string, source = "express") {
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export async function setupVite(app: Express, server: Server) {
-  const { default: viteConfig } = await import("../vite.config");
+  const { default: viteConfigFn } = await import("../vite.config");
+  
+  // viteConfig 現在是一個異步函數，需要調用它來獲取配置
+  const viteConfig = typeof viteConfigFn === 'function' 
+    ? await viteConfigFn() 
+    : viteConfigFn;
 
   const serverOptions = {
     middlewareMode: true,
@@ -30,8 +35,23 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
+  // 從 viteConfig 中提取 server 配置
+  const { server: configServer, ...restConfig } = viteConfig;
+  
+  // 合併 server 配置，但 middlewareMode 相關的選項優先
+  const mergedServerConfig = {
+    ...(configServer || {}),
+    ...serverOptions,
+    // 保留 fs 配置（如果有的話）
+    fs: configServer?.fs,
+  };
+  
+  // 確保 root 路徑正確設置
+  const rootPath = restConfig.root || path.resolve(__dirname, "..", "client");
+  
   const vite = await createViteServer({
-    ...viteConfig,
+    ...restConfig,
+    root: rootPath,
     configFile: false,
     customLogger: {
       ...viteLogger,
@@ -40,11 +60,13 @@ export async function setupVite(app: Express, server: Server) {
         process.exit(1);
       },
     },
-    server: serverOptions,
+    server: mergedServerConfig,
     appType: "custom",
   });
 
   app.use(vite.middlewares);
+  
+  // 處理所有其他請求（主要是 HTML 頁面）
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
 

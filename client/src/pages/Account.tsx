@@ -4,7 +4,7 @@
  * 帳號管理頁面 - 顯示帳號資訊、登出、刪除帳號等功能
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -32,12 +32,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Trash2, User, Mail, Calendar, ChevronLeft, Key, Loader2 } from "lucide-react";
+import { LogOut, Trash2, User, Mail, Calendar, ChevronLeft, Key, Loader2, CheckCircle2, XCircle, Send } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function Account() {
   const { language } = useLanguage();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, firebaseUser } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   
@@ -46,6 +46,10 @@ export default function Account() {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Email 驗證狀態
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  const [checkingVerification, setCheckingVerification] = useState(false);
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
@@ -198,6 +202,79 @@ export default function Account() {
     changePasswordMutation.mutate({ currentPassword, newPassword });
   };
 
+  // 檢查 Email 驗證狀態
+  useEffect(() => {
+    const checkVerification = async () => {
+      if (!firebaseUser) {
+        setEmailVerified(null);
+        return;
+      }
+
+      // 先使用當前的驗證狀態（不需要重新載入）
+      setEmailVerified(firebaseUser.emailVerified);
+    };
+
+    checkVerification();
+  }, [firebaseUser]);
+
+  // 重新發送驗證 email
+  const resendVerificationMutation = useMutation({
+    mutationFn: async () => {
+      const { resendEmailVerification } = await import("@/lib/firebase");
+      await resendEmailVerification(firebaseUser || undefined);
+    },
+    onSuccess: () => {
+      toast({
+        title: language === "en" ? "Verification email sent" : "驗證 email 已發送",
+        description: language === "en"
+          ? "Please check your inbox and click the verification link."
+          : "請檢查您的收件匣並點擊驗證連結。",
+      });
+    },
+    onError: (error: Error) => {
+      let errorMessage = language === "en"
+        ? "Failed to send verification email"
+        : "發送驗證 email 失敗";
+      
+      if (error.message.includes("too many")) {
+        errorMessage = language === "en"
+          ? "Too many requests. Please try again later."
+          : "請求過於頻繁，請稍後再試。";
+      }
+      
+      toast({
+        title: language === "en" ? "Error" : "錯誤",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // 重新檢查驗證狀態
+  const handleCheckVerification = async () => {
+    if (!firebaseUser) return;
+    
+    setCheckingVerification(true);
+    try {
+      const { checkEmailVerified } = await import("@/lib/firebase");
+      const verified = await checkEmailVerified(firebaseUser);
+      setEmailVerified(verified);
+      
+      if (verified) {
+        toast({
+          title: language === "en" ? "Email verified" : "Email 已驗證",
+          description: language === "en"
+            ? "Your email has been successfully verified."
+            : "您的 email 已成功驗證。",
+        });
+      }
+    } catch (error) {
+      console.error("Error checking verification:", error);
+    } finally {
+      setCheckingVerification(false);
+    }
+  };
+
   if (!isAuthenticated || !user) {
     return (
       <div className="flex flex-col h-full items-center justify-center p-6">
@@ -237,12 +314,71 @@ export default function Account() {
                 <Mail className="h-5 w-5 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-muted-foreground">
-                  {language === "en" ? "Email" : "電子郵件"}
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="text-sm font-medium text-muted-foreground">
+                    {language === "en" ? "Email" : "電子郵件"}
+                  </div>
+                  {emailVerified === true && (
+                    <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                  )}
+                  {emailVerified === false && (
+                    <XCircle className="h-4 w-4 text-yellow-500 shrink-0" />
+                  )}
                 </div>
                 <div className="text-base font-medium truncate">
                   {user.email}
                 </div>
+                {emailVerified === false && (
+                  <div className="mt-2 space-y-2">
+                    <p className="text-sm text-yellow-600 dark:text-yellow-500">
+                      {language === "en"
+                        ? "Your email is not verified. Please check your inbox for the verification email."
+                        : "您的 email 尚未驗證。請檢查收件匣中的驗證 email。"}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => resendVerificationMutation.mutate()}
+                        disabled={resendVerificationMutation.isPending}
+                        className="text-xs"
+                      >
+                        {resendVerificationMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            {language === "en" ? "Sending..." : "發送中..."}
+                          </>
+                        ) : (
+                          <>
+                            <Send className="h-3 w-3 mr-1" />
+                            {language === "en" ? "Resend" : "重新發送"}
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleCheckVerification}
+                        disabled={checkingVerification}
+                        className="text-xs"
+                      >
+                        {checkingVerification ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            {language === "en" ? "Checking..." : "檢查中..."}
+                          </>
+                        ) : (
+                          language === "en" ? "Check Status" : "檢查狀態"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {emailVerified === true && (
+                  <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                    {language === "en" ? "Email verified" : "Email 已驗證"}
+                  </p>
+                )}
               </div>
             </div>
 
