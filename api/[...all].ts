@@ -7,10 +7,12 @@ const appPromise = createApp();
 
 // Default allowed origins for Capacitor/local development
 const defaultAllowedOrigins = [
-  "https://localhost",      // Capacitor Android/iOS default
+  "https://localhost",      // Capacitor Android/iOS default (if not using hostname)
   "http://localhost",       // Local development
   "capacitor://localhost",  // Capacitor alternative scheme
   "ionic://localhost",      // Ionic/Capacitor alternative scheme
+  "https://wevro.co",       // Capacitor with hostname (no www)
+  "https://www.wevro.co",   // Production web app (with www)
 ];
 
 function isOriginAllowed(origin: string | undefined): boolean {

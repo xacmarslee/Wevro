@@ -22,8 +22,11 @@ const config: CapacitorConfig = {
   // OAuth 回調 URL scheme - 使用 https 以支持 Firebase Auth 和 Google API
   // 注意：自定義 scheme (wevro://) 在 Android WebView 117+ 會有問題
   // 改用 https 可以讓 Google API 正常加載
+  // 使用 hostname 讓 WebView 的 origin 變成 https://wevro.co，避免 CORS 問題
   server: {
-    androidScheme: 'https'
+    hostname: 'wevro.co',
+    androidScheme: 'https',
+    cleartext: false
   }
 };
 
