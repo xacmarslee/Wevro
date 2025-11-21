@@ -443,8 +443,16 @@ export const sendEmailVerificationToUser = async (user?: User) => {
     console.error('Error sending email verification:', error);
     
     // Provide more specific error messages
-    if (error.code === 'auth/too-many-requests') {
-      throw new Error('Too many requests. Please try again later.');
+    // Firebase 錯誤可能有多種格式
+    const errorCode = error?.code || error?.error?.code || error?.message?.match(/auth\/([a-z-]+)/)?.[1];
+    
+    if (errorCode === 'too-many-requests' || errorCode === 'auth/too-many-requests') {
+      throw new Error('Too many requests. Please wait a few minutes before trying again.');
+    }
+    
+    // 如果錯誤訊息包含 "too-many-requests"
+    if (error?.message?.includes('too-many-requests') || error?.message?.includes('too many')) {
+      throw new Error('Too many requests. Please wait a few minutes before trying again.');
     }
     
     throw error;

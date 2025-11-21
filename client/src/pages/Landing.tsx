@@ -34,19 +34,37 @@ export default function Landing() {
       setLocation("/");
     } catch (error: any) {
       let message = error.message;
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-        message = language === "en" ? "Invalid email or password" : "電子郵件或密碼錯誤";
+      let shouldSwitchToRegister = false;
+      
+      // 如果 email 未註冊，提示用戶註冊
+      if (error.code === 'auth/user-not-found') {
+        message = language === "en" 
+          ? "This email is not registered. Would you like to create an account?"
+          : "此 email 尚未註冊。是否要建立帳號？";
+        shouldSwitchToRegister = true;
+      } else if (error.code === 'auth/wrong-password') {
+        message = language === "en" ? "Incorrect password" : "密碼錯誤";
       } else if (error.code === 'auth/email-already-in-use') {
         message = language === "en" ? "Email already in use" : "電子郵件已被使用";
       } else if (error.code === 'auth/weak-password') {
         message = language === "en" ? "Password should be at least 6 characters" : "密碼至少需要 6 個字元";
       }
       
-      toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description: message,
-        variant: "destructive",
-      });
+      // 如果是未註冊的 email，自動切換到註冊模式
+      if (shouldSwitchToRegister) {
+        setIsRegistering(true);
+        toast({
+          title: language === "en" ? "Account not found" : "帳號不存在",
+          description: message,
+          duration: 5000,
+        });
+      } else {
+        toast({
+          title: language === "en" ? "Error" : "錯誤",
+          description: message,
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
     }

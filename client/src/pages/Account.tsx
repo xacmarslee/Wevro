@@ -50,6 +50,31 @@ export default function Account() {
   // Email 驗證狀態
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [checkingVerification, setCheckingVerification] = useState(false);
+  const [lastResendTime, setLastResendTime] = useState<number | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  
+  // 防抖：限制重新發送驗證 email 的頻率（至少間隔 60 秒）
+  const canResend = lastResendTime === null || Date.now() - lastResendTime > 60000;
+  
+  // 更新倒數計時
+  useEffect(() => {
+    if (!lastResendTime || canResend) {
+      setRemainingSeconds(0);
+      return;
+    }
+    
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - lastResendTime;
+      const remaining = Math.max(0, Math.ceil((60000 - elapsed) / 1000));
+      setRemainingSeconds(remaining);
+      
+      if (remaining === 0) {
+        clearInterval(interval);
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [lastResendTime, canResend]);
 
   const deleteAccountMutation = useMutation({
     mutationFn: async () => {
@@ -220,8 +245,19 @@ export default function Account() {
   // 重新發送驗證 email
   const resendVerificationMutation = useMutation({
     mutationFn: async () => {
+      // 檢查是否在冷卻期內
+      if (!canResend) {
+        const remainingSeconds = Math.ceil((60000 - (Date.now() - (lastResendTime || 0))) / 1000);
+        throw new Error(
+          language === "en"
+            ? `Please wait ${remainingSeconds} seconds before requesting again.`
+            : `請等待 ${remainingSeconds} 秒後再試。`
+        );
+      }
+      
       const { resendEmailVerification } = await import("@/lib/firebase");
       await resendEmailVerification(firebaseUser || undefined);
+      setLastResendTime(Date.now());
     },
     onSuccess: () => {
       toast({
@@ -231,21 +267,29 @@ export default function Account() {
           : "請檢查您的收件匣並點擊驗證連結。",
       });
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       let errorMessage = language === "en"
         ? "Failed to send verification email"
         : "發送驗證 email 失敗";
       
-      if (error.message.includes("too many")) {
+      // 檢查多種可能的錯誤格式
+      const errorText = error?.message || error?.error?.message || String(error);
+      const errorCode = error?.code || error?.error?.code;
+      
+      if (errorCode === 'auth/too-many-requests' || 
+          errorCode === 'too-many-requests' ||
+          errorText.includes('too-many-requests') || 
+          errorText.includes('too many')) {
         errorMessage = language === "en"
-          ? "Too many requests. Please try again later."
-          : "請求過於頻繁，請稍後再試。";
+          ? "Too many requests. Please wait a few minutes before trying again. Firebase limits email verification requests to prevent abuse."
+          : "請求過於頻繁。請等待幾分鐘後再試。Firebase 限制驗證 email 的發送頻率以防止濫用。";
       }
       
       toast({
         title: language === "en" ? "Error" : "錯誤",
         description: errorMessage,
         variant: "destructive",
+        duration: 5000, // 顯示更長時間
       });
     },
   });
@@ -340,13 +384,27 @@ export default function Account() {
                         size="sm"
                         variant="outline"
                         onClick={() => resendVerificationMutation.mutate()}
-                        disabled={resendVerificationMutation.isPending}
+                        disabled={resendVerificationMutation.isPending || !canResend}
                         className="text-xs"
+                        title={
+                          !canResend && remainingSeconds > 0
+                            ? language === "en"
+                              ? `Please wait ${remainingSeconds} seconds`
+                              : `請等待 ${remainingSeconds} 秒`
+                            : undefined
+                        }
                       >
                         {resendVerificationMutation.isPending ? (
                           <>
                             <Loader2 className="h-3 w-3 animate-spin mr-1" />
                             {language === "en" ? "Sending..." : "發送中..."}
+                          </>
+                        ) : !canResend && remainingSeconds > 0 ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            {language === "en" 
+                              ? `Wait ${remainingSeconds}s`
+                              : `等待 ${remainingSeconds} 秒`}
                           </>
                         ) : (
                           <>
