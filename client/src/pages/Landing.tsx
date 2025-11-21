@@ -27,11 +27,14 @@ export default function Landing() {
       if (isRegistering) {
         await registerWithEmail(email, password);
         trackSignUp('email');
+        // 註冊成功後才跳轉到 app
+        setLocation("/");
       } else {
         await signInWithEmail(email, password);
         trackLogin('email');
+        // 登入成功後才跳轉到 app
+        setLocation("/");
       }
-      setLocation("/");
     } catch (error: any) {
       let message = error.message;
       let shouldSwitchToRegister = false;
@@ -51,7 +54,7 @@ export default function Landing() {
           
           // 如果註冊成功，說明 email 未註冊
           // 但註冊會自動登入，我們需要立即刪除測試帳號並登出
-          // 確保用戶不會保持登入狀態
+          // 確保用戶不會保持登入狀態，也不會進入 app
           try {
             // 嘗試刪除測試帳號（此時用戶還登入著，所以可以刪除）
             const { apiRequest } = await import("@/lib/queryClient");
@@ -63,12 +66,19 @@ export default function Landing() {
             await signOut();
           }
           
+          // 確保用戶已登出（再次確認）
+          const { signOut: confirmSignOut } = await import("@/lib/firebase");
+          await confirmSignOut();
+          
           message = language === "en" 
             ? "This email is not registered. Please register with your desired password."
             : "此 email 尚未註冊。請使用您想要的密碼進行註冊。";
           shouldSwitchToRegister = true;
           // 清除密碼欄位，讓用戶輸入自己的密碼
           setPassword("");
+          
+          // 重要：不要跳轉到 app，停留在登入頁面
+          // 不執行 setLocation("/")，讓用戶在登入頁面註冊
         } catch (checkError: any) {
           if (checkError.code === 'auth/email-already-in-use') {
             // Email 已存在，說明是密碼錯誤
@@ -110,19 +120,25 @@ export default function Landing() {
       
       // 如果是無效憑證且判斷為密碼錯誤，不切換到註冊模式
       if (shouldSwitchToRegister && !isPasswordError) {
+        // Email 未註冊：切換到註冊模式，不跳轉到 app
         setIsRegistering(true);
         toast({
           title: language === "en" ? "Account not found" : "帳號不存在",
           description: message,
           duration: 5000,
         });
+        // 重要：不執行 setLocation("/")，停留在登入頁面讓用戶註冊
       } else {
+        // 其他錯誤（如密碼錯誤）：顯示錯誤訊息，不跳轉
         toast({
           title: language === "en" ? (isPasswordError ? "Incorrect password" : "Error") : (isPasswordError ? "密碼錯誤" : "錯誤"),
           description: message,
           variant: "destructive",
         });
+        // 重要：不執行 setLocation("/")，停留在登入頁面
       }
+      // 注意：因為我們在 catch 塊中，所以不會執行 setLocation("/")
+      // 這確保了如果登入/註冊失敗，用戶不會進入 app
     } finally {
       setLoading(false);
     }
