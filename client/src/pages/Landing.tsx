@@ -50,14 +50,15 @@ export default function Landing() {
           await registerWithEmail(email, tempPassword);
           
           // 如果註冊成功，說明 email 未註冊
-          // 但我們創建了測試帳號，需要立即刪除它
+          // 但註冊會自動登入，我們需要立即刪除測試帳號並登出
+          // 確保用戶不會保持登入狀態
           try {
-            // 通過 API 刪除測試帳號
+            // 嘗試刪除測試帳號（此時用戶還登入著，所以可以刪除）
             const { apiRequest } = await import("@/lib/queryClient");
             await apiRequest("DELETE", "/api/auth/user");
           } catch (deleteError) {
-            console.warn("Failed to delete test account:", deleteError);
-            // 如果刪除失敗，登出測試帳號
+            // 如果刪除失敗，至少登出確保用戶不會保持登入狀態
+            console.warn("Failed to delete test account, signing out instead:", deleteError);
             const { signOut } = await import("@/lib/firebase");
             await signOut();
           }
