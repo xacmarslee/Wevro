@@ -15,6 +15,7 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   sendEmailVerification,
+  sendPasswordResetEmail,
   reload,
   type User,
   type Auth
@@ -488,6 +489,20 @@ export const checkEmailVerified = async (user?: User): Promise<boolean> => {
     // 如果重新載入失敗，返回當前的驗證狀態
     const currentUser = user || auth.currentUser;
     return currentUser?.emailVerified || false;
+  }
+};
+
+/**
+ * Send password reset email
+ * Firebase 會自動處理寄信，不管 email 是否存在（安全考量）
+ */
+export const sendPasswordReset = async (email: string) => {
+  try {
+    await sendPasswordResetEmail(auth, email);
+    console.log('✅ Password reset email sent');
+  } catch (error: any) {
+    console.error('Error sending password reset email:', error);
+    throw error;
   }
 };
 

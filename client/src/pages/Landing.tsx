@@ -4,10 +4,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Brain, Layers, Search, Mail, Sparkles } from "lucide-react";
-import { signInWithEmail, registerWithEmail } from "@/lib/firebase";
+import { signInWithEmail, registerWithEmail, sendPasswordReset } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { trackSignUp, trackLogin } from "@/lib/analytics";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function Landing() {
   const { language } = useLanguage();
@@ -18,6 +28,22 @@ export default function Landing() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 忘記密碼相關狀態
+  const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false);
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
+  const [sendingResetEmail, setSendingResetEmail] = useState(false);
+  
+  // 錯誤處理對話框狀態
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogData, setErrorDialogData] = useState<{
+    title: string;
+    message: string;
+    showRetry: boolean;
+    showRegister: boolean;
+    showForgotPassword: boolean;
+    showSignIn?: boolean;
+  } | null>(null);
 
 
   const handleEmailAuth = async (e: React.FormEvent) => {
@@ -42,64 +68,18 @@ export default function Landing() {
       
       // Firebase 現在使用 auth/invalid-credential 來代替 auth/user-not-found 和 auth/wrong-password
       // 為了安全，Firebase 不讓我們直接區分 email 未註冊和密碼錯誤
-      // 我們可以通過嘗試註冊來間接判斷 email 是否存在
+      // 我們直接提示用戶可能是未註冊，並提供註冊選項
       if (error.code === 'auth/invalid-credential' && !isRegistering) {
-        // 嘗試用相同的 email 和一個臨時密碼註冊來判斷 email 是否存在
-        // 如果 email 已存在，會返回 auth/email-already-in-use（說明是密碼錯誤）
-        // 如果 email 不存在，註冊會成功，我們會立即刪除測試帳號
-        try {
-          // 使用一個臨時密碼嘗試註冊（至少 6 個字元）
-          const tempPassword = 'temp' + Date.now().toString().slice(-8);
-          await registerWithEmail(email, tempPassword);
-          
-          // 如果註冊成功，說明 email 未註冊
-          // 但註冊會自動登入，我們需要立即刪除測試帳號並登出
-          // 確保用戶不會保持登入狀態，也不會進入 app
-          try {
-            // 嘗試刪除測試帳號（此時用戶還登入著，所以可以刪除）
-            const { apiRequest } = await import("@/lib/queryClient");
-            await apiRequest("DELETE", "/api/auth/user");
-          } catch (deleteError) {
-            // 如果刪除失敗，至少登出確保用戶不會保持登入狀態
-            console.warn("Failed to delete test account, signing out instead:", deleteError);
-            const { signOut } = await import("@/lib/firebase");
-            await signOut();
-          }
-          
-          // 確保用戶已登出（再次確認）
-          const { signOut: confirmSignOut } = await import("@/lib/firebase");
-          await confirmSignOut();
-          
-          message = language === "en" 
-            ? "This email is not registered. Please register with your desired password."
-            : "此 email 尚未註冊。請使用您想要的密碼進行註冊。";
-          shouldSwitchToRegister = true;
-          // 清除密碼欄位，讓用戶輸入自己的密碼
-          setPassword("");
-          
-          // 重要：不要跳轉到 app，停留在登入頁面
-          // 不執行 setLocation("/")，讓用戶在登入頁面註冊
-        } catch (checkError: any) {
-          if (checkError.code === 'auth/email-already-in-use') {
-            // Email 已存在，說明是密碼錯誤
-            isPasswordError = true;
-            message = language === "en" 
-              ? "Incorrect password. Please check your password and try again."
-              : "密碼錯誤。請檢查您的密碼後重試。";
-          } else {
-            // 其他錯誤，可能是 email 未註冊
-            message = language === "en" 
-              ? "Invalid email or password. This email may not be registered. Would you like to create an account?"
-              : "電子郵件或密碼錯誤。此 email 可能尚未註冊。是否要建立帳號？";
-            shouldSwitchToRegister = true;
-          }
-        }
+        // 登入失敗：不區分是 email 未註冊還是密碼錯誤，直接提示註冊
+        message = language === "en" 
+          ? "Email or password incorrect. If you don't have an account yet, please click 'Create Account'."
+          : "Email 或密碼錯誤。如果你還沒有帳號，請按「建立帳號」。";
+        shouldSwitchToRegister = true;
       } else if (error.code === 'auth/email-already-in-use' && isRegistering) {
-        // 註冊時遇到 email-already-in-use
-        // 可能是因為之前的測試帳號還在，或者是用戶真的已經註冊過
+        // 註冊失敗：email 已存在，提示改用登入
         message = language === "en" 
           ? "This email is already registered. Please sign in instead."
-          : "此 email 已經註冊。請使用登入功能。";
+          : "此 Email 已經註冊，請改用登入。";
         shouldSwitchToRegister = false;
         setIsRegistering(false);
       } else if (error.code === 'auth/user-not-found') {
@@ -118,29 +98,87 @@ export default function Landing() {
         message = language === "en" ? "Password should be at least 6 characters" : "密碼至少需要 6 個字元";
       }
       
-      // 如果是無效憑證且判斷為密碼錯誤，不切換到註冊模式
-      if (shouldSwitchToRegister && !isPasswordError) {
-        // Email 未註冊：切換到註冊模式，不跳轉到 app
-        setIsRegistering(true);
-        toast({
-          title: language === "en" ? "Account not found" : "帳號不存在",
-          description: message,
-          duration: 5000,
+      // 根據錯誤類型顯示不同的對話框
+      if (error.code === 'auth/invalid-credential' && !isRegistering) {
+        // 登入失敗：顯示對話框，提供「重試」「註冊帳號」「忘記密碼」選項
+        setErrorDialogData({
+          title: language === "en" ? "Sign in failed" : "登入失敗",
+          message: language === "en" 
+            ? "Email or password incorrect. Please try again, or register an account."
+            : "Email 或密碼錯誤。請重新輸入，或註冊帳號。",
+          showRetry: true,
+          showRegister: true,
+          showForgotPassword: true,
         });
-        // 重要：不執行 setLocation("/")，停留在登入頁面讓用戶註冊
+        setShowErrorDialog(true);
+      } else if (error.code === 'auth/email-already-in-use' && isRegistering) {
+        // 註冊失敗：email 已存在，提供「登入」「忘記密碼」選項
+        setErrorDialogData({
+          title: language === "en" ? "Email already registered" : "Email 已註冊",
+          message: language === "en" 
+            ? "This email is already registered. Please sign in or use forgot password."
+            : "此 email 已被註冊，請直接登入或使用忘記密碼。",
+          showRetry: false,
+          showRegister: false,
+          showForgotPassword: true,
+          showSignIn: true,
+        });
+        setShowErrorDialog(true);
+        setIsRegistering(false);
       } else {
-        // 其他錯誤（如密碼錯誤）：顯示錯誤訊息，不跳轉
+        // 其他錯誤：使用 toast 顯示
+        if (shouldSwitchToRegister && !isPasswordError) {
+          setIsRegistering(true);
+        }
         toast({
-          title: language === "en" ? (isPasswordError ? "Incorrect password" : "Error") : (isPasswordError ? "密碼錯誤" : "錯誤"),
+          title: language === "en" 
+            ? (isPasswordError ? "Incorrect password" : error.code === 'auth/email-already-in-use' ? "Email already registered" : "Error")
+            : (isPasswordError ? "密碼錯誤" : error.code === 'auth/email-already-in-use' ? "Email 已註冊" : "錯誤"),
           description: message,
           variant: "destructive",
         });
-        // 重要：不執行 setLocation("/")，停留在登入頁面
       }
       // 注意：因為我們在 catch 塊中，所以不會執行 setLocation("/")
       // 這確保了如果登入/註冊失敗，用戶不會進入 app
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 處理忘記密碼
+  const handleForgotPassword = async () => {
+    if (!forgotPasswordEmail) {
+      toast({
+        title: language === "en" ? "Error" : "錯誤",
+        description: language === "en" ? "Please enter your email address" : "請輸入您的 email 地址",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setSendingResetEmail(true);
+      await sendPasswordReset(forgotPasswordEmail);
+      toast({
+        title: language === "en" ? "Email sent" : "已發送",
+        description: language === "en" 
+          ? "If this email has an account, we have sent a password reset email."
+          : "若此 email 有帳號，我們已寄出重設密碼信件。",
+        duration: 5000,
+      });
+      setShowForgotPasswordDialog(false);
+      setForgotPasswordEmail("");
+    } catch (error: any) {
+      console.error("Error sending password reset email:", error);
+      toast({
+        title: language === "en" ? "Error" : "錯誤",
+        description: language === "en" 
+          ? "Failed to send password reset email. Please try again."
+          : "發送重設密碼信件失敗，請重試。",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingResetEmail(false);
     }
   };
 
@@ -223,6 +261,24 @@ export default function Landing() {
                 <Mail className="w-5 h-5 mr-3" />
                 {language === "en" ? "Continue with Email" : "使用 Email 繼續"}
               </Button>
+              
+              {/* Register Prompt */}
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground">
+                  {language === "en" 
+                    ? "Don't have an account? " 
+                    : "還沒有帳號？"}
+                  <button
+                    onClick={() => {
+                      setShowEmailForm(true);
+                      setIsRegistering(true);
+                    }}
+                    className="text-primary hover:text-primary/80 underline font-medium"
+                  >
+                    {language === "en" ? "Register" : "點擊註冊"}
+                  </button>
+                </p>
+              </div>
             </div>
           ) : (
             <div>
@@ -272,6 +328,22 @@ export default function Landing() {
                     )
                   }
                 </Button>
+                
+                {!isRegistering && (
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForgotPasswordEmail(email);
+                        setShowForgotPasswordDialog(true);
+                      }}
+                      disabled={loading}
+                      className="text-xs text-muted-foreground hover:text-primary p-0 h-auto underline-offset-4 hover:underline"
+                    >
+                      {language === "en" ? "Forgot password?" : "忘記密碼？"}
+                    </button>
+                  </div>
+                )}
                 
                 <div className="text-center space-y-1 pt-2">
                   <Button
@@ -323,6 +395,102 @@ export default function Landing() {
           </div>
         </div>
       </div>
+
+      {/* 忘記密碼對話框 */}
+      <AlertDialog open={showForgotPasswordDialog} onOpenChange={setShowForgotPasswordDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "en" ? "Forgot Password" : "忘記密碼"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en" 
+                ? "Enter your email address and we'll send you a password reset link."
+                : "輸入您的 email 地址，我們將寄送重設密碼連結給您。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-4">
+            <Input
+              type="email"
+              value={forgotPasswordEmail}
+              onChange={(e) => setForgotPasswordEmail(e.target.value)}
+              placeholder={language === "en" ? "your@email.com" : "你的@email.com"}
+              disabled={sendingResetEmail}
+            />
+            <p className="text-sm text-muted-foreground">
+              {language === "en" 
+                ? "If this email has an account, we have sent a password reset email."
+                : "若此 email 有帳號，我們已寄出重設密碼信件。"}
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sendingResetEmail}>
+              {language === "en" ? "Cancel" : "取消"}
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleForgotPassword}
+              disabled={sendingResetEmail || !forgotPasswordEmail}
+            >
+              {sendingResetEmail 
+                ? (language === "en" ? "Sending..." : "發送中...")
+                : (language === "en" ? "Send" : "發送")
+              }
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 錯誤處理對話框 */}
+      <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {errorDialogData?.title || (language === "en" ? "Error" : "錯誤")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {errorDialogData?.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            {errorDialogData?.showRetry && (
+              <AlertDialogCancel onClick={() => setShowErrorDialog(false)}>
+                {language === "en" ? "Retry" : "重試"}
+              </AlertDialogCancel>
+            )}
+            {errorDialogData?.showSignIn && (
+              <AlertDialogAction
+                onClick={() => {
+                  setIsRegistering(false);
+                  setShowErrorDialog(false);
+                }}
+              >
+                {language === "en" ? "Sign In" : "登入"}
+              </AlertDialogAction>
+            )}
+            {errorDialogData?.showRegister && (
+              <AlertDialogAction
+                onClick={() => {
+                  setIsRegistering(true);
+                  setShowErrorDialog(false);
+                }}
+              >
+                {language === "en" ? "Register Account" : "註冊帳號"}
+              </AlertDialogAction>
+            )}
+            {errorDialogData?.showForgotPassword && (
+              <AlertDialogAction
+                onClick={() => {
+                  setForgotPasswordEmail(email);
+                  setShowForgotPasswordDialog(true);
+                  setShowErrorDialog(false);
+                }}
+              >
+                {language === "en" ? "Forgot Password" : "忘記密碼"}
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
