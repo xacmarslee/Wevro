@@ -57,6 +57,9 @@ export function EmailVerificationBanner() {
       if (firebaseUser && !quota.isEmailVerified) {
         try {
           await firebaseUser.reload();
+          // 強制重新獲取最新的 token（包含 email_verified 聲明）
+          await firebaseUser.getIdToken(true);
+          
           if (firebaseUser.emailVerified) {
              // 如果 Firebase 端已經驗證了，立刻觸發後端檢查
              checkVerificationMutation.mutate();
