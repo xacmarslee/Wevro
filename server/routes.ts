@@ -237,8 +237,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       console.log(`📝 Generating examples for "${query}"...`);
 
       // Default counts if not provided
-      // Reduce default counts to avoid timeouts on Vercel Hobby plan (10s limit)
-      const sensesCount = counts?.sense || 1;
+      const sensesCount = counts?.sense || 2;
       const phraseCount = counts?.phrase || 1;
 
       const quota = await storage.getUserQuota(userId);
