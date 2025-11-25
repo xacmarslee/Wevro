@@ -256,31 +256,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Generate examples using OpenAI
       let examples;
       try {
-        // MOCK TEST: Return fake data to debug timeout issues
-        console.log("⚠️ Using MOCK data for examples generation");
-        examples = {
-          query: query,
-          senses: [
-            {
-              sense_id: "mock-1",
-              pos: "n.",
-              gloss_zh: "測試翻譯",
-              gloss: "test definition",
-              examples: [
-                {
-                  en: "This is a test sentence.",
-                  zh_tw: "這是一個測試句子。",
-                  difficulty: "A2",
-                  topic: "daily-life",
-                  length: "short"
-                }
-              ]
-            }
-          ],
-          idioms: [],
-          collocations: []
-        };
-        // examples = await generateExampleSentences(query, sensesCount, phraseCount);
+        examples = await generateExampleSentences(query, sensesCount, phraseCount);
       } catch (genError: any) {
         console.error("Error in generateExampleSentences:", genError);
         // Re-throw to be caught by outer catch block
