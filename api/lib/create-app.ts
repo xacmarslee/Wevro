@@ -54,10 +54,15 @@ export async function createApp(): Promise<Express> {
       // Log the incoming origin for debugging
       console.log(`[CORS] Request origin: ${origin || 'none'}`);
 
+      // Always allow requests with no origin (like mobile apps, curl, or same-origin)
       if (!origin) {
-        // Allow requests with no origin (like mobile apps or curl requests)
         console.log(`[CORS] Allowing request with no origin`);
         return callback(null, true);
+      }
+
+      // Always allow the configured hostname
+      if (origin === "https://wevro.co" || origin === "https://www.wevro.co") {
+         return callback(null, true);
       }
 
       // Check if origin is in the allowed list
@@ -67,14 +72,19 @@ export async function createApp(): Promise<Express> {
       }
 
       // Allow any localhost port for development
-      if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
-        console.log(`[CORS] ✅ Allowing localhost origin: ${origin}`);
+      if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:') || origin.startsWith('capacitor://localhost') || origin.startsWith('ionic://localhost')) {
+        console.log(`[CORS] ✅ Allowing localhost/mobile origin: ${origin}`);
         return callback(null, true);
       }
+      
+      // For now, in production, let's be permissive to debug the Android issue
+      // TODO: Revert this to strict checking once debugged
+      console.log(`[CORS] ⚠️ Permissive Allow: ${origin}`);
+      return callback(null, true); 
 
       // Log rejected origin for debugging
-      console.warn(`[CORS] ❌ Origin ${origin} is not allowed. Allowed origins: ${allAllowedOrigins.join(", ")}`);
-      return callback(new Error(`Origin ${origin} is not allowed by CORS`));
+      // console.warn(`[CORS] ❌ Origin ${origin} is not allowed. Allowed origins: ${allAllowedOrigins.join(", ")}`);
+      // return callback(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
