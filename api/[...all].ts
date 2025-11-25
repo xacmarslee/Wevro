@@ -35,17 +35,15 @@ export default async function handler(req: any, res: any) {
   if (req.method === "OPTIONS") {
     console.log("[vercel] Handling OPTIONS preflight request");
     
-    if (isOriginAllowed(origin)) {
-      // ✅ Only set necessary headers for preflight
-      res.setHeader("Access-Control-Allow-Origin", origin || "*");
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
-      res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-      res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
-      console.log(`[vercel] ✅ OPTIONS: CORS headers set for origin: ${origin}`);
-    } else {
-      console.warn(`[vercel] ❌ OPTIONS: Origin not allowed: ${origin}. Allowed: ${ALLOWED_ORIGINS.join(", ")}`);
-    }
+    // MANUAL FIX: Always allow all origins for OPTIONS to fix Android/Capacitor issues
+    const responseOrigin = origin || "*";
+    
+    res.setHeader("Access-Control-Allow-Origin", responseOrigin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+    res.setHeader("Access-Control-Max-Age", "86400"); // 24 hours
+    console.log(`[vercel] ✅ OPTIONS: CORS headers set for origin: ${responseOrigin}`);
     
     res.status(200).end();
     return;
