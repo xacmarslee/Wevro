@@ -48,15 +48,8 @@ export async function registerRoutes(app: Express): Promise<void> {
           profileImageUrl: req.firebaseUser.picture || null,
         });
         
-        // 如果是新用戶，確保 quota 已創建（upsertUser 會處理，但這裡再確認一次）
-        if (isNewUser) {
-          try {
-            await storage.getUserQuota(userId);
-            console.log(`✅ Verified quota for new user: ${userId}`);
-          } catch (error) {
-            console.error(`❌ Failed to verify quota for new user ${userId}:`, error);
-          }
-        }
+        // REMOVED: quota verification logic here to avoid race conditions
+        // getUserQuota call in /api/quota will handle initialization safely
       }
       
       res.json(user);

@@ -109,7 +109,7 @@ export class DbStorage implements IStorage {
   async upsertUser(userData: UpsertUser): Promise<User> {
     // 檢查用戶是否已存在
     const existingUser = await this.getUser(userData.id);
-    const isNewUser = !existingUser;
+    // const isNewUser = !existingUser; // 移除這裡的 isNewUser 判斷
     
     const [user] = await db
       .insert(users)
@@ -123,27 +123,8 @@ export class DbStorage implements IStorage {
       })
       .returning();
     
-    // 如果是新用戶，確保 quota 記錄存在（新用戶送 10 點試用，驗證後可再得 20 點）
-    if (isNewUser) {
-      try {
-        await db
-          .insert(userQuotas)
-          .values({
-            userId: user.id,
-            plan: "free",
-            tokenBalance: toTokenString(10), // 註冊時只給 10 token（試用額度）
-            monthlyTokens: 0,
-            isEmailVerified: false,
-            rewardClaimed: false, // 尚未領取驗證獎勵
-            quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
-          })
-          .onConflictDoNothing(); // 如果已存在就忽略
-        console.log(`✅ Created quota for new user: ${user.id} (10 tokens, verification reward pending)`);
-      } catch (error) {
-        console.error(`❌ Failed to create quota for user ${user.id}:`, error);
-        // 即使失敗也繼續，getUserQuota 會處理 fallback
-      }
-    }
+    // 移除這裡自動建立 Quota 的邏輯
+    // 讓 getUserQuota 來全權處理初始化，避免 Race Condition 和 外鍵約束問題
     
     return user;
   }
