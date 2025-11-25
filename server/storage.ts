@@ -165,6 +165,28 @@ export class DbStorage implements IStorage {
     
     // 如果用戶沒有 quota 記錄，創建預設值
     if (!quota) {
+      // 重要修復：在建立 Quota 之前，必須確保 Users 表中已有此用戶
+      // 因為是外鍵約束，直接 insert Quota 會失敗 (500 Error)
+      let user = await this.getUser(userId);
+      
+      if (!user) {
+        console.log(`⚠️ getUserQuota: User ${userId} not found in users table. Creating fallback user record.`);
+        // 嘗試從 Firebase 獲取用戶資訊（這裡只能先建立一個基礎記錄）
+        // 實際的資料同步會在 /api/auth/user 端點進行
+        try {
+          await db.insert(users).values({
+            id: userId,
+            email: null, // 暫時為空，稍後會更新
+            firstName: null,
+            lastName: null,
+            profileImageUrl: null,
+          }).onConflictDoNothing(); // 如果並發請求已建立，則忽略
+        } catch (userError) {
+          console.error(`❌ Failed to create fallback user ${userId}:`, userError);
+          // 繼續嘗試建立 quota，如果失敗則拋出異常
+        }
+      }
+
       const [newQuota] = await db
         .insert(userQuotas)
         .values({
@@ -177,7 +199,17 @@ export class DbStorage implements IStorage {
           rewardClaimed: false, // 尚未領取驗證獎勵
           quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 明天
         })
+        .onConflictDoUpdate({ // 防止並發衝突
+            target: userQuotas.userId,
+            set: { updatedAt: new Date() } 
+        })
         .returning();
+        
+      // 如果 onConflictDoUpdate 沒有返回（因為只是 update），則重新獲取
+      if (!newQuota) {
+          return this.getUserQuota(userId);
+      }
+
       return normalizeQuotaRow(newQuota);
     }
     
