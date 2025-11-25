@@ -39,12 +39,18 @@ export default function Settings() {
 
 
   return (
-    <div className="flex flex-col h-full p-6 gap-6 overflow-auto pb-24">
-      <h1 className="text-3xl font-bold">
-        {language === "en" ? "Settings" : "設定"}
-      </h1>
+    <div className="flex flex-col h-full">
+      <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
+        <div className="px-6 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <h2 className="text-xl sm:text-2xl font-semibold whitespace-nowrap truncate">
+              {language === "en" ? "Settings" : "設定"}
+            </h2>
+          </div>
+        </div>
+      </div>
 
-      <div className="space-y-6">
+      <div className="flex-1 px-6 pb-24 pt-6 space-y-6 overflow-y-auto">
         {/* Language Setting */}
         <div className="flex items-center justify-between gap-4">
           <Label className="text-base">
@@ -223,7 +229,7 @@ export default function Settings() {
 
         {/* Version Info */}
         <div className="pt-6 text-center text-xs text-muted-foreground">
-          <div>Wevro v1.0.13</div>
+          <div>Wevro v1.0.15</div>
           <div className="mt-1">© 2025 Wevro. All rights reserved.</div>
         </div>
       </div>
