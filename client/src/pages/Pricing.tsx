@@ -21,17 +21,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Check, Sparkles, Zap, ChevronLeft, Coins, Package } from "lucide-react";
+import { Check, Sparkles, Zap, ChevronLeft, Coins, Package, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { fetchWithAuth, throwIfResNotOk } from "@/lib/queryClient";
+import { sendEmailVerificationToUser } from "@/lib/firebase";
 
 export default function Pricing() {
   const { language } = useLanguage();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, firebaseUser } = useAuth();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showVerificationDialog, setShowVerificationDialog] = useState(false);
+  const [sendingVerificationEmail, setSendingVerificationEmail] = useState(false);
   
   // 獲取用戶點數
   const { data: quota } = useQuery({
@@ -50,6 +53,9 @@ export default function Pricing() {
   // TODO: 從後端獲取用戶訂閱狀態
   const isSubscribed = false; // 暫時為 false，待整合後端後更新
   
+  // Check if email is verified
+  const isEmailVerified = quota?.isEmailVerified ?? false;
+  
   // 格式化點數顯示（帶千位逗號和小數點）
   const formatTokenBalance = (balance: number): string => {
     const locale = language === "en" ? "en-US" : "zh-TW";
@@ -62,7 +68,41 @@ export default function Pricing() {
   
   const currentTokenBalance = quota?.tokenBalance ?? 0;
 
+  const handleSendVerificationEmail = async () => {
+    if (!firebaseUser || sendingVerificationEmail) return;
+    
+    try {
+      setSendingVerificationEmail(true);
+      await sendEmailVerificationToUser(firebaseUser);
+      
+      toast({
+        title: language === "en" ? "Email sent!" : "郵件已發送！",
+        description: language === "en"
+          ? "Please check your inbox (including spam folder)."
+          : "請檢查您的信箱（包含垃圾郵件夾）。",
+        duration: 5000,
+      });
+      
+      setShowVerificationDialog(false);
+    } catch (error: any) {
+      console.error("Error sending verification email:", error);
+      toast({
+        title: language === "en" ? "Error" : "錯誤",
+        description: error.message || (language === "en" ? "Failed to send email" : "發送郵件失敗"),
+        variant: "destructive",
+      });
+    } finally {
+      setSendingVerificationEmail(false);
+    }
+  };
+
   const handleSubscribe = () => {
+    // Check if email is verified before allowing subscription
+    if (!isEmailVerified) {
+      setShowVerificationDialog(true);
+      return;
+    }
+    
     // TODO: 實作 In-App Purchase
     toast({
       title: language === "en" ? "Coming Soon" : "即將推出",
@@ -73,6 +113,12 @@ export default function Pricing() {
   };
 
   const handlePurchaseTokens = (amount: number) => {
+    // Check if email is verified before allowing token purchase
+    if (!isEmailVerified) {
+      setShowVerificationDialog(true);
+      return;
+    }
+    
     // TODO: 實作 In-App Purchase
     toast({
       title: language === "en" ? "Coming Soon" : "即將推出",
@@ -506,6 +552,43 @@ export default function Pricing() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {language === "en" ? "Cancel Subscription" : "確認取消"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Email Verification Required Dialog */}
+      <AlertDialog open={showVerificationDialog} onOpenChange={setShowVerificationDialog}>
+        <AlertDialogContent className="max-w-sm rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {language === "en" ? "Email Verification Required" : "請先驗證 Email"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === "en"
+                ? "To protect your payment and account security, please verify your email before purchasing subscriptions or token packages."
+                : "為了保障您的付費權益，避免帳號丟失，購買前請務必完成 Email 驗證。"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={sendingVerificationEmail}>
+              {language === "en" ? "Cancel" : "取消"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleSendVerificationEmail}
+              disabled={sendingVerificationEmail}
+            >
+              {sendingVerificationEmail ? (
+                <>
+                  <Mail className="h-4 w-4 mr-2 animate-pulse" />
+                  {language === "en" ? "Sending..." : "發送中..."}
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4 mr-2" />
+                  {language === "en" ? "Send Verification Email" : "發送驗證信"}
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

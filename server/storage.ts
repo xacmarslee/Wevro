@@ -123,7 +123,7 @@ export class DbStorage implements IStorage {
       })
       .returning();
     
-    // 如果是新用戶，確保 quota 記錄存在（新用戶送 30 點）
+    // 如果是新用戶，確保 quota 記錄存在（新用戶送 10 點試用，驗證後可再得 20 點）
     if (isNewUser) {
       try {
         await db
@@ -131,12 +131,14 @@ export class DbStorage implements IStorage {
           .values({
             userId: user.id,
             plan: "free",
-            tokenBalance: toTokenString(30),
+            tokenBalance: toTokenString(10), // 註冊時只給 10 token（試用額度）
             monthlyTokens: 0,
+            isEmailVerified: false,
+            rewardClaimed: false, // 尚未領取驗證獎勵
             quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           })
           .onConflictDoNothing(); // 如果已存在就忽略
-        console.log(`✅ Created quota for new user: ${user.id} (30 tokens)`);
+        console.log(`✅ Created quota for new user: ${user.id} (10 tokens, verification reward pending)`);
       } catch (error) {
         console.error(`❌ Failed to create quota for user ${user.id}:`, error);
         // 即使失敗也繼續，getUserQuota 會處理 fallback
@@ -168,9 +170,11 @@ export class DbStorage implements IStorage {
         .values({
           userId,
           plan: "free",
-          tokenBalance: toTokenString(30), // 註冊送 30 點
+          tokenBalance: toTokenString(10), // 註冊送 10 點（試用額度）
           monthlyTokens: 0,
           usedMindmapExpansions: 0,
+          isEmailVerified: false,
+          rewardClaimed: false, // 尚未領取驗證獎勵
           quotaResetAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 明天
         })
         .returning();
@@ -568,6 +572,100 @@ export class DbStorage implements IStorage {
   async deleteFlashcard(id: string): Promise<boolean> {
     const result = await db.delete(flashcards).where(eq(flashcards.id, id)).returning();
     return result.length > 0;
+  }
+
+  /**
+   * Check email verification status and claim verification reward if eligible
+   * @param userId - User ID
+   * @param isEmailVerified - Firebase Auth emailVerified status from token
+   * @returns Reward claim result with new token balance, or null if not eligible
+   */
+  async claimVerificationReward(userId: string, isEmailVerified: boolean): Promise<{
+    success: boolean;
+    tokenBalance: number;
+    rewardClaimed: boolean;
+    message?: string;
+  } | null> {
+    // Ensure quota exists
+    const quota = await this.getUserQuota(userId);
+    
+    // If already claimed, return current state
+    if (quota.rewardClaimed) {
+      return {
+        success: false,
+        tokenBalance: quota.tokenBalance,
+        rewardClaimed: true,
+        message: 'Reward already claimed',
+      };
+    }
+    
+    // If email not verified, cannot claim reward
+    if (!isEmailVerified) {
+      return {
+        success: false,
+        tokenBalance: quota.tokenBalance,
+        rewardClaimed: false,
+        message: 'Email not verified',
+      };
+    }
+    
+    // User is verified and hasn't claimed reward yet - give them 20 tokens
+    const currentBalance = toNumber(quota.tokenBalance);
+    const rewardAmount = 20;
+    const newBalance = Number((currentBalance + rewardAmount).toFixed(TOKEN_PRECISION));
+    
+    // Update quota: add tokens, mark as verified and reward claimed
+    const [updated] = await db
+      .update(userQuotas)
+      .set({
+        tokenBalance: toTokenString(newBalance),
+        isEmailVerified: true,
+        rewardClaimed: true,
+        updatedAt: new Date(),
+      })
+      .where(eq(userQuotas.userId, userId))
+      .returning();
+    
+    if (!updated) {
+      throw new Error('Failed to update quota');
+    }
+    
+    // Record transaction
+    await db.insert(tokenTransactions).values({
+      id: randomUUID(),
+      userId,
+      amount: toTokenString(rewardAmount),
+      type: 'gift',
+      feature: 'email_verification_reward',
+      metadata: {
+        rewardType: 'email_verification',
+        amount: rewardAmount,
+      },
+    });
+    
+    console.log(`✅ Verification reward claimed for user ${userId}: +${rewardAmount} tokens (new balance: ${newBalance})`);
+    
+    return {
+      success: true,
+      tokenBalance: newBalance,
+      rewardClaimed: true,
+      message: 'Reward claimed successfully',
+    };
+  }
+
+  /**
+   * Update email verification status in database (sync with Firebase Auth)
+   * @param userId - User ID
+   * @param isEmailVerified - Firebase Auth emailVerified status
+   */
+  async updateEmailVerificationStatus(userId: string, isEmailVerified: boolean): Promise<void> {
+    await db
+      .update(userQuotas)
+      .set({
+        isEmailVerified,
+        updatedAt: new Date(),
+      })
+      .where(eq(userQuotas.userId, userId));
   }
 }
 

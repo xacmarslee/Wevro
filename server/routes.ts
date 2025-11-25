@@ -78,6 +78,46 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
+  // Check email verification and claim reward if eligible
+  app.post('/api/auth/check-verification-reward', firebaseAuthMiddleware, async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      
+      // Get email verification status from Firebase Auth token
+      const isEmailVerified = req.firebaseUser?.email_verified || false;
+      
+      // Sync verification status to database
+      await storage.updateEmailVerificationStatus(userId, isEmailVerified);
+      
+      // Try to claim reward if eligible
+      const result = await storage.claimVerificationReward(userId, isEmailVerified);
+      
+      if (result?.success) {
+        res.json({
+          success: true,
+          rewardClaimed: true,
+          tokenBalance: result.tokenBalance,
+          message: 'Verification reward claimed successfully',
+        });
+      } else {
+        res.json({
+          success: false,
+          rewardClaimed: result?.rewardClaimed || false,
+          tokenBalance: result?.tokenBalance || 0,
+          isEmailVerified,
+          message: result?.message || 'Reward not eligible',
+        });
+      }
+    } catch (error: any) {
+      console.error("Error checking verification reward:", error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to check verification reward",
+        error: error.message 
+      });
+    }
+  });
+
   // Auth route: Delete user account
   app.delete('/api/auth/user', firebaseAuthMiddleware, async (req: any, res) => {
     try {

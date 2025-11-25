@@ -80,6 +80,10 @@ export const userQuotas = pgTable("user_quotas", {
   subscriptionStatus: varchar("subscription_status", { length: 50 }), // active, canceled, past_due, etc.
   subscriptionPeriodEnd: timestamp("subscription_period_end"),
   
+  // Email verification reward tracking
+  isEmailVerified: boolean("is_email_verified").notNull().default(false), // Sync with Firebase Auth emailVerified status
+  rewardClaimed: boolean("reward_claimed").notNull().default(false), // Track if user has claimed the 20 token verification reward
+  
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
