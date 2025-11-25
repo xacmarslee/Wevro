@@ -54,11 +54,14 @@ function Router() {
   );
 }
 
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+
 function AuthenticatedRoutes() {
   return (
 
   <div className="flex flex-col min-h-screen max-h-screen overflow-hidden">
     <div className="flex-1 overflow-y-auto overflow-x-hidden">
+      <EmailVerificationBanner />
       <Switch>
         <Route path="/landing" component={Landing} />
         <Route path="/query" component={Query} />

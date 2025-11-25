@@ -10,11 +10,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Search, Copy, Check, BookOpen, Languages, ChevronDown, ChevronUp, Sparkles, Mail, Gift, X } from "lucide-react";
+import { Loader2, Search, Copy, Check, BookOpen, Languages, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import LogoText from "@/components/LogoText";
 import TokenDisplay from "@/components/TokenDisplay";
 import { trackExampleGeneration, trackSynonymComparison } from "@/lib/analytics";
-import { sendEmailVerificationToUser, checkEmailVerified } from "@/lib/firebase";
 import type {
   ExamplesResponse,
   SynonymComparisonResponse,
@@ -43,12 +42,9 @@ export default function Query() {
   const [expandedCollocations, setExpandedCollocations] = useState<Set<string>>(new Set());
   const [examplesNotFound, setExamplesNotFound] = useState(false);
   const [synonymsNotFound, setSynonymsNotFound] = useState(false);
-  const [showVerificationBanner, setShowVerificationBanner] = useState(true); // Can be dismissed
-  const [sendingVerificationEmail, setSendingVerificationEmail] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
   const { language } = useLanguage();
   const { toast } = useToast();
-  const { isAuthenticated, firebaseUser } = useAuth();
+  const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const examplesNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const synonymsNotFoundTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,7 +61,7 @@ export default function Query() {
       return await response.json();
     },
     enabled: isAuthenticated,
-    refetchInterval: 30000, // Refetch every 30 seconds to check verification status
+    // Refetch interval removed as banner logic is moved to global component
   });
 
   const parseError = (error: unknown, fallback: string) => {
@@ -194,96 +190,6 @@ export default function Query() {
       }
     };
   }, []);
-
-  // Auto-check verification status and claim reward when quota is loaded
-  useEffect(() => {
-    if (!isAuthenticated || !firebaseUser || !quota) return;
-
-    const checkVerificationAndClaimReward = async () => {
-      try {
-        // Reload Firebase user to get latest emailVerified status
-        const isVerified = await checkEmailVerified(firebaseUser);
-        
-        // Only check if email is verified but reward not claimed yet
-        if (isVerified && !quota.rewardClaimed) {
-          // Call API to claim reward
-          const response = await fetchWithAuth("/api/auth/check-verification-reward", {
-            method: "POST",
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success && result.rewardClaimed) {
-              // Invalidate quota to refresh token balance
-              queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
-              
-              toast({
-                title: language === "en" ? "🎉 Verification Reward!" : "🎉 驗證獎勵！",
-                description: language === "en"
-                  ? "You've received 20 tokens for verifying your email!"
-                  : "您已獲得 20 點驗證獎勵！",
-                duration: 5000,
-              });
-              
-              // Hide banner after claiming reward
-              setShowVerificationBanner(false);
-            }
-          }
-        }
-      } catch (error) {
-        console.error("Error checking verification reward:", error);
-        // Silently fail - don't show error to user
-      }
-    };
-
-    checkVerificationAndClaimReward();
-  }, [isAuthenticated, firebaseUser, quota, queryClient, toast, language]);
-
-  // Handle sending verification email
-  const handleSendVerificationEmail = async () => {
-    if (!firebaseUser || sendingVerificationEmail) return;
-    
-    try {
-      setSendingVerificationEmail(true);
-      await sendEmailVerificationToUser(firebaseUser);
-      
-      toast({
-        title: language === "en" ? "Email sent!" : "郵件已發送！",
-        description: language === "en"
-          ? "Please check your inbox (including spam folder)."
-          : "請檢查您的信箱（包含垃圾郵件夾）。",
-        duration: 5000,
-      });
-      
-      // Start cooldown countdown (60 seconds)
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (error: any) {
-      console.error("Error sending verification email:", error);
-      toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description: error.message || (language === "en" ? "Failed to send email" : "發送郵件失敗"),
-        variant: "destructive",
-      });
-    } finally {
-      setSendingVerificationEmail(false);
-    }
-  };
-
-  // Show banner if email not verified and not dismissed
-  const shouldShowBanner = 
-    isAuthenticated && 
-    quota && 
-    !quota.isEmailVerified && 
-    showVerificationBanner;
 
   // Examples generation mutation
   const examplesMutation = useMutation({
@@ -517,66 +423,6 @@ return (
     </div>
 
     <div className="flex-1 px-6 pb-24 pt-6 space-y-6">
-      {/* Email Verification Banner */}
-      {shouldShowBanner && (
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <Gift className="h-6 w-6 text-primary" />
-              </div>
-              <div className="flex-1 space-y-3">
-                <div>
-                  <h3 className="font-semibold text-base">
-                    {language === "en"
-                      ? "🎁 Verify your email to unlock subscription features and get 20 bonus tokens!"
-                      : "🎁 驗證 Email 即可解鎖訂閱功能，並額外獲得 20 Token！"}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {language === "en"
-                      ? "Complete email verification to claim your reward and access premium features."
-                      : "完成 Email 驗證即可領取獎勵並使用進階功能。"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    onClick={handleSendVerificationEmail}
-                    disabled={sendingVerificationEmail || resendCooldown > 0}
-                    size="sm"
-                    className="shrink-0"
-                  >
-                    {sendingVerificationEmail ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        {language === "en" ? "Sending..." : "發送中..."}
-                      </>
-                    ) : resendCooldown > 0 ? (
-                      <>
-                        <Mail className="h-4 w-4 mr-2" />
-                        {language === "en" ? `Resend (${resendCooldown}s)` : `重新發送 (${resendCooldown}秒)`}
-                      </>
-                    ) : (
-                      <>
-                        <Mail className="h-4 w-4 mr-2" />
-                        {language === "en" ? "Send Verification Email" : "發送驗證信"}
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowVerificationBanner(false)}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
     {/* Mode Toggle */}
       <Tabs
         value={mode}
