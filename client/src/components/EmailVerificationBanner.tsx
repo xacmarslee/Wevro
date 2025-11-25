@@ -52,12 +52,30 @@ export function EmailVerificationBanner() {
       return;
     }
 
+    // 自動嘗試刷新驗證狀態
+    const refreshVerificationStatus = async () => {
+      if (firebaseUser && !quota.isEmailVerified) {
+        try {
+          await firebaseUser.reload();
+          if (firebaseUser.emailVerified) {
+             // 如果 Firebase 端已經驗證了，立刻觸發後端檢查
+             checkVerificationMutation.mutate();
+          }
+        } catch (e) {
+          console.error("Failed to reload firebase user", e);
+        }
+      }
+    };
+
     // 只有當「未驗證」或「已驗證但未領取獎勵」時才顯示
     // 但如果用戶手動關閉了，這一次 session 就不再顯示 (這部分邏輯可根據需求調整)
     const shouldShow = !quota.isEmailVerified || (!quota.rewardClaimed && quota.isEmailVerified);
     
     if (shouldShow) {
       setShowVerificationBanner(true);
+      
+      // 嘗試刷新狀態 (處理用戶剛驗證完回到頁面的情況)
+      refreshVerificationStatus();
       
       // 如果已經驗證但還沒領獎，自動嘗試領取
       if (quota.isEmailVerified && !quota.rewardClaimed) {
@@ -66,7 +84,7 @@ export function EmailVerificationBanner() {
     } else {
       setShowVerificationBanner(false);
     }
-  }, [quota, isAuthenticated]);
+  }, [quota, isAuthenticated, firebaseUser]);
 
   // 倒數計時效果
   useEffect(() => {

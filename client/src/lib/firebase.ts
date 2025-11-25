@@ -368,6 +368,11 @@ export const registerWithEmail = async (email: string, password: string) => {
     try {
       await sendEmailVerification(result.user);
       console.log('✅ 驗證 email 已發送');
+      
+      // Set cooldown in localStorage to prevent immediate resend on Account page
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastEmailVerificationTime', Date.now().toString());
+      }
     } catch (verificationError) {
       console.warn('⚠️ 發送驗證 email 失敗（非致命）:', verificationError);
       // 不拋出錯誤，因為註冊已成功

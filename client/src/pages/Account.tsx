@@ -50,11 +50,27 @@ export default function Account() {
   // Email 驗證狀態
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [checkingVerification, setCheckingVerification] = useState(false);
-  const [lastResendTime, setLastResendTime] = useState<number | null>(null);
+  
+  // Initialize from localStorage to persist cooldown across refreshes
+  const [lastResendTime, setLastResendTime] = useState<number | null>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('lastEmailVerificationTime');
+      return saved ? parseInt(saved, 10) : null;
+    }
+    return null;
+  });
+  
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
   
   // 防抖：限制重新發送驗證 email 的頻率（至少間隔 60 秒）
   const canResend = lastResendTime === null || Date.now() - lastResendTime > 60000;
+  
+  // Update localStorage when lastResendTime changes
+  useEffect(() => {
+    if (lastResendTime) {
+      localStorage.setItem('lastEmailVerificationTime', lastResendTime.toString());
+    }
+  }, [lastResendTime]);
   
   // 更新倒數計時
   useEffect(() => {
