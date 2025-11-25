@@ -359,8 +359,8 @@ export default function Account() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="text-sm font-medium text-muted-foreground">
-                    {language === "en" ? "Email" : "電子郵件"}
+                <div className="text-sm font-medium text-muted-foreground">
+                  {language === "en" ? "Email" : "電子郵件"}
                   </div>
                   {emailVerified === true && (
                     <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />

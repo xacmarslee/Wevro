@@ -33,7 +33,7 @@ export default function Landing() {
   const [showForgotPasswordDialog, setShowForgotPasswordDialog] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [sendingResetEmail, setSendingResetEmail] = useState(false);
-  
+          
   // 錯誤處理對話框狀態
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorDialogData, setErrorDialogData] = useState<{

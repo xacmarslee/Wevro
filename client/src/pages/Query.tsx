@@ -577,7 +577,7 @@ return (
         </Card>
       )}
 
-      {/* Mode Toggle */}
+    {/* Mode Toggle */}
       <Tabs
         value={mode}
         onValueChange={(value) => setMode(value as "examples" | "synonyms")}
