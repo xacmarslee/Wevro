@@ -240,15 +240,6 @@ export async function registerRoutes(app: Express): Promise<void> {
       const sensesCount = counts?.sense || 2;
       const phraseCount = counts?.phrase || 1;
 
-      // Check if OpenAI API key is configured
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        console.error("❌ OpenAI API key not configured");
-        return res.status(500).json({
-          error: "Configuration error",
-          message: "OpenAI API 金鑰未設定，請在 .env 檔案中設定 AI_INTEGRATIONS_OPENAI_API_KEY",
-        });
-      }
-
       const quota = await storage.getUserQuota(userId);
       const tokenBalance = quota?.tokenBalance ?? 0;
       const tokensRequired = 2;
@@ -337,15 +328,6 @@ export async function registerRoutes(app: Express): Promise<void> {
       const { query } = validatedData;
 
       console.log(`📝 Generating synonyms for "${query}"...`);
-
-      // Check if OpenAI API key is configured
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        console.error("❌ OpenAI API key not configured");
-        return res.status(500).json({
-          error: "Configuration error",
-          message: "OpenAI API 金鑰未設定，請在 .env 檔案中設定 AI_INTEGRATIONS_OPENAI_API_KEY",
-        });
-      }
 
       const quota = await storage.getUserQuota(userId);
       const tokenBalance = quota?.tokenBalance ?? 0;
