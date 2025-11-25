@@ -19,6 +19,11 @@ declare global {
 
 // Middleware to verify Firebase ID token
 export const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => {
+  // Allow OPTIONS requests (preflight) to pass through without authentication
+  if (req.method === 'OPTIONS') {
+    return next();
+  }
+
   try {
     // Get token from Authorization header or query parameter
     const authHeader = req.headers.authorization;
