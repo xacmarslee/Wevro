@@ -60,9 +60,12 @@ export async function registerRoutes(app: Express): Promise<void> {
       }
       
       res.json(user);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      res.status(500).json({ 
+        message: "Failed to fetch user",
+        details: error.message 
+      });
     }
   });
 
@@ -72,9 +75,14 @@ export async function registerRoutes(app: Express): Promise<void> {
       const userId = getUserId(req);
       const quota = await storage.getUserQuota(userId);
       res.json(quota);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching quota:", error);
-      res.status(500).json({ message: "Failed to fetch quota" });
+      res.status(500).json({ 
+        message: "Failed to fetch quota",
+        // DEBUG: 回傳詳細錯誤資訊
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   });
 
