@@ -11,6 +11,7 @@ declare global {
         email?: string;
         name?: string;
         picture?: string;
+        email_verified?: boolean;
       };
     }
   }
@@ -38,6 +39,7 @@ export const firebaseAuthMiddleware: RequestHandler = async (req, res, next) => 
       email: decodedToken.email,
       name: decodedToken.name,
       picture: decodedToken.picture,
+      email_verified: decodedToken.email_verified || false,
     };
 
     next();
