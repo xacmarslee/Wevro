@@ -11,6 +11,62 @@ declare global {
   var CdvPurchase: any;
 }
 
+namespace CdvPurchase {
+  export interface Store {
+    register(products: Product[]): void;
+    when(): When;
+    initialize(platforms: Platform[]): void;
+    get(id: string): Product | undefined;
+    off(callback: Function): void;
+    restore(): Promise<void>;
+    products: Product[];
+  }
+
+  export interface Product {
+    id: string;
+    type: ProductType;
+    platform: Platform;
+    getOffer(): Offer | undefined;
+    transaction: any;
+  }
+
+  export interface Offer {
+    order(): Promise<void>;
+  }
+
+  export interface When {
+    productUpdated(callback: (product: Product) => void): When;
+    approved(callback: (transaction: Transaction) => void): When;
+    verified(callback: (receipt: Receipt) => void): When;
+  }
+
+  export interface Transaction {
+    platform: Platform;
+    products: Product[];
+    transactionId: string;
+    finish(): void;
+  }
+
+  export interface Receipt {
+    finish(): void;
+  }
+
+  export enum ProductType {
+    CONSUMABLE = 'consumable',
+    PAID_SUBSCRIPTION = 'paid subscription',
+    NON_CONSUMABLE = 'non consumable',
+  }
+
+  export enum Platform {
+    GOOGLE_PLAY = 'google-play',
+    APPLE_APPSTORE = 'apple-appstore',
+  }
+
+  export enum ErrorCode {
+    PAYMENT_CANCELLED = 6777010
+  }
+}
+
 // Define product IDs
 export const PRODUCT_IDS = {
   TOKEN_S: 'wevro_token_s',
@@ -97,10 +153,10 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
       // Setup event listeners
       store.when()
-        .productUpdated((product) => {
+        .productUpdated((product: CdvPurchase.Product) => {
           setProducts(store.products);
         })
-        .approved(async (transaction) => {
+        .approved(async (transaction: CdvPurchase.Transaction) => {
           console.log('IAP: Transaction approved', transaction);
           
           try {
@@ -134,7 +190,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
             console.error('IAP: Verification error', err);
           }
         })
-        .verified((receipt) => {
+        .verified((receipt: CdvPurchase.Receipt) => {
           console.log('IAP: Receipt verified', receipt);
           receipt.finish();
         });
