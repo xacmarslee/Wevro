@@ -188,24 +188,22 @@
   /* iOS會自動使用env(safe-area-inset-top) */
   /* Android會在App.tsx中通過JavaScript動態設置 */
   :root {
-    /* 默認使用env()，如果不存在則使用0（App.tsx中的useEffect會覆蓋並設置為實際值） */
-    /* 先設置一個默認值，App.tsx中的JavaScript會覆蓋它 */
-    --safe-area-inset-top: 24px; /* Android默認值，App.tsx會覆蓋 */
+    /* 默認使用env()，如果不存在則使用0 */
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
     --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-inset-left: env(safe-area-inset-left, 0px);
     --safe-area-inset-right: env(safe-area-inset-right, 0px);
   }
   
   /* 工具類：確保header有正確的安全區域padding */
-  /* 使用!important確保覆蓋其他樣式，默認值24px作為fallback */
   .safe-area-top {
-    padding-top: var(--safe-area-inset-top, 24px) !important;
+    padding-top: var(--safe-area-inset-top, 0px) !important;
   }
   
-  /* 針對Android設備，如果沒有設置CSS變量，至少使用24px */
+  /* 針對Android設備，如果沒有設置CSS變量，默認不加padding */
   @supports not (padding-top: env(safe-area-inset-top)) {
     .safe-area-top {
-      padding-top: 24px !important;
+      padding-top: 0px !important;
     }
   }
 }

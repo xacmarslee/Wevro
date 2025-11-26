@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { StartPageProvider, useStartPage } from "@/contexts/StartPageContext";
 import { IAPProvider } from "@/contexts/IAPContext";
+import { QueryProvider } from "@/contexts/QueryContext";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Footer from "@/components/Footer";
@@ -104,27 +105,10 @@ function App() {
         console.log('📱 [App] 檢測到Capacitor平台:', platform);
         
         if (platform === 'android') {
-          // Android: 根據設備密度設置狀態欄高度
-          const density = window.devicePixelRatio || 1;
-          let statusBarHeight = 24; // 默認值（mdpi）
-          
-          if (density >= 3.5) {
-            statusBarHeight = 56; // xxxhdpi
-          } else if (density >= 3) {
-            statusBarHeight = 48; // xxhdpi
-          } else if (density >= 2) {
-            statusBarHeight = 32; // xhdpi
-          } else if (density >= 1.5) {
-            statusBarHeight = 28; // hdpi
-          }
-          
-          // 設置CSS變量（不使用important，讓CSS變量自然覆蓋）
-          root.style.setProperty('--safe-area-inset-top', `${statusBarHeight}px`);
-          console.log(`✅ [App] Android狀態欄高度設置為: ${statusBarHeight}px (密度: ${density})`);
-          
-          // 驗證設置是否成功
-          const verifyValue = getComputedStyle(root).getPropertyValue('--safe-area-inset-top');
-          console.log(`🔍 [App] 驗證CSS變量值: ${verifyValue}`);
+          // Android: 手機實測不會被導覽列擋住，因此不需要額外設置padding
+          // 將 safe-area-inset-top 設置為 0
+          root.style.setProperty('--safe-area-inset-top', '0px');
+          console.log('✅ [App] Android: 設置 safe-area-inset-top 為 0px (不需要額外padding)');
         } else if (platform === 'ios') {
           // iOS: 檢查env()是否可用
           const testDiv = document.createElement('div');
@@ -145,7 +129,7 @@ function App() {
       } catch (error) {
         console.warn('⚠️ [App] 初始化安全區域時出錯:', error);
         // 設置默認值作為fallback
-        root.style.setProperty('--safe-area-inset-top', '24px');
+        root.style.setProperty('--safe-area-inset-top', '0px');
       }
     } else {
       // Web瀏覽器: 檢查是否支援env()
@@ -167,12 +151,14 @@ function App() {
       <ThemeProvider>
         <LanguageProvider>
           <IAPProvider>
-            <StartPageProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Router />
-              </TooltipProvider>
-            </StartPageProvider>
+            <QueryProvider>
+              <StartPageProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Router />
+                </TooltipProvider>
+              </StartPageProvider>
+            </QueryProvider>
           </IAPProvider>
         </LanguageProvider>
       </ThemeProvider>
