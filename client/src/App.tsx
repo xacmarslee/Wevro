@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { StartPageProvider, useStartPage } from "@/contexts/StartPageContext";
+import { IAPProvider } from "@/contexts/IAPContext";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Footer from "@/components/Footer";
@@ -165,12 +166,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <LanguageProvider>
-          <StartPageProvider>
-            <TooltipProvider>
-              <Toaster />
-              <Router />
-            </TooltipProvider>
-          </StartPageProvider>
+          <IAPProvider>
+            <StartPageProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Router />
+              </TooltipProvider>
+            </StartPageProvider>
+          </IAPProvider>
         </LanguageProvider>
       </ThemeProvider>
     </QueryClientProvider>

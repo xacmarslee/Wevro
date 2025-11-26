@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useIAP, PRODUCT_IDS } from "@/contexts/IAPContext";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,7 @@ export default function Pricing() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const { isAuthenticated, firebaseUser } = useAuth();
+  const { purchase, restore, isLoading: isIAPLoading } = useIAP();
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showVerificationDialog, setShowVerificationDialog] = useState(false);
   const [sendingVerificationEmail, setSendingVerificationEmail] = useState(false);
@@ -96,36 +98,40 @@ export default function Pricing() {
     }
   };
 
-  const handleSubscribe = () => {
+  const handleSubscribe = async () => {
     // Check if email is verified before allowing subscription
     if (!isEmailVerified) {
       setShowVerificationDialog(true);
       return;
     }
     
-    // TODO: 實作 In-App Purchase
-    toast({
-      title: language === "en" ? "Coming Soon" : "即將推出",
-      description: language === "en" 
-        ? "Pro subscription will be available when the app launches."
-        : "Pro 方案將在 App 上架後開放。",
-    });
+    await purchase(PRODUCT_IDS.PRO_MONTHLY);
   };
 
-  const handlePurchaseTokens = (amount: number) => {
+  const handlePurchaseTokens = async (amount: number) => {
     // Check if email is verified before allowing token purchase
     if (!isEmailVerified) {
       setShowVerificationDialog(true);
       return;
     }
     
-    // TODO: 實作 In-App Purchase
-    toast({
-      title: language === "en" ? "Coming Soon" : "即將推出",
-      description: language === "en" 
-        ? `${amount} tokens package will be available when the app launches.`
-        : `${amount} 點數包將在 App 上架後開放。`,
-    });
+    let productId;
+    switch (amount) {
+      case 40:
+        productId = PRODUCT_IDS.TOKEN_S;
+        break;
+      case 120:
+        productId = PRODUCT_IDS.TOKEN_M;
+        break;
+      case 300:
+        productId = PRODUCT_IDS.TOKEN_L;
+        break;
+      default:
+        console.error("Invalid token amount:", amount);
+        return;
+    }
+    
+    await purchase(productId);
   };
 
   const handleCancelSubscription = () => {
@@ -527,6 +533,18 @@ export default function Pricing() {
               ? "• All payments are processed securely through Apple and Google's payment systems."
               : "• 所有付款都透過 Apple 和 Google 的安全支付系統處理。"}
           </p>
+        </div>
+
+        {/* Restore Purchases Button */}
+        <div className="flex justify-center pt-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => restore()}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {language === "en" ? "Restore Purchases" : "恢復購買"}
+          </Button>
         </div>
       </div>
 

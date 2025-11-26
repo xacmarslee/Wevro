@@ -84,6 +84,8 @@ export interface IStorage {
     usedMindmapExpansions: number;
     tokensCharged: number;
   }>;
+
+  addTokens(userId: string, amount: number, source: string, metadata?: Record<string, unknown>): Promise<number>;
 }
 
 const mapFlashcardRow = (card: FlashcardEssentialFields) => ({
@@ -679,6 +681,31 @@ export class DbStorage implements IStorage {
         updatedAt: new Date(),
       })
       .where(eq(userQuotas.userId, userId));
+  }
+
+  async addTokens(userId: string, amount: number, source: string, metadata?: Record<string, unknown>): Promise<number> {
+    const quota = await this.getUserQuota(userId);
+    const currentBalance = toNumber(quota.tokenBalance);
+    const newBalance = Number((currentBalance + amount).toFixed(TOKEN_PRECISION));
+
+    await db
+      .update(userQuotas)
+      .set({
+        tokenBalance: toTokenString(newBalance),
+        updatedAt: new Date(),
+      })
+      .where(eq(userQuotas.userId, userId));
+
+    await db.insert(tokenTransactions).values({
+      id: randomUUID(),
+      userId,
+      amount: toTokenString(amount),
+      type: "purchase",
+      feature: source,
+      metadata: metadata ?? null,
+    });
+
+    return newBalance;
   }
 }
 
