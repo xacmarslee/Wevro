@@ -51,6 +51,11 @@ export async function throwIfResNotOk(res: Response) {
       // 如果解析失敗，嘗試取得原始文字
       try {
         errorText = await res.text() || res.statusText;
+        
+        // [DEBUG] 強制顯示 HTML 內容和 URL 以進行診斷
+        if (errorText.trim().startsWith("<")) {
+           alert(`API Error Diagnostic:\n\nURL: ${res.url}\nStatus: ${res.status}\n\nResponse Start:\n${errorText.substring(0, 200)}`);
+        }
       } catch {
         errorText = res.statusText;
       }
