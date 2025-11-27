@@ -79,9 +79,9 @@ export default function Query() {
         </div>
       </div>
 
-      <div className="flex-1 px-6 pb-24 pt-6 space-y-6">
-      <div className="flex justify-center w-full">
-        <Tabs
+      <div className="flex-1 px-6 pb-24 pt-6 space-y-6 overflow-y-auto">
+        <div className="flex justify-center w-full">
+          <Tabs
           value={mode}
           onValueChange={(value) => setMode(value as "examples" | "synonyms")}
           className="w-full max-w-[280px]"
