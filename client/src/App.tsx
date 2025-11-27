@@ -1,6 +1,5 @@
 import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { DebugConsole } from "@/components/DebugConsole";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -69,8 +68,8 @@ function AuthenticatedRoutes() {
 
   return (
 
-  <div className="relative flex flex-col min-h-screen max-h-screen overflow-hidden">
-    <div className="flex-1 overflow-y-auto overflow-x-hidden">
+  <div className="relative flex flex-col h-[100dvh] overflow-hidden">
+    <div className="flex-1 overflow-hidden relative">
       <EmailVerificationBanner />
       <Switch>
         <Route path="/landing" component={Landing} />
@@ -92,7 +91,7 @@ function AuthenticatedRoutes() {
     
     {/* History Button removed from here, moved to Query.tsx */}
 
-    <div className="sticky inset-x-0 bottom-0 z-50">
+    <div className="z-50 bg-background border-t">
       <Footer />
     </div>
   </div>
@@ -160,7 +159,6 @@ function App() {
 
   return (
     <ErrorBoundary>
-    <DebugConsole />
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <LanguageProvider>
