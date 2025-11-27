@@ -226,9 +226,11 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
     const product = store.get(productId);
     if (!product) {
+      console.error(`IAP: Product not found: ${productId}`);
+      console.log('IAP: Available products:', store.products.map(p => p.id));
       toast({
         title: 'Product not found',
-        description: 'Could not find the requested product.',
+        description: `Could not find product: ${productId}. Available: ${store.products.map(p => p.id).join(', ')}`,
         variant: 'destructive',
       });
       return;
