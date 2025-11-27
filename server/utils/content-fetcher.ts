@@ -1,9 +1,9 @@
 import { 
   words, wordSenses, examples, synonyms, idioms, idiomExamples, collocations, collocationExamples, searchHistory 
-} from "@shared/schema";
-import { db } from "../db";
+} from "../../shared/schema.js";
+import { db } from "../db.js";
 import { eq, and, inArray, sql, notInArray } from "drizzle-orm";
-import type { ExamplesResponse, SynonymComparisonResponse, SenseWithExamples, IdiomWithExamples, CollocationWithExamples } from "@shared/schema";
+import type { ExamplesResponse, SynonymComparisonResponse, SenseWithExamples, IdiomWithExamples, CollocationWithExamples } from "../../shared/schema.js";
 
 /**
  * Try to fetch cached examples for a query using a "Limited Random Pool" strategy.

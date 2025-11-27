@@ -1,10 +1,10 @@
-import { db } from "../db";
+import { db } from "../db.js";
 import { 
   searchHistory, words, examples, synonyms, idioms, idiomExamples, collocations, collocationExamples
-} from "@shared/schema";
-import type { SenseWithExamples } from "@shared/schema";
+} from "../../shared/schema.js";
+import type { SenseWithExamples } from "../../shared/schema.js";
 import { eq, desc, and, inArray } from "drizzle-orm";
-import { fetchCachedExamples, fetchCachedSynonyms } from "./content-fetcher";
+import { fetchCachedExamples, fetchCachedSynonyms } from "./content-fetcher.js";
 
 /**
  * Get recent search history for a user

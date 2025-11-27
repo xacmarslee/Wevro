@@ -1,9 +1,9 @@
 import { 
   words, wordSenses, examples, synonyms, idioms, idiomExamples, collocations, collocationExamples, searchHistory 
-} from "@shared/schema";
-import { db } from "../db";
+} from "../../shared/schema.js";
+import { db } from "../db.js";
 import { eq, and, inArray, sql } from "drizzle-orm";
-import type { ExamplesResponse, SynonymComparisonResponse } from "@shared/schema";
+import type { ExamplesResponse, SynonymComparisonResponse } from "../../shared/schema.js";
 
 /**
  * Parse and store ExamplesResponse into granular database tables
