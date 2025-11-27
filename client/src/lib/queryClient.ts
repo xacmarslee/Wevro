@@ -19,6 +19,11 @@ function resolveRequestInfo(input: RequestInfo | URL): RequestInfo | URL {
     if (input.startsWith("http://") || input.startsWith("https://")) {
       return input;
     }
+    // Force absolute URL for all API requests to avoid Capacitor local file interception
+    if (API_BASE_URL && input.startsWith("/api")) {
+      const normalizedPath = input.startsWith("/") ? input : `/${input}`;
+      return `${API_BASE_URL}${normalizedPath}`;
+    }
     if (API_BASE_URL) {
       const normalizedPath = input.startsWith("/") ? input : `/${input}`;
       return `${API_BASE_URL}${normalizedPath}`;
