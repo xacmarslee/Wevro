@@ -264,7 +264,11 @@ return (
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <p className="text-destructive">{language === "en" ? "Failed to load flashcard decks" : "載入字卡組失敗"}</p>
+          <p className="text-destructive text-center px-4">
+             {language === "en" 
+               ? `Failed to load flashcard decks: ${(error as Error).message}`
+               : `載入字卡組失敗: ${(error as Error).message}`}
+          </p>
           <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] })}>
             {language === "en" ? "Retry" : "重試"}
           </Button>

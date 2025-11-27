@@ -46,19 +46,22 @@ export async function createApp(): Promise<Express> {
     .map((item) => item.trim())
     .filter(Boolean);
 
-  const allAllowedOrigins = Array.from(
-    new Set([...ALLOWED_ORIGINS, ...envOrigins])
-  );
-
   // MANUAL CORS MIDDLEWARE (To fix Android WebView issues)
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     
-    // Allow all origins for now to fix the Android issue
+    // Allow all origins for now to fix the Android issue and handle Capacitor scheme
+    // Capacitor requests from Android might have origin 'http://localhost' or 'capacitor://localhost'
+    // or sometimes no origin header if strictly local file based (though less common with fetch)
+    
     if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
+       // Check if origin is allowed or just allow all for mobile app compatibility
+       // For MVP/Mobile App, allowing all origins or reflecting back is often necessary 
+       // because the origin might vary or be null/file://
+       res.setHeader('Access-Control-Allow-Origin', origin);
     } else {
-      // For requests without origin (e.g. server-to-server), we can set specific default or *
+      // For requests without origin (e.g. server-to-server or some mobile webviews), 
+      // we can set specific default or *
       res.setHeader('Access-Control-Allow-Origin', '*'); 
     }
 

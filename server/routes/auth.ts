@@ -17,6 +17,13 @@ router.get('/user', firebaseAuthMiddleware, async (req: any, res) => {
     // Try to get user from database
     let user = await storage.getUser(userId);
     
+    // Update email verification status if changed
+    if (req.firebaseUser) {
+      const isEmailVerified = req.firebaseUser.email_verified || false;
+      // Always update verification status on login/check
+      await storage.updateEmailVerificationStatus(userId, isEmailVerified);
+    }
+
     // If user doesn't exist in database, create from Firebase token data
     if (!user && req.firebaseUser) {
       // Use data from decoded token (no need for getUserByUid which requires Service Account)

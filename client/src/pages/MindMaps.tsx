@@ -176,7 +176,11 @@ return (
         </div>
       ) : error ? (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <p className="text-destructive">{language === "en" ? "Failed to load mind maps" : "載入心智圖失敗"}</p>
+          <p className="text-destructive text-center px-4">
+             {language === "en" 
+               ? `Failed to load mind maps: ${(error as Error).message}`
+               : `載入心智圖失敗: ${(error as Error).message}`}
+          </p>
           <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["/api/mindmaps"] })}>
             {language === "en" ? "Retry" : "重試"}
           </Button>
