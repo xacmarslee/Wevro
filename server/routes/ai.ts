@@ -9,7 +9,7 @@ import {
   generateWordsRequestSchema,
   generateExamplesRequestSchema,
   generateSynonymsRequestSchema,
-} from "@shared/schema";
+} from "../../shared/schema.js";
 import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth.js";
 
 function getUserId(req: any): string {

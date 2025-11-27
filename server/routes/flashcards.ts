@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { randomUUID } from "crypto";
 import { storage } from "../storage.js";
-import { flashcardDeckSchema } from "@shared/schema";
+import { flashcardDeckSchema } from "../../shared/schema.js";
 import { generateBatchDefinitions } from "../ai-generators.js";
 import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth.js";
 
