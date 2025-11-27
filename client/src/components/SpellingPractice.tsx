@@ -273,7 +273,7 @@ export function SpellingPractice({
         <div className="text-xl font-mono font-semibold text-muted-foreground">{formatTime(timeElapsed)}</div>
       </div>
 
-      <div className="flex-1 flex justify-center p-8 items-start pt-12">
+      <div className="flex-1 flex justify-center p-8 items-start pt-12 overflow-y-auto">
         <div className="w-full max-w-2xl">
           <div className="flex items-center justify-between mb-6 text-sm font-medium">
             <div className="flex flex-col items-center gap-1 text-destructive">
