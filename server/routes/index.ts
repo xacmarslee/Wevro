@@ -1,11 +1,11 @@
 import { Router } from "express";
-import authRoutes from "./auth";
-import aiRoutes from "./ai";
-import mindmapRoutes from "./mindmaps";
-import flashcardRoutes from "./flashcards";
-import historyRoutes from "./history";
-import billingRoutes from "./billing";
-import quotaRoutes from "./quota";
+import authRoutes from "./auth.js";
+import aiRoutes from "./ai.js";
+import mindmapRoutes from "./mindmaps.js";
+import flashcardRoutes from "./flashcards.js";
+import historyRoutes from "./history.js";
+import billingRoutes from "./billing.js";
+import quotaRoutes from "./quota.js";
 
 const router = Router();
 

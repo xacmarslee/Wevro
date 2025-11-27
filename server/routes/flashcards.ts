@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
 import { randomUUID } from "crypto";
-import { storage } from "../storage";
+import { storage } from "../storage.js";
 import { flashcardDeckSchema } from "@shared/schema";
-import { generateBatchDefinitions } from "../ai-generators";
-import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth";
+import { generateBatchDefinitions } from "../ai-generators.js";
+import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth.js";
 
 function getUserId(req: any): string {
   return getFirebaseUserId(req);

@@ -1,16 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage";
-import type { MindmapExpansionSnapshot } from "../storage";
-import { storeExamplesResult, storeSynonymsResult } from "../utils/content-store";
-import { fetchCachedExamples, fetchCachedSynonyms } from "../utils/content-fetcher";
-import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "../ai-generators";
+import { storage } from "../storage.js";
+import type { MindmapExpansionSnapshot } from "../storage.js";
+import { storeExamplesResult, storeSynonymsResult } from "../utils/content-store.js";
+import { fetchCachedExamples, fetchCachedSynonyms } from "../utils/content-fetcher.js";
+import { generateRelatedWords, generateExampleSentences, generateBatchDefinitions, generateSynonymComparison } from "../ai-generators.js";
 import {
   generateWordsRequestSchema,
   generateExamplesRequestSchema,
   generateSynonymsRequestSchema,
 } from "@shared/schema";
-import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth";
+import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth.js";
 
 function getUserId(req: any): string {
   return getFirebaseUserId(req);

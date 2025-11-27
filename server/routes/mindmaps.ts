@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { storage } from "../storage";
+import { storage } from "../storage.js";
 import { mindMapSchema } from "@shared/schema";
-import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth";
+import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth.js";
 
 function getUserId(req: any): string {
   return getFirebaseUserId(req);

@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { storage } from "../storage";
-import { getUserSearchHistory, deleteHistoryItem, getHistoryDetail } from "../utils/history-manager";
-import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth";
+import { storage } from "../storage.js";
+import { getUserSearchHistory, deleteHistoryItem, getHistoryDetail } from "../utils/history-manager.js";
+import { firebaseAuthMiddleware, getFirebaseUserId } from "../firebaseAuth.js";
 
 function getUserId(req: any): string {
   return getFirebaseUserId(req);
