@@ -19,7 +19,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -48,13 +47,17 @@ export default function Flashcards() {
   
   const [deletingDeck, setDeletingDeck] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [editingCards, setEditingCards] = useState<FlashcardDeck | null>(null);
+  
+  // Changed from editingCards (full object) to editingDeckId (string)
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(null);
+  
   const [deckName, setDeckName] = useState("");
   const [editedDeckName, setEditedDeckName] = useState("");
   const [wordsList, setWordsList] = useState("");
   const [editedCards, setEditedCards] = useState<any[]>([]);
   const [newCard, setNewCard] = useState({ word: "", definition: "" });
   const [deletingCard, setDeletingCard] = useState<{ deckId: string; cardId: string; word: string } | null>(null);
+  
   const parseTokenError = (error: unknown, fallback: string) => {
     if (error instanceof Error && error.message.startsWith("402")) {
       const payload = error.message.split(":").slice(1).join(":").trim();
@@ -68,18 +71,46 @@ export default function Flashcards() {
     return fallback;
   };
 
-  // Fetch user's flashcard decks (only when authenticated)
+  // Fetch user's flashcard decks (only when authenticated) - Now returns lightweight objects
   const { data: decks = [], isLoading, error, status } = useQuery({
     queryKey: ["/api/flashcards"],
     queryFn: async () => {
       console.log("[Flashcards] Fetching decks list, isAuthenticated:", isAuthenticated, "authReady:", authReady);
-      const data = await fetchJsonWithAuth<FlashcardDeck[]>("/api/flashcards");
+      const data = await fetchJsonWithAuth<any[]>("/api/flashcards");
       console.log("[Flashcards] Decks loaded:", data);
       return data;
     },
     enabled: isAuthenticated && authReady,
     retry: false,
   });
+
+  // Fetch details for the deck being edited
+  const { data: editingDeck, isLoading: isLoadingEditing } = useQuery({
+    queryKey: ["/api/flashcards", editingDeckId],
+    queryFn: async () => {
+      if (!editingDeckId) return null;
+      return await fetchJsonWithAuth<FlashcardDeck>(`/api/flashcards/${editingDeckId}`);
+    },
+    enabled: !!editingDeckId,
+  });
+
+  // Populate editing state when deck details are loaded
+  useEffect(() => {
+    if (editingDeck) {
+      setEditedDeckName(editingDeck.name);
+      setEditedCards(editingDeck.cards.map((c: any) => ({ ...c })));
+      setNewCard({ word: "", definition: "" });
+    }
+  }, [editingDeck]);
+
+  // Reset editing state when dialog closes
+  useEffect(() => {
+    if (!editingDeckId) {
+      setEditedDeckName("");
+      setEditedCards([]);
+      setNewCard({ word: "", definition: "" });
+    }
+  }, [editingDeckId]);
 
   // 調試日誌
   useEffect(() => {
@@ -175,11 +206,8 @@ export default function Flashcards() {
     },
   });
   
-  const handleEditCards = (deck: FlashcardDeck) => {
-    setEditingCards(deck);
-    setEditedDeckName(deck.name);
-    setEditedCards(deck.cards.map((c: any) => ({ ...c })));
-    setNewCard({ word: "", definition: "" });
+  const handleEditCards = (deck: any) => {
+    setEditingDeckId(deck.id);
   };
   
   const handleDelete = (deck: any) => {
@@ -331,7 +359,7 @@ return (
                       </DropdownMenu>
                     </div>
                     <CardDescription className="text-xs">
-                      {deck.cards?.length || 0} {language === "en" ? "cards" : "張卡片"}
+                      {deck.cardCount || 0} {language === "en" ? "cards" : "張卡片"}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-0">
@@ -427,7 +455,7 @@ return (
       </Dialog>
       
       {/* Edit Cards Dialog */}
-      <Dialog open={!!editingCards} onOpenChange={(open) => !open && setEditingCards(null)}>
+      <Dialog open={!!editingDeckId} onOpenChange={(open) => !open && setEditingDeckId(null)}>
         <DialogContent data-testid="dialog-edit-cards" className="max-w-sm rounded-2xl p-0 gap-0">
           <div className="px-6 pt-6">
             <DialogHeader>
@@ -435,168 +463,185 @@ return (
             </DialogHeader>
           </div>
 
-          <div className="space-y-4 px-6 py-4 max-h-[60vh] overflow-y-auto">
-            {/* Deck Name */}
-            <div className="space-y-2">
-              <Label>{language === "en" ? "Deck Name" : "字卡組名稱"}</Label>
-              <Input
-                value={editedDeckName}
-                onChange={(e) => setEditedDeckName(e.target.value)}
-                placeholder={language === "en" ? "Deck name" : "字卡組名稱"}
-                autoComplete="off"
-              />
+          {isLoadingEditing ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            {/* Existing Cards */}
-            <div className="space-y-3">
-              {editedCards.map((card, index) => (
-                <div key={card.id} className="p-4 border rounded-lg space-y-3">
-                  {/* Header: Number and Delete Button */}
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg text-muted-foreground font-semibold">
-                      {index + 1}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        if (editingCards) {
-                          setDeletingCard({
-                            deckId: editingCards.id,
-                            cardId: card.id,
-                            word: card.word,
-                          });
-                        }
-                      }}
-                      className="h-8 w-8"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  {/* Word Input */}
+          ) : (
+            <>
+              <div className="space-y-4 px-6 py-4 max-h-[60vh] overflow-y-auto">
+                {/* Deck Name */}
+                <div className="space-y-2">
+                  <Label>{language === "en" ? "Deck Name" : "字卡組名稱"}</Label>
                   <Input
-                    value={card.word}
-                    onChange={(e) => {
-                      const newCards = [...editedCards];
-                      newCards[index].word = e.target.value;
-                      setEditedCards(newCards);
-                    }}
+                    value={editedDeckName}
+                    onChange={(e) => setEditedDeckName(e.target.value)}
+                    placeholder={language === "en" ? "Deck name" : "字卡組名稱"}
+                    autoComplete="off"
+                  />
+                </div>
+                {/* Existing Cards */}
+                <div className="space-y-3">
+                  {editedCards.map((card, index) => (
+                    <div key={card.id} className="p-4 border rounded-lg space-y-3">
+                      {/* Header: Number and Delete Button */}
+                      <div className="flex justify-between items-center">
+                        <span className="text-lg text-muted-foreground font-semibold">
+                          {index + 1}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (editingDeckId) {
+                              setDeletingCard({
+                                deckId: editingDeckId,
+                                cardId: card.id,
+                                word: card.word,
+                              });
+                            }
+                          }}
+                          className="h-8 w-8"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      {/* Word Input */}
+                      <Input
+                        value={card.word}
+                        onChange={(e) => {
+                          const newCards = [...editedCards];
+                          newCards[index].word = e.target.value;
+                          setEditedCards(newCards);
+                        }}
+                        placeholder={language === "en" ? "Word" : "單字"}
+                        className="font-mono"
+                        autoComplete="off"
+                      />
+                      {/* Definition Textarea */}
+                      <Textarea
+                        value={card.definition}
+                        onChange={(e) => {
+                          const newCards = [...editedCards];
+                          newCards[index].definition = e.target.value;
+                          setEditedCards(newCards);
+                        }}
+                        placeholder={language === "en" ? "Definition" : "定義"}
+                        className="min-h-[80px] resize-none font-mono"
+                        autoComplete="off"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Add New Card Form */}
+                <div className="p-4 border-2 border-dashed rounded-lg space-y-3">
+                  <p className="text-sm font-medium">{language === "en" ? "Add New Card" : "新增字卡"}</p>
+                  <Input
+                    value={newCard.word}
+                    onChange={(e) => setNewCard({ ...newCard, word: e.target.value })}
                     placeholder={language === "en" ? "Word" : "單字"}
                     className="font-mono"
                     autoComplete="off"
                   />
-                  {/* Definition Textarea */}
                   <Textarea
-                    value={card.definition}
-                    onChange={(e) => {
-                      const newCards = [...editedCards];
-                      newCards[index].definition = e.target.value;
-                      setEditedCards(newCards);
-                    }}
+                    value={newCard.definition}
+                    onChange={(e) => setNewCard({ ...newCard, definition: e.target.value })}
                     placeholder={language === "en" ? "Definition" : "定義"}
                     className="min-h-[80px] resize-none font-mono"
                     autoComplete="off"
                   />
+                  <Button
+                    onClick={() => {
+                      if (newCard.word.trim() && newCard.definition.trim()) {
+                        setEditedCards([...editedCards, { 
+                          ...newCard, 
+                          id: `temp-${Date.now()}`, 
+                          known: false,
+                          partOfSpeech: "n." // Default, will be parsed from definition
+                        }]);
+                        setNewCard({ word: "", definition: "" });
+                      }
+                    }}
+                    disabled={!newCard.word.trim() || !newCard.definition.trim()}
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    {language === "en" ? "Add Card" : "新增字卡"}
+                  </Button>
                 </div>
-              ))}
-            </div>
+              </div>
 
-            {/* Add New Card Form */}
-            <div className="p-4 border-2 border-dashed rounded-lg space-y-3">
-              <p className="text-sm font-medium">{language === "en" ? "Add New Card" : "新增字卡"}</p>
-              <Input
-                value={newCard.word}
-                onChange={(e) => setNewCard({ ...newCard, word: e.target.value })}
-                placeholder={language === "en" ? "Word" : "單字"}
-                className="font-mono"
-                autoComplete="off"
-              />
-              <Textarea
-                value={newCard.definition}
-                onChange={(e) => setNewCard({ ...newCard, definition: e.target.value })}
-                placeholder={language === "en" ? "Definition" : "定義"}
-                className="min-h-[80px] resize-none font-mono"
-                autoComplete="off"
-              />
-              <Button
-                onClick={() => {
-                  if (newCard.word.trim() && newCard.definition.trim()) {
-                    setEditedCards([...editedCards, { 
-                      ...newCard, 
-                      id: `temp-${Date.now()}`, 
-                      known: false,
-                      partOfSpeech: "n." // Default, will be parsed from definition
-                    }]);
-                    setNewCard({ word: "", definition: "" });
-                  }
-                }}
-                disabled={!newCard.word.trim() || !newCard.definition.trim()}
-                variant="outline"
-                size="sm"
-                className="w-full"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {language === "en" ? "Add Card" : "新增字卡"}
-              </Button>
-            </div>
-          </div>
-
-          <div className="px-6 pb-6">
-            <DialogFooter className="justify-end">
-              <Button
-              onClick={async () => {
-                if (!editingCards) return;
-                
-                // Save changes via API
-                try {
-                  // Update deck name if changed
-                  if (editedDeckName !== editingCards.name) {
-                    await apiRequest("PATCH", `/api/flashcards/${editingCards.id}`, {
-                      name: editedDeckName,
-                    });
-                  }
-                  
-                  // Update existing cards
-                  for (const card of editedCards) {
-                    if (!card.id.startsWith('temp-')) {
-                      await apiRequest("PATCH", `/api/flashcards/${editingCards.id}/cards/${card.id}`, {
-                        word: card.word,
-                        definition: card.definition,
-                        partOfSpeech: card.partOfSpeech || "n.", // Keep existing or default
+              <div className="px-6 pb-6">
+                <DialogFooter className="justify-end">
+                  <Button
+                  onClick={async () => {
+                    if (!editingDeck) return;
+                    
+                    // Save changes via API
+                    try {
+                      // Update deck name if changed
+                      if (editedDeckName !== editingDeck.name) {
+                        await apiRequest("PATCH", `/api/flashcards/${editingDeck.id}`, {
+                          name: editedDeckName,
+                        });
+                      }
+                      
+                      // Update existing cards
+                      for (const card of editedCards) {
+                        if (!card.id.startsWith('temp-')) {
+                          await apiRequest("PATCH", `/api/flashcards/${editingDeck.id}/cards/${card.id}`, {
+                            word: card.word,
+                            definition: card.definition,
+                            partOfSpeech: card.partOfSpeech || "n.", // Keep existing or default
+                          });
+                        } else {
+                          // New card - extract first pos from definition
+                          const firstPos = card.definition.match(/^(n\.|v\.|adj\.|adv\.|prep\.|pron\.|aux\.|phr\.)/)?.[0] || "n.";
+                          await apiRequest("POST", `/api/flashcards/${editingDeck.id}/cards`, {
+                            word: card.word,
+                            definition: card.definition,
+                            partOfSpeech: firstPos,
+                          });
+                        }
+                      }
+                      
+                      // Delete removed cards
+                      // We need to check against the ORIGINAL fetched cards
+                      const removedCards = editingDeck.cards.filter(
+                        (originalCard: any) => !editedCards.some(ec => ec.id === originalCard.id)
+                      );
+                      for (const card of removedCards) {
+                        await apiRequest("DELETE", `/api/flashcards/${editingDeck.id}/cards/${card.id}`);
+                      }
+                      
+                      // Invalidate queries
+                      queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
+                      // Also invalidate the specific deck query to refresh the modal if re-opened
+                      queryClient.invalidateQueries({ queryKey: ["/api/flashcards", editingDeckId] });
+                      
+                      setEditingDeckId(null);
+                      toast({
+                        title: language === "en" ? "Success" : "成功",
+                        description: language === "en" ? "Flashcards updated successfully" : "字卡更新成功",
                       });
-                    } else {
-                      // New card - extract first pos from definition
-                      const firstPos = card.definition.match(/^(n\.|v\.|adj\.|adv\.|prep\.|pron\.|aux\.|phr\.)/)?.[0] || "n.";
-                      await apiRequest("POST", `/api/flashcards/${editingCards.id}/cards`, {
-                        word: card.word,
-                        definition: card.definition,
-                        partOfSpeech: firstPos,
+                    } catch (error) {
+                      toast({
+                        title: language === "en" ? "Error" : "錯誤",
+                        description: language === "en" ? "Failed to update flashcards" : "更新字卡失敗",
+                        variant: "destructive",
                       });
                     }
-                  }
-                  
-                  // Delete removed cards
-                  const removedCards = editingCards.cards.filter(
-                    (originalCard: any) => !editedCards.some(ec => ec.id === originalCard.id)
-                  );
-                  for (const card of removedCards) {
-                    await apiRequest("DELETE", `/api/flashcards/${editingCards.id}/cards/${card.id}`);
-                  }
-                  
-                  queryClient.invalidateQueries({ queryKey: ["/api/flashcards"] });
-                  setEditingCards(null);
-                } catch (error) {
-                  toast({
-                    title: language === "en" ? "Error" : "錯誤",
-                    description: language === "en" ? "Failed to update flashcards" : "更新字卡失敗",
-                    variant: "destructive",
-                  });
-                }
-              }}
-            >
-              {language === "en" ? "Save Changes" : "儲存變更"}
-            </Button>
-            </DialogFooter>
-          </div>
+                  }}
+                >
+                  {language === "en" ? "Save Changes" : "儲存變更"}
+                </Button>
+                </DialogFooter>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
       

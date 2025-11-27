@@ -71,8 +71,9 @@ export default function MindMapEditor() {
   const exportPNG = useMindMapExport();
   const queryClient = useQueryClient();
 
-  const cachedMindMaps = queryClient.getQueryData<MindMap[]>(["/api/mindmaps"]) || [];
-  const cachedMindMap = mindMapId ? cachedMindMaps.find((map) => map.id === mindMapId) : undefined;
+  // Removed cachedMindMap usage because list API no longer returns nodes
+  // const cachedMindMaps = queryClient.getQueryData<MindMap[]>(["/api/mindmaps"]) || [];
+  // const cachedMindMap = mindMapId ? cachedMindMaps.find((map) => map.id === mindMapId) : undefined;
 
   const hydrationGuardRef = useRef(false);
   const hydratedFromCacheRef = useRef(false);
@@ -167,7 +168,7 @@ export default function MindMapEditor() {
       return;
     }
 
-    const sourceMindMap = persistence.existingMindMap ?? cachedMindMap;
+    const sourceMindMap = persistence.existingMindMap;
     const isServerData = Boolean(persistence.existingMindMap);
 
     const shouldHydrate =
@@ -246,7 +247,6 @@ export default function MindMapEditor() {
     persistence.isLoading,
     persistence.setIsSaved,
     history.resetHistory,
-    cachedMindMap,
   ]);
 
   // 在節點資料更新時，確保中心節點狀態始終存在

@@ -50,19 +50,25 @@ export async function createApp(): Promise<Express> {
   app.use((req, res, next) => {
     const origin = req.headers.origin;
     
-    // Allow all origins for now to fix the Android issue and handle Capacitor scheme
-    // Capacitor requests from Android might have origin 'http://localhost' or 'capacitor://localhost'
-    // or sometimes no origin header if strictly local file based (though less common with fetch)
-    
-    if (origin) {
-       // Check if origin is allowed or just allow all for mobile app compatibility
-       // For MVP/Mobile App, allowing all origins or reflecting back is often necessary 
-       // because the origin might vary or be null/file://
+    // List of allowed origins including mobile app schemes
+    const SAFE_ORIGINS = [
+      "https://wevro.co",
+      "https://www.wevro.co",
+      "capacitor://localhost",
+      "http://localhost",
+      "https://localhost",
+    ];
+
+    if (origin && SAFE_ORIGINS.includes(origin)) {
        res.setHeader('Access-Control-Allow-Origin', origin);
+       res.setHeader('Vary', 'Origin'); // Important for caching
+    } else if (!origin) {
+       // Allow requests with no origin (e.g. mobile apps sometimes)
+       res.setHeader('Access-Control-Allow-Origin', '*');
     } else {
-      // For requests without origin (e.g. server-to-server or some mobile webviews), 
-      // we can set specific default or *
-      res.setHeader('Access-Control-Allow-Origin', '*'); 
+       // Fallback: reflect origin if in dev mode, or stick to strict list in prod
+       // For now, let's be permissive for the mobile app to work
+       res.setHeader('Access-Control-Allow-Origin', origin);
     }
 
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');

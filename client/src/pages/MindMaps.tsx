@@ -241,7 +241,7 @@ return (
                     </DropdownMenu>
                   </div>
                   <CardDescription className="text-xs">
-                    {mindMap.nodes?.length || 0} {language === "en" ? "nodes" : "個節點"}
+                    {mindMap.nodeCount || 0} {language === "en" ? "nodes" : "個節點"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-0">

@@ -102,18 +102,38 @@ router.post("/examples/generate", firebaseAuthMiddleware, async (req: any, res) 
     const sensesCount = counts?.sense || 2;
     const phraseCount = counts?.phrase || 1;
 
+    const tokensRequired = 2;
+
     // 1. Try to fetch from cache (Random Pool)
     try {
       const cachedExamples = await fetchCachedExamples(userId, query, { sense: sensesCount, phrase: phraseCount });
       if (cachedExamples) {
          console.log(`✨ Cache HIT for examples: "${query}"`);
-         return res.json({
-           ...cachedExamples,
-           tokenInfo: { 
-             tokenBalance: (await storage.getUserQuota(userId))?.tokenBalance ?? 0, // Return current balance without charge
-             tokensCharged: 0 
-           }
-         });
+
+         // Charge tokens even for cache hit
+         try {
+            const tokenInfo = await storage.consumeTokens(userId, tokensRequired, "exampleGeneration", {
+              query,
+              sensesCount,
+              phraseCount,
+              source: "cache"
+            });
+            
+            return res.json({
+              ...cachedExamples,
+              tokenInfo
+            });
+         } catch (tokenError: any) {
+            if (tokenError?.code === "INSUFFICIENT_TOKENS" || tokenError?.message === "INSUFFICIENT_TOKENS") {
+               const tokenBalance = Number(tokenError?.tokenBalance ?? 0);
+               return res.status(402).json({
+                 error: "INSUFFICIENT_TOKENS",
+                 message: "點數不足。例句生成每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+                 tokenBalance,
+               });
+            }
+            throw tokenError;
+         }
       }
       console.log(`💨 Cache MISS for examples: "${query}"`);
     } catch (cacheError) {
@@ -123,7 +143,6 @@ router.post("/examples/generate", firebaseAuthMiddleware, async (req: any, res) 
 
     const quota = await storage.getUserQuota(userId);
     const tokenBalance = quota?.tokenBalance ?? 0;
-    const tokensRequired = 2;
 
     if (tokenBalance < tokensRequired) {
       return res.status(402).json({
@@ -220,18 +239,36 @@ router.post("/synonyms/generate", firebaseAuthMiddleware, async (req: any, res) 
 
     console.log(`📝 Generating synonyms for "${query}"...`);
 
+    const tokensRequired = 2;
+
     // 1. Try to fetch from cache
     try {
       const cachedSynonyms = await fetchCachedSynonyms(userId, query);
       if (cachedSynonyms) {
           console.log(`✨ Cache HIT for synonyms: "${query}"`);
-          return res.json({
-              ...cachedSynonyms,
-              tokenInfo: { 
-                tokenBalance: (await storage.getUserQuota(userId))?.tokenBalance ?? 0, 
-                tokensCharged: 0 
-              }
-          });
+
+          // Charge tokens even for cache hit
+          try {
+            const tokenInfo = await storage.consumeTokens(userId, tokensRequired, "synonymComparison", {
+              query,
+              source: "cache"
+            });
+
+            return res.json({
+                ...cachedSynonyms,
+                tokenInfo
+            });
+          } catch (tokenError: any) {
+            if (tokenError?.code === "INSUFFICIENT_TOKENS" || tokenError?.message === "INSUFFICIENT_TOKENS") {
+               const tokenBalance = Number(tokenError?.tokenBalance ?? 0);
+               return res.status(402).json({
+                 error: "INSUFFICIENT_TOKENS",
+                 message: "點數不足。同義字比較每次扣除 2 點，請前往訂閱與點數頁面儲值。",
+                 tokenBalance,
+               });
+            }
+            throw tokenError;
+          }
       }
       console.log(`💨 Cache MISS for synonyms: "${query}"`);
     } catch (cacheError) {
@@ -240,7 +277,6 @@ router.post("/synonyms/generate", firebaseAuthMiddleware, async (req: any, res) 
 
     const quota = await storage.getUserQuota(userId);
     const tokenBalance = quota?.tokenBalance ?? 0;
-    const tokensRequired = 2;
 
     if (tokenBalance < tokensRequired) {
       return res.status(402).json({

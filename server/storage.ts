@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import type { MindMap, FlashcardDeck, Flashcard, User, UpsertUser } from "../shared/schema.js";
 import { db } from "./db.js";
 import { mindMaps, flashcardDecks, flashcards, users, userQuotas, tokenTransactions } from "../shared/schema.js";
-import { eq, and, desc, inArray, asc } from "drizzle-orm";
+import { eq, and, desc, inArray, asc, sql } from "drizzle-orm";
 import { ensureTraditional } from "./utils/chinese.js";
 type FlashcardRowSelect = typeof flashcards.$inferSelect;
 type UserQuotaRow = typeof userQuotas.$inferSelect;
@@ -53,14 +53,14 @@ export interface IStorage {
 
   // Mind maps
   getMindMap(id: string, userId: string): Promise<MindMap | undefined>;
-  getAllMindMaps(userId: string): Promise<MindMap[]>;
+  getAllMindMaps(userId: string): Promise<{ id: string; userId: string; name: string; nodeCount: number; createdAt: string }[]>;
   createMindMap(mindMap: Omit<MindMap, "id" | "createdAt">, userId: string): Promise<MindMap>;
   updateMindMap(id: string, userId: string, mindMap: Partial<MindMap>): Promise<MindMap | undefined>;
   deleteMindMap(id: string, userId: string): Promise<boolean>;
 
   // Flashcard decks
   getFlashcardDeck(id: string, userId: string): Promise<FlashcardDeck | undefined>;
-  getAllFlashcardDecks(userId: string): Promise<FlashcardDeck[]>;
+  getAllFlashcardDecks(userId: string): Promise<{ id: string; name: string; cardCount: number; createdAt: string }[]>;
   createFlashcardDeck(deck: Omit<FlashcardDeck, "id" | "createdAt">, userId: string, cards?: Flashcard[]): Promise<FlashcardDeck>;
   updateFlashcardDeck(id: string, userId: string, deck: Partial<FlashcardDeck>): Promise<FlashcardDeck | undefined>;
   deleteFlashcardDeck(id: string, userId: string): Promise<boolean>;
@@ -217,9 +217,15 @@ export class DbStorage implements IStorage {
     };
   }
 
-  async getAllMindMaps(userId: string): Promise<MindMap[]> {
+  async getAllMindMaps(userId: string): Promise<{ id: string; userId: string; name: string; nodeCount: number; createdAt: string }[]> {
     const dbMindMaps = await db
-      .select()
+      .select({
+        id: mindMaps.id,
+        userId: mindMaps.userId,
+        name: mindMaps.name,
+        createdAt: mindMaps.createdAt,
+        nodeCount: sql<number>`jsonb_array_length(${mindMaps.nodes})`
+      })
       .from(mindMaps)
       .where(eq(mindMaps.userId, userId))
       .orderBy(desc(mindMaps.updatedAt));
@@ -228,7 +234,7 @@ export class DbStorage implements IStorage {
       id: m.id,
       userId: m.userId,
       name: m.name,
-      nodes: m.nodes,
+      nodeCount: Number(m.nodeCount),
       createdAt: m.createdAt.toISOString(),
     }));
   }
@@ -306,38 +312,26 @@ export class DbStorage implements IStorage {
     };
   }
 
-  async getAllFlashcardDecks(userId: string): Promise<FlashcardDeck[]> {
-    // Fetch all decks for this user
+  async getAllFlashcardDecks(userId: string): Promise<{ id: string; name: string; cardCount: number; createdAt: string }[]> {
+    // Fetch all decks for this user with card count
     const decks = await db
-      .select()
+      .select({
+        id: flashcardDecks.id,
+        name: flashcardDecks.name,
+        createdAt: flashcardDecks.createdAt,
+        updatedAt: flashcardDecks.updatedAt,
+        cardCount: sql<number>`count(${flashcards.id})`
+      })
       .from(flashcardDecks)
+      .leftJoin(flashcards, eq(flashcardDecks.id, flashcards.deckId))
       .where(eq(flashcardDecks.userId, userId))
+      .groupBy(flashcardDecks.id)
       .orderBy(desc(flashcardDecks.updatedAt));
 
-    if (decks.length === 0) return [];
-
-    // Fetch ALL cards for ALL decks in ONE query (performance optimization)
-    const deckIds = decks.map(d => d.id);
-    const allCardsOptimized = await db
-      .select()
-      .from(flashcards)
-      .where(inArray(flashcards.deckId, deckIds))
-      .orderBy(asc(flashcards.createdAt));
-
-    // Group cards by deckId
-    const cardsByDeck = new Map<string, typeof allCardsOptimized>();
-    for (const card of allCardsOptimized) {
-      if (!cardsByDeck.has(card.deckId)) {
-        cardsByDeck.set(card.deckId, []);
-      }
-      cardsByDeck.get(card.deckId)!.push(card);
-    }
-
-    // Build result with cards grouped by deck
     return decks.map((deck) => ({
       id: deck.id,
       name: deck.name,
-      cards: (cardsByDeck.get(deck.id) || []).map(mapFlashcardRow),
+      cardCount: Number(deck.cardCount),
       createdAt: deck.createdAt.toISOString(),
     }));
   }
