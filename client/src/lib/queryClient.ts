@@ -100,6 +100,16 @@ export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit 
 
 export async function fetchJsonWithAuth<T>(input: RequestInfo | URL, init: RequestInit = {}): Promise<T> {
   const res = await fetchWithAuth(input, init);
+  
+  // Check for HTML response (common SPA fallback issue) - Catch 200 OK HTML responses
+  const contentType = res.headers.get("content-type");
+  if (contentType && contentType.includes("text/html")) {
+     const text = await res.clone().text();
+     // Force alert for diagnostics
+     alert(`API DEBUG:\nURL: ${res.url}\nStatus: ${res.status}\n\nThis is likely the Index HTML page, meaning the API route was not found on server.\n\nResponse Preview:\n${text.substring(0, 200)}`);
+     throw new Error(`API returned HTML instead of JSON (Status: ${res.status})`);
+  }
+
   await throwIfResNotOk(res);
   return res.json() as Promise<T>;
 }
