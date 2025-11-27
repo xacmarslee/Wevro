@@ -1,17 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQueryContext } from "@/contexts/QueryContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, Sparkles, ChevronDown, ChevronUp, History } from "lucide-react";
 import LogoText from "@/components/LogoText";
 import TokenDisplay from "@/components/TokenDisplay";
 
 export default function Query() {
   const { language } = useLanguage();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const {
     mode,
     setMode,
@@ -71,18 +73,20 @@ export default function Query() {
               {language === "en" ? "Query" : "查詢"}
             </h2>
           </div>
-          <TokenDisplay variant="header" className="shrink-0" />
+          <div className="flex items-center gap-1 shrink-0">
+            <TokenDisplay variant="header" />
+          </div>
         </div>
       </div>
 
       <div className="flex-1 px-6 pb-24 pt-6 space-y-6">
-      {/* Mode Toggle */}
+      <div className="flex justify-center w-full">
         <Tabs
           value={mode}
           onValueChange={(value) => setMode(value as "examples" | "synonyms")}
-          className="w-full"
+          className="w-full max-w-[280px]"
         >
-          <TabsList className="grid grid-cols-2 w-64 mx-auto">
+          <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="examples" className="text-sm py-1.5" data-testid="tab-examples">
               {language === "en" ? "Examples" : "例句"}
             </TabsTrigger>
@@ -90,46 +94,71 @@ export default function Query() {
               {language === "en" ? "Synonyms" : "同義字"}
             </TabsTrigger>
           </TabsList>
+        </Tabs>
+      </div>
 
-          {/* Examples Mode */}
-          <TabsContent value="examples" className="space-y-6">
+      <div className="w-full">
+          <div className="mb-6">
             <div className="space-y-4">
               <Input
-                placeholder={language === "en" ? "Enter a word or phrase..." : "輸入單字或片語..."}
-                value={examplesInput}
-                onChange={(e) => setExamplesInput(e.target.value)}
+                placeholder={language === "en" ? (mode === "examples" ? "Enter a word or phrase..." : "Enter a word...") : (mode === "examples" ? "輸入單字或片語..." : "輸入單字...")}
+                value={mode === "examples" ? examplesInput : synonymsInput}
+                onChange={(e) => mode === "examples" ? setExamplesInput(e.target.value) : setSynonymsInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    if (examplesInput.trim()) {
-                      handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 });
+                    if (mode === "examples") {
+                      if (examplesInput.trim()) handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 });
+                    } else {
+                      if (synonymsInput.trim()) handleSynonymsSearch(synonymsInput);
                     }
                   }
                 }}
                 className="h-10"
-                data-testid="input-examples"
+                data-testid={mode === "examples" ? "input-examples" : "input-synonyms"}
               />
 
-              <Button
-                onClick={() => handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 })}
-                disabled={!examplesInput.trim() || isExamplesPending}
-                className="w-full"
-                data-testid="button-search-examples"
-              >
-                {isExamplesPending ? (
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-5 w-5 mr-2" />
-                )}
-                {language === "en" ? "Generate Examples" : "生成例句"}
-              </Button>
-            {examplesNotFound && (
-              <div className="text-sm text-destructive text-center">
-                {language === "en" ? "Word not found." : "查無此字"}
-              </div>
-            )}
-            </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => mode === "examples" ? handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 }) : handleSynonymsSearch(synonymsInput)}
+                  disabled={!(mode === "examples" ? examplesInput.trim() : synonymsInput.trim()) || (mode === "examples" ? isExamplesPending : isSynonymsPending)}
+                  className="flex-1"
+                  data-testid={mode === "examples" ? "button-search-examples" : "button-search-synonyms"}
+                >
+                  <div className="flex items-center justify-center w-full">
+                    {(mode === "examples" ? isExamplesPending : isSynonymsPending) ? (
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-5 w-5 mr-2" />
+                    )}
+                    <span>{language === "en" ? (mode === "examples" ? "Generate Examples" : "Find Synonyms") : (mode === "examples" ? "生成例句" : "查找同義字")}</span>
+                  </div>
+                </Button>
 
+                <Button
+                  variant="ghost"
+                  onClick={() => setLocation("/history")}
+                  className="px-4 shrink-0"
+                  title={language === "en" ? "History" : "查詢紀錄"}
+                >
+                  <History className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              {(mode === "examples" ? examplesNotFound : synonymsNotFound) && (
+                <div className="text-sm text-destructive text-center">
+                  {language === "en" ? "Word not found." : "查無此字"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Examples Mode */}
+          {mode === "examples" && (
+            <div className="space-y-6">
+              {examplesResults && !isExamplesPending && examplesResults.senses && examplesResults.senses.length > 0 && (
+                <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Word Meanings" : "詞義"}</h3>
+              )}
             {/* Examples Loading */}
             {isExamplesPending && (
               <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-primary">
@@ -145,7 +174,6 @@ export default function Query() {
                 {/* Senses */}
                 {examplesResults.senses && examplesResults.senses.length > 0 && (
                   <div className="space-y-6">
-                    <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Word Meanings" : "詞義"}</h3>
                     {examplesResults.senses.map((sense) => {
                       const isExpanded = expandedSenses.has(sense.sense_id);
                       const displayExamples = isExpanded ? sense.examples : sense.examples.slice(0, 3);
@@ -299,47 +327,12 @@ export default function Query() {
                 )}
               </>
             )}
-          </TabsContent>
+            </div>
+          )}
 
           {/* Synonyms Mode */}
-          <TabsContent value="synonyms" className="space-y-6">
-            <div className="space-y-4">
-              <Input
-                placeholder={language === "en" ? "Enter a word..." : "輸入單字..."}
-                value={synonymsInput}
-                onChange={(e) => setSynonymsInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    if (synonymsInput.trim()) {
-                      handleSynonymsSearch(synonymsInput);
-                    }
-                  }
-                }}
-                className="h-10"
-                data-testid="input-synonyms"
-              />
-
-              <Button
-                onClick={() => handleSynonymsSearch(synonymsInput)}
-                disabled={!synonymsInput.trim() || isSynonymsPending}
-                className="w-full"
-                data-testid="button-search-synonyms"
-              >
-                {isSynonymsPending ? (
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                ) : (
-                  <Sparkles className="h-5 w-5 mr-2" />
-                )}
-                {language === "en" ? "Find Synonyms" : "查找同義字"}
-              </Button>
-            {synonymsNotFound && (
-              <div className="text-sm text-destructive text-center">
-                {language === "en" ? "Word not found." : "查無此字"}
-              </div>
-            )}
-            </div>
-
+          {mode === "synonyms" && (
+            <div className="space-y-6">
             {/* Synonyms Loading */}
             {isSynonymsPending && (
               <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-primary">
@@ -352,12 +345,14 @@ export default function Query() {
             {/* Synonyms Results */}
             {synonymsResults && !isSynonymsPending && synonymsResults.synonyms && synonymsResults.synonyms.length > 0 && (
               <div className="space-y-6">
-                {synonymsResults.synonyms.map((synonym) => (
+                {synonymsResults.synonyms.map((synonym, index) => (
                   <div key={synonym.word} className="space-y-3">
                     <div>
-                      <div className="flex items-baseline gap-2">
-                        <p className="text-lg font-semibold text-primary">{synonym.word}</p>
-                        <span className="text-sm text-muted-foreground">{synonym.pos}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-baseline gap-2">
+                          <p className="text-lg font-semibold text-primary">{synonym.word}</p>
+                          <span className="text-sm text-muted-foreground">{synonym.pos}</span>
+                        </div>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{synonym.difference_zh}</p>
                     </div>
@@ -374,8 +369,9 @@ export default function Query() {
                 ))}
               </div>
             )}
-          </TabsContent>
-      </Tabs>
+            </div>
+          )}
+      </div>
     </div>
     </div>
   );

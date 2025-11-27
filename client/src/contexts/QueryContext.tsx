@@ -260,6 +260,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       if (data?.tokenInfo) {
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/history"] });
 
       trackExampleGeneration(variables.query, {
         senses: data.senses?.length || 0,
@@ -314,6 +315,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       if (data?.tokenInfo) {
         queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
       }
+      queryClient.invalidateQueries({ queryKey: ["/api/history"] });
 
       trackSynonymComparison(query, data.synonyms.length);
     },

@@ -213,9 +213,76 @@ Return a JSON object:
   }
 }
 
+
 // ============================================
-// 2. EXAMPLES: Generate Example Sentences
+// 2. EXAMPLES: Generate Example Sentences (Parallelized)
 // ============================================
+
+// Phase 1: Structure Analysis
+async function generateWordStructure(query: string, sensesCount: number, phraseCount: number): Promise<any> {
+  const systemPrompt = `你是英語教學專家。請為單字「${query}」分析其詞義結構。
+  
+你的任務：找出該詞的「詞義」、「慣用語」和「搭配詞」。
+*絕對不要* 生成例句，只要列出項目即可。
+
+規則：
+1. 找出 2-3 個真正不同的詞義 (Senses)
+2. 找出 1-2 個常見慣用語 (Idioms)
+3. 找出 1-2 個常見搭配詞 (Collocations)
+4. 提供繁體中文翻譯 (gloss_zh) 和英文定義 (gloss)
+
+輸出格式 (JSON Only):
+{
+  "senses": [
+    { "pos": "n./v./...", "gloss_zh": "中文", "gloss": "English definition" }
+  ],
+  "idioms": [
+    { "phrase": "idiom phrase", "gloss_zh": "中文", "gloss": "English meaning" }
+  ],
+  "collocations": [
+    { "phrase": "collocation phrase", "gloss_zh": "中文" }
+  ]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "system", content: systemPrompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_completion_tokens: 1000,
+  });
+
+  return JSON.parse(response.choices[0]?.message?.content || "{}");
+}
+
+// Phase 2: Parallel Sentence Generation
+async function generateSentencesForUnint(
+  type: "sense" | "idiom" | "collocation",
+  item: any, 
+  query: string, 
+  count: number
+): Promise<any> {
+  const target = type === "sense" ? `單字 "${query}" (當作 "${item.gloss_zh}" 解釋)` 
+               : type === "idiom" ? `慣用語 "${item.phrase}"`
+               : `搭配詞 "${item.phrase}"`;
+
+  const prompt = `請為 ${target} 造 ${count} 個英文例句。
+  
+要求：
+1. 例句要自然、實用，使用臺灣繁體中文翻譯。
+2. 標註難度 (A2-C1)、主題、長度。
+3. 格式 (JSON): { "examples": [{ "en": "...", "zh_tw": "...", "difficulty": "...", "topic": "...", "length": "..." }] }`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o", // Keep using gpt-4o for quality
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  return { ...item, examples: result.examples || [] };
+}
 
 export async function generateExampleSentences(
   query: string,
@@ -223,164 +290,68 @@ export async function generateExampleSentences(
   phraseCount: number = 1
 ): Promise<any> {
   try {
-    const systemPrompt = `你是英語教學專家，專門為學習者生成高品質、自然的例句。
-
-你的任務：
-1. 根據詞義（sense）、慣用語（idiom）、搭配詞（collocation）生成英文例句
-2. 為每個例句提供準確的繁體中文翻譯（臺灣用語）
-3. 標註每個例句的難度（A2/B1/B2/C1）、主題、長度
-
-規則：
-- 例句必須包含目標詞或其屈折形式
-- 慣用語/搭配詞必須整串完整出現
-- 難度分級：A2（基礎）、B1（進階）、B2（中高）、C1（高級）
-- 主題：daily-life, school, work, travel, health, tech, news, social
-- 長度：short (6-10詞)、medium (11-18詞)、long (19-28詞)
-- 同一詞義的例句不得使用完全相同的難度+主題+長度組合
-- 翻譯要自然、忠實，使用臺灣用語
-- 例句要實用、自然，避免生硬
-
-輸出格式：
-僅輸出單一 JSON 物件，不要額外文字。結構如下：
-
-{
-  "query": "查詢的單字",
-  "senses": [
-    {
-      "sense_id": "唯一ID",
-      "pos": "詞性（n./v./adj./adv./prep./phr./pron./aux.）",
-      "gloss_zh": "繁體中文翻譯（詞彙翻譯，如：創造；製造）",
-      "gloss": "英文簡短定義",
-      "examples": [
-        {
-          "en": "英文例句",
-          "zh_tw": "繁體中文翻譯",
-          "difficulty": "A2|B1|B2|C1",
-          "topic": "主題",
-          "length": "short|medium|long"
-        }
-      ]
-    }
-  ],
-  "idioms": [
-    {
-      "phrase": "慣用語完整片語",
-      "gloss_zh": "繁體中文翻譯（詞彙翻譯）",
-      "gloss": "英文意思",
-      "examples": [同上格式]
-    }
-  ],
-  "collocations": [
-    {
-      "phrase": "搭配詞",
-      "gloss_zh": "繁體中文翻譯（詞彙翻譯）",
-      "examples": [同上格式]
-    }
-  ]
-}
-
-範例：
-- create (verb) → gloss_zh: "創造；製造" （不是「製造或產生某物」）
-- happy (adj) → gloss_zh: "快樂的；高興的" （不是「感到快樂的狀態」）
-- break down (phr.v) → gloss_zh: "故障；崩潰" （不是「停止運作」）`;
-
-    const userPrompt = `請為「${query}」生成例句。
-
-要求：
-- 找出該詞的 2-3 個**真正不同的**詞義，每個詞義生成 ${sensesCount} 個例句
-- 找出 2-3 個常見慣用語（idiom），每個生成 ${phraseCount} 個例句
-- 找出 2-3 個常見搭配詞（collocation），每個生成 ${phraseCount} 個例句
-
-搭配詞（collocation）定義：
-- 如果「${query}」是**動詞**：
-  * 不及物動詞：返回常用的「介系詞搭配」（如 look at, look for, look after）
-  * 及物動詞：返回常搭配的「受詞」（如 make a decision, take action, give advice）
-- 如果「${query}」是**名詞**：
-  * 返回常搭配的「形容詞」（如 tough decision, final decision）
-  * 返回「以此名詞為受詞的動詞」（如 make a decision, reach a decision）
-
-如果該詞沒有常見的慣用語或搭配詞，可以返回空陣列。
-
-重要：不要重複相同意思的詞義！
-- 如果兩個詞義本質上是相同的（例如：「最近」和「近來」都表示 recently），只需要列出一個
-- 只有在詞義真正不同時才分開列出（例如：「set」作為動詞「設定」vs 作為名詞「集合」）
-
-重要：
-- gloss_zh 必須是「詞彙翻譯」，不是定義解釋
-  ✓ 正確：create → "創造；製造"
-  ✗ 錯誤：create → "製造或產生某物的行為"
-  ✓ 正確：traffic → "交通；車流"
-  ✗ 錯誤：traffic → "道路上的車輛移動"
-- 每個 sense 必須包含 gloss_zh（繁體中文翻譯）和 gloss（英文定義）
-- 每個 idiom 必須包含 gloss_zh（繁體中文翻譯）和 gloss（英文意思）
-- 每個 collocation 必須包含 gloss_zh（繁體中文翻譯）
-- 中文翻譯要簡潔，用分號分隔多個意思
-
-確保：
-1. 例句涵蓋不同難度（A2/B1/B2/C1）
-2. 例句涵蓋不同主題
-3. 例句有不同長度（short/medium/long）
-4. 翻譯準確自然，使用臺灣用語
-5. 輸出為標準 JSON，格式完全符合上述結構`;
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // 保持 4o：例句品質很重要
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-      max_completion_tokens: 2500,
-    });
-
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
+    console.log(`🚀 Starting parallel generation for "${query}"...`);
     
-    console.log(`✓ Generated examples for "${query}":`, {
-      senses: parsed.senses?.length || 0,
-      idioms: parsed.idioms?.length || 0,
-      collocations: parsed.collocations?.length || 0,
-    });
-    
-    return parsed;
-  } catch (error: any) {
-    console.error("Error generating example sentences:", error);
-    
-    // 提供更詳細的錯誤訊息
-    let errorMessage = "Failed to generate example sentences";
-    
-    if (error.response) {
-      // OpenAI API 回應錯誤
-      console.error("OpenAI API error response:", {
-        status: error.response.status,
-        data: error.response.data,
+    // Step 1: Get Structure (Fast)
+    const structure = await generateWordStructure(query, sensesCount, phraseCount);
+    console.log(`✓ Structure analyzed: ${structure.senses?.length || 0} senses, ${structure.idioms?.length || 0} idioms`);
+
+    // Step 2: Parallel Generation
+    const tasks: Promise<any>[] = [];
+
+    // Senses
+    if (structure.senses) {
+      structure.senses.forEach((sense: any) => {
+        tasks.push(generateSentencesForUnint("sense", sense, query, sensesCount));
       });
-      
-      if (error.response.status === 401) {
-        errorMessage = "OpenAI API 金鑰無效或過期，請檢查 .env 設定";
-      } else if (error.response.status === 429) {
-        errorMessage = "OpenAI API 配額用盡或請求過於頻繁，請稍後再試";
-      } else if (error.response.status === 500) {
-        errorMessage = "OpenAI API 伺服器錯誤，請稍後再試";
-      } else {
-        errorMessage = `OpenAI API 錯誤: ${error.response.data?.error?.message || error.message}`;
-      }
-    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      errorMessage = "無法連線到 OpenAI API，請檢查網路連線";
-    } else if (error.message) {
-      errorMessage = `例句生成失敗: ${error.message}`;
     }
+
+    // Idioms
+    if (structure.idioms) {
+      structure.idioms.forEach((idiom: any) => {
+        tasks.push(generateSentencesForUnint("idiom", idiom, query, phraseCount));
+      });
+    }
+
+    // Collocations
+    if (structure.collocations) {
+      structure.collocations.forEach((col: any) => {
+        tasks.push(generateSentencesForUnint("collocation", col, query, phraseCount));
+      });
+    }
+
+    // Wait for all
+    const rawResults = await Promise.all(tasks);
     
-    throw new Error(errorMessage);
+    // Sanitize Results
+    const sanitizedResults = rawResults.map((item: any) => ({
+      ...item,
+      examples: Array.isArray(item.examples) ? item.examples.map((ex: any) => ({
+        en: String(ex.en || ""),
+        zh_tw: String(ex.zh_tw || ex.zh || ""),
+        difficulty: String(ex.difficulty || "B1"),
+        topic: String(ex.topic || "daily-life"),
+        length: String(ex.length || "medium")
+      })) : []
+    }));
+
+    // Reassemble
+    const finalResponse = {
+      query,
+      senses: sanitizedResults.filter((r: any) => r.pos && r.gloss), 
+      idioms: sanitizedResults.filter((r: any) => r.phrase && r.gloss && !r.pos), 
+      collocations: sanitizedResults.filter((r: any) => r.phrase && !r.gloss && !r.pos), 
+    };
+
+    console.log(`✓ Parallel generation completed for "${query}"`);
+    return finalResponse;
+
+  } catch (error: any) {
+    console.error("Error in generateExampleSentences:", error);
+    throw new Error("Failed to generate example sentences");
   }
 }
+
 
 // ============================================
 // 3. FLASHCARDS: Generate Batch Definitions
@@ -589,127 +560,108 @@ export async function generateBatchDefinitions(
   }
 }
 
+
 // ============================================
-// 4. SYNONYMS: Generate Synonym Comparison
+// 4. SYNONYMS: Generate Synonym Comparison (Parallelized)
 // ============================================
+
+// Phase 1: Synonym Selection
+async function generateSynonymStructure(query: string): Promise<any> {
+  const systemPrompt = `你是英語詞彙專家。請為單字「${query}」找出同義字。
+
+你的任務：
+1. 找出 3-7 個真正的同義字 (Synonyms)
+2. 為每個同義字提供：詞性、相似度、繁體中文差異說明
+3. *絕對不要* 生成例句
+
+規則：
+- 按相似度由高到低排序
+- 差異說明要簡潔 (20-40字)
+
+輸出格式 (JSON Only):
+{
+  "synonyms": [
+    { 
+      "word": "...", 
+      "pos": "n./v./...", 
+      "similarity": 0.95, 
+      "difference_zh": "..." 
+    }
+  ]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "system", content: systemPrompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+    max_completion_tokens: 1000,
+  });
+
+  return JSON.parse(response.choices[0]?.message?.content || "{}");
+}
+
+// Phase 2: Parallel Example Generation for Synonyms
+async function generateSynonymExamples(synonym: any, query: string): Promise<any> {
+  const prompt = `請為同義字 "${synonym.word}" (相對於原字 "${query}" 的意思) 造 2 個英文例句。
+
+要求：
+1. 例句要能展現該同義字的特點，與 "${query}" 的細微差異。
+2. 提供繁體中文翻譯。
+3. 格式 (JSON): { "examples": [{ "en": "...", "zh_tw": "..." }] }`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o", // Keep using gpt-4o
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  return { ...synonym, examples: result.examples || [] };
+}
 
 export async function generateSynonymComparison(
   query: string
 ): Promise<any> {
   try {
-    const systemPrompt = `你是英語詞彙專家，專門幫助學習者理解同義字之間的細微差異。
+    console.log(`🚀 Starting parallel synonym generation for "${query}"...`);
 
-你的任務：
-1. 找出該單字的主要同義字（3-7 個，有多少算多少，不要強求）
-2. 為每個同義字說明與原字的主要差異（用繁體中文）
-3. 為每個同義字提供 2 個例句（英文 + 繁體中文翻譯）
+    // Step 1: Structure
+    const structure = await generateSynonymStructure(query);
+    console.log(`✓ Synonyms found: ${structure.synonyms?.length || 0}`);
 
-規則：
-- 同義字必須是真正的同義詞，不是相關詞
-- 按相似度由高到低排序（最相似的在前）
-- 如果該字的同義字不多，返回 3-5 個即可；如果很多，最多返回 7 個
-- 品質優先：寧可少而精，不要為了湊數而加入勉強的同義字
-- 差異說明要簡潔（20-40 字），用繁體中文（臺灣用語）
-- 例句要自然、實用，能清楚展現該同義字的特點
-- 例句的中文翻譯要準確、自然
-
-輸出格式：
-僅輸出單一 JSON 物件，不要額外文字。結構如下：
-
-{
-  "query": "查詢的單字",
-  "synonyms": [
-    {
-      "word": "同義字",
-      "pos": "詞性（n./v./adj./adv./prep./pron./aux./phr.）",
-      "similarity": 0.95,
-      "difference_zh": "與原字的主要差異（繁體中文說明）",
-      "examples": [
-        {
-          "en": "英文例句",
-          "zh_tw": "繁體中文翻譯"
-        },
-        {
-          "en": "英文例句",
-          "zh_tw": "繁體中文翻譯"
-        }
-      ]
+    if (!structure.synonyms || structure.synonyms.length === 0) {
+      return { query, synonyms: [] };
     }
-  ]
-}
 
-範例：
-查詢 "happy" 的同義字：
-- joyful (adj., 0.90) - 強調充滿喜悅，程度比 happy 更強烈
-- cheerful (adj., 0.85) - 強調樂觀開朗的態度，帶有積極向上的感覺
-- delighted (adj., 0.80) - 表示極度高興，通常因特定事件而感到愉悅
-- content (adj., 0.75) - 強調滿足、知足的狀態，較為平靜
-- pleased (adj., 0.70) - 表示對某事感到滿意或高興`;
+    // Step 2: Parallel Examples
+    const tasks = structure.synonyms.map((syn: any) => generateSynonymExamples(syn, query));
+    const rawResults = await Promise.all(tasks);
 
-    const userPrompt = `請為「${query}」找出同義字並說明差異。
+    // Sanitize Results
+    const sanitizedResults = rawResults.map((item: any) => ({
+      word: String(item.word || ""),
+      pos: String(item.pos || "unknown"),
+      similarity: typeof item.similarity === 'number' ? item.similarity : parseFloat(item.similarity) || 0.5,
+      difference_zh: String(item.difference_zh || item.difference || "無差異說明"),
+      examples: Array.isArray(item.examples) ? item.examples.map((ex: any) => ({
+        en: String(ex.en || ""),
+        zh_tw: String(ex.zh_tw || ex.zh || "")
+      })) : []
+    })).filter((item: any) => item.word && item.examples.length > 0); // Filter out empty results
 
-要求：
-- 找出 3-7 個真正的同義字（有多少算多少，不要硬湊）
-- 每個同義字必須標註詞性（pos: n., v., adj., adv., prep., pron., aux., phr.）
-- 按相似度由高到低排序（similarity: 0.0-1.0，最相似為 1.0）
-- 每個同義字提供繁體中文的差異說明（20-40字）
-- 每個同義字提供 2 個例句（英文 + 繁體中文翻譯）
-- 例句要能展現該同義字的特點和用法
-- 使用臺灣繁體中文用語
-- 品質優先：如果同義字不多，3-5 個也可以
+    const finalResponse = {
+      query,
+      synonyms: sanitizedResults
+    };
 
-輸出為標準 JSON，格式完全符合上述結構。`;
+    console.log(`✓ Parallel synonym generation completed for "${query}"`);
+    return finalResponse;
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o", // 保持 4o：同義詞比較需要深度語義理解
-      messages: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.7,
-      max_completion_tokens: 3000,
-    });
-
-    const content = response.choices[0]?.message?.content || "{}";
-    const parsed = JSON.parse(content);
-    
-    console.log(`✓ Generated ${parsed.synonyms?.length || 0} synonyms for "${query}"`);
-    
-    return parsed;
   } catch (error: any) {
     console.error("Error generating synonym comparison:", error);
-    
-    // 提供更詳細的錯誤訊息
-    let errorMessage = "Failed to generate synonym comparison";
-    
-    if (error.response) {
-      console.error("OpenAI API error response:", {
-        status: error.response.status,
-        data: error.response.data,
-      });
-      
-      if (error.response.status === 401) {
-        errorMessage = "OpenAI API 金鑰無效或過期，請檢查 .env 設定";
-      } else if (error.response.status === 429) {
-        errorMessage = "OpenAI API 配額用盡或請求過於頻繁，請稍後再試";
-      } else if (error.response.status === 500) {
-        errorMessage = "OpenAI API 伺服器錯誤，請稍後再試";
-      } else {
-        errorMessage = `OpenAI API 錯誤: ${error.response.data?.error?.message || error.message}`;
-      }
-    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-      errorMessage = "無法連線到 OpenAI API，請檢查網路連線";
-    } else if (error.message) {
-      errorMessage = `同義字生成失敗: ${error.message}`;
-    }
-    
-    throw new Error(errorMessage);
+    throw new Error("Failed to generate synonym comparison");
   }
 }
+

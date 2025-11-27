@@ -1,18 +1,22 @@
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { LanguageProvider } from "@/contexts/LanguageContext";
+import { LanguageProvider, useLanguage } from "@/contexts/LanguageContext";
 import { StartPageProvider, useStartPage } from "@/contexts/StartPageContext";
 import { IAPProvider } from "@/contexts/IAPContext";
 import { QueryProvider } from "@/contexts/QueryContext";
 import { useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Footer from "@/components/Footer";
+import { Button } from "@/components/ui/button";
+import { History } from "lucide-react";
 import { useEffect } from "react";
 import Query from "@/pages/Query";
+import HistoryPage from "@/pages/History";
+import HistoryDetail from "@/pages/HistoryDetail";
 import Flashcards from "@/pages/Flashcards";
 import FlashcardPractice from "@/pages/FlashcardPractice";
 import MindMaps from "@/pages/MindMaps";
@@ -59,14 +63,19 @@ function Router() {
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 
 function AuthenticatedRoutes() {
+  const [location, setLocation] = useLocation();
+  const { language } = useLanguage();
+
   return (
 
-  <div className="flex flex-col min-h-screen max-h-screen overflow-hidden">
+  <div className="relative flex flex-col min-h-screen max-h-screen overflow-hidden">
     <div className="flex-1 overflow-y-auto overflow-x-hidden">
       <EmailVerificationBanner />
       <Switch>
         <Route path="/landing" component={Landing} />
         <Route path="/query" component={Query} />
+        <Route path="/history" component={HistoryPage} />
+        <Route path="/history/:id" component={HistoryDetail} />
         <Route path="/flashcards/:id" component={FlashcardPractice} />
         <Route path="/flashcards" component={Flashcards} />
         <Route path="/mindmaps" component={MindMaps} />
@@ -79,6 +88,9 @@ function AuthenticatedRoutes() {
         <Route component={NotFound} />
       </Switch>
     </div>
+    
+    {/* History Button removed from here, moved to Query.tsx */}
+
     <div className="sticky inset-x-0 bottom-0 z-50">
       <Footer />
     </div>
@@ -152,12 +164,12 @@ function App() {
         <LanguageProvider>
           <IAPProvider>
             <QueryProvider>
-              <StartPageProvider>
-                <TooltipProvider>
-                  <Toaster />
-                  <Router />
-                </TooltipProvider>
-              </StartPageProvider>
+            <StartPageProvider>
+              <TooltipProvider>
+                <Toaster />
+                <Router />
+              </TooltipProvider>
+            </StartPageProvider>
             </QueryProvider>
           </IAPProvider>
         </LanguageProvider>

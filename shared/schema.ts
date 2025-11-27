@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, numeric, real, index } from "drizzle-orm/pg-core";
+import { pgTable, varchar, text, boolean, timestamp, jsonb, integer, numeric, real, index, foreignKey, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import { relations, sql } from "drizzle-orm";
 
@@ -133,10 +133,114 @@ export const flashcards = pgTable("flashcards", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// ===== CACHING & HISTORY SYSTEM =====
+
+// 1. 核心單字表
+export const words = pgTable("words", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  text: varchar("text", { length: 255 }).notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_words_text").on(table.text), // Add index for fast lookup
+]);
+
+// 2. 詞義表
+export const wordSenses = pgTable("word_senses", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  wordId: uuid("word_id").notNull().references(() => words.id, { onDelete: "cascade" }),
+  pos: varchar("pos", { length: 50 }).notNull(), // noun, verb, etc.
+  glossZh: text("gloss_zh").notNull(),
+  glossEn: text("gloss_en").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 3. 例句表
+export const examples = pgTable("examples", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  senseId: uuid("sense_id").references(() => wordSenses.id, { onDelete: "cascade" }),
+  // Optional: link to idiom/collocation if needed, but for now sense is primary
+  sentenceEn: text("sentence_en").notNull(),
+  sentenceZh: text("sentence_zh").notNull(),
+  source: varchar("source", { length: 50 }).default("ai"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 4. 同義詞表
+export const synonyms = pgTable("synonyms", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  wordId: uuid("word_id").notNull().references(() => words.id, { onDelete: "cascade" }),
+  synonymWord: varchar("synonym_word", { length: 255 }).notNull(),
+  pos: varchar("pos", { length: 50 }).default("unknown"), // New field for part of speech
+  difference: text("difference").notNull(),
+  sentenceEn: text("sentence_en").notNull(),
+  sentenceZh: text("sentence_zh").notNull(),
+  source: varchar("source", { length: 50 }).default("ai"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 5. 慣用語表 (Idioms)
+export const idioms = pgTable("idioms", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  wordId: uuid("word_id").notNull().references(() => words.id, { onDelete: "cascade" }),
+  phrase: varchar("phrase", { length: 255 }).notNull(),
+  glossZh: text("gloss_zh").notNull(),
+  glossEn: text("gloss_en").notNull(),
+  source: varchar("source", { length: 50 }).default("ai"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 6. 搭配詞表 (Collocations)
+export const collocations = pgTable("collocations", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  wordId: uuid("word_id").notNull().references(() => words.id, { onDelete: "cascade" }),
+  phrase: varchar("phrase", { length: 255 }).notNull(),
+  glossZh: text("gloss_zh").notNull(),
+  source: varchar("source", { length: 50 }).default("ai"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Link tables for many-to-many relations if needed, 
+// or just store examples for idioms/collocations in the examples table 
+// with a different FK or a type discriminator. 
+// For simplicity and strict typing, let's add separate tables for idiom/collocation examples
+// OR add nullable FKs to the main examples table. 
+// Let's modify `examples` table slightly to be polymorphic-ish or just add dedicated tables.
+// Dedicated tables are cleaner for SQL.
+
+export const idiomExamples = pgTable("idiom_examples", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  idiomId: uuid("idiom_id").notNull().references(() => idioms.id, { onDelete: "cascade" }),
+  sentenceEn: text("sentence_en").notNull(),
+  sentenceZh: text("sentence_zh").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const collocationExamples = pgTable("collocation_examples", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  collocationId: uuid("collocation_id").notNull().references(() => collocations.id, { onDelete: "cascade" }),
+  sentenceEn: text("sentence_en").notNull(),
+  sentenceZh: text("sentence_zh").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// 7. 查詢紀錄表
+export const searchHistory = pgTable("search_history", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  wordId: uuid("word_id").notNull().references(() => words.id, { onDelete: "cascade" }),
+  queryType: varchar("query_type", { length: 50 }).notNull(), // 'examples', 'synonyms'
+  snapshotData: jsonb("snapshot_data").notNull(), // Stores the exact IDs or structure returned
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_search_history_user").on(table.userId),
+  index("idx_search_history_created_at").on(table.createdAt),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   mindMaps: many(mindMaps),
   flashcardDecks: many(flashcardDecks),
+  searchHistory: many(searchHistory),
 }));
 
 export const mindMapsRelations = relations(mindMaps, ({ one }) => ({
@@ -161,7 +265,77 @@ export const flashcardsRelations = relations(flashcards, ({ one }) => ({
   }),
 }));
 
-// No relations for words table (standalone cache)
+// Caching relations
+export const wordsRelations = relations(words, ({ many }) => ({
+  senses: many(wordSenses),
+  synonyms: many(synonyms),
+  idioms: many(idioms),
+  collocations: many(collocations),
+  history: many(searchHistory),
+}));
+
+export const wordSensesRelations = relations(wordSenses, ({ one, many }) => ({
+  word: one(words, {
+    fields: [wordSenses.wordId],
+    references: [words.id],
+  }),
+  examples: many(examples),
+}));
+
+export const examplesRelations = relations(examples, ({ one }) => ({
+  sense: one(wordSenses, {
+    fields: [examples.senseId],
+    references: [wordSenses.id],
+  }),
+}));
+
+export const synonymsRelations = relations(synonyms, ({ one }) => ({
+  word: one(words, {
+    fields: [synonyms.wordId],
+    references: [words.id],
+  }),
+}));
+
+export const idiomsRelations = relations(idioms, ({ one, many }) => ({
+  word: one(words, {
+    fields: [idioms.wordId],
+    references: [words.id],
+  }),
+  examples: many(idiomExamples),
+}));
+
+export const idiomExamplesRelations = relations(idiomExamples, ({ one }) => ({
+  idiom: one(idioms, {
+    fields: [idiomExamples.idiomId],
+    references: [idioms.id],
+  }),
+}));
+
+export const collocationsRelations = relations(collocations, ({ one, many }) => ({
+  word: one(words, {
+    fields: [collocations.wordId],
+    references: [words.id],
+  }),
+  examples: many(collocationExamples),
+}));
+
+export const collocationExamplesRelations = relations(collocationExamples, ({ one }) => ({
+  collocation: one(collocations, {
+    fields: [collocationExamples.collocationId],
+    references: [collocations.id],
+  }),
+}));
+
+export const searchHistoryRelations = relations(searchHistory, ({ one }) => ({
+  user: one(users, {
+    fields: [searchHistory.userId],
+    references: [users.id],
+  }),
+  word: one(words, {
+    fields: [searchHistory.wordId],
+    references: [words.id],
+  }),
+}));
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
@@ -180,6 +354,9 @@ export type InsertFlashcardDeck = z.infer<typeof insertFlashcardDeckSchema>;
 export type DbFlashcard = typeof flashcards.$inferSelect;
 export type InsertFlashcard = z.infer<typeof insertFlashcardSchema>;
 
+// History types
+export type SearchHistory = typeof searchHistory.$inferSelect;
+
 // ===== EXAMPLE SENTENCE GENERATION TYPES =====
 
 // Difficulty levels (CEFR-based)
@@ -196,6 +373,7 @@ export const exampleTopics = [
   "tech",
   "news",
   "social",
+  "workplace",
 ] as const;
 export type ExampleTopic = typeof exampleTopics[number];
 
@@ -207,9 +385,9 @@ export type SentenceLength = typeof sentenceLengths[number];
 export const exampleSentenceSchema = z.object({
   en: z.string(),
   zh_tw: z.string(),
-  difficulty: z.enum(difficultyLevels),
-  topic: z.enum(exampleTopics),
-  length: z.enum(sentenceLengths),
+  difficulty: z.enum(difficultyLevels).optional(),
+  topic: z.enum(exampleTopics).optional(),
+  length: z.enum(sentenceLengths).optional(),
 });
 
 export type ExampleSentence = z.infer<typeof exampleSentenceSchema>;

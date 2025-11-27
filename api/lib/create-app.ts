@@ -5,7 +5,8 @@ import express, {
   type Response,
 } from "express";
 import cors, { type CorsOptions } from "cors";
-import { registerRoutes } from "../../server/routes.js";
+import { router as apiRoutes } from "../../server/routes/index.js";
+
 function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
@@ -48,57 +49,6 @@ export async function createApp(): Promise<Express> {
   const allAllowedOrigins = Array.from(
     new Set([...ALLOWED_ORIGINS, ...envOrigins])
   );
-
-  // const corsOptions: CorsOptions = {
-  //   origin(origin, callback) {
-  //     // Log the incoming origin for debugging
-  //     console.log(`[CORS] Request origin: ${origin || 'none'}`);
-  //
-  //     // Always allow requests with no origin (like mobile apps, curl, or same-origin)
-  //     if (!origin) {
-  //       console.log(`[CORS] Allowing request with no origin`);
-  //       return callback(null, true);
-  //     }
-  //
-  //     // Always allow the configured hostname
-  //     if (origin === "https://wevro.co" || origin === "https://www.wevro.co") {
-  //        return callback(null, true);
-  //     }
-  //
-  //     // Check if origin is in the allowed list
-  //     if (allAllowedOrigins.includes(origin)) {
-  //       console.log(`[CORS] ✅ Allowing origin: ${origin}`);
-  //       return callback(null, true);
-  //     }
-  //
-  //     // Allow any localhost port for development
-  //     if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:') || origin.startsWith('capacitor://localhost') || origin.startsWith('ionic://localhost')) {
-  //       console.log(`[CORS] ✅ Allowing localhost/mobile origin: ${origin}`);
-  //       return callback(null, true);
-  //     }
-  //     
-  //     // For now, in production, let's be permissive to debug the Android issue
-  //     // TODO: Revert this to strict checking once debugged
-  //     console.log(`[CORS] ⚠️ Permissive Allow: ${origin}`);
-  //     return callback(null, true); 
-  //
-  //     // Log rejected origin for debugging
-  //     // console.warn(`[CORS] ❌ Origin ${origin} is not allowed. Allowed origins: ${allAllowedOrigins.join(", ")}`);
-  //     // return callback(new Error(`Origin ${origin} is not allowed by CORS`));
-  //   },
-  //   credentials: true,
-  //   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  //   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  //   exposedHeaders: ['Content-Type', 'Authorization'],
-  // };
-  //
-  // const corsMiddleware = cors(corsOptions);
-  // 
-  // // Apply CORS middleware to all routes
-  // app.use(corsMiddleware);
-  // 
-  // // Explicitly handle OPTIONS requests for all routes (preflight)
-  // app.options("*", corsMiddleware);
 
   // MANUAL CORS MIDDLEWARE (To fix Android WebView issues)
   app.use((req, res, next) => {
@@ -165,8 +115,10 @@ export async function createApp(): Promise<Express> {
     next();
   });
 
-  await registerRoutes(app);
+  // Mount API routes
+  app.use("/api", apiRoutes);
 
+  // Fallback for undefined routes under /api
   app.use("/api", (req, res) => {
     res.status(404).json({
       message: "API route not found",

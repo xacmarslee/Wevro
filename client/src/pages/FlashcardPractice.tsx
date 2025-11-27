@@ -1,6 +1,6 @@
 import { useRoute, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { FlashcardView } from "@/components/FlashcardView";
+import { PracticeModeSwitch } from "@/components/PracticeModeSwitch";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -147,7 +147,7 @@ export default function FlashcardPractice() {
       </div>
 
       {/* Flashcard View */}
-      <FlashcardView
+      <PracticeModeSwitch
         cards={deckCards}
         deckId={deckId}
         onUpdateCard={handleUpdateCard}
