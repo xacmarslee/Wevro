@@ -103,10 +103,10 @@ export function DebugConsole() {
   if (!isOpen) {
     return (
       <Button
-        className="fixed bottom-24 right-4 z-[9999] rounded-full shadow-lg bg-black/80 hover:bg-black h-12 w-12 p-0"
+        className="fixed bottom-32 right-4 z-[9999] rounded-full shadow-lg bg-red-600 hover:bg-red-700 h-14 w-14 p-0 border-2 border-white"
         onClick={() => setIsOpen(true)}
       >
-        <Terminal className="h-6 w-6 text-white" />
+        <Terminal className="h-8 w-8 text-white" />
       </Button>
     );
   }
