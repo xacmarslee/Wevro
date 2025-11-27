@@ -77,7 +77,15 @@ function withAuthInit(init: RequestInit = {}): RequestInit {
 
 export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
   const resolvedInput = resolveRequestInfo(input);
-  return fetch(resolvedInput, withAuthInit(init));
+  try {
+    return await fetch(resolvedInput, withAuthInit(init));
+  } catch (error) {
+    console.error("[fetchWithAuth] Network/Fetch Error:", error, {
+      url: resolvedInput.toString(),
+      base: API_BASE_URL
+    });
+    throw error;
+  }
 }
 
 export async function fetchJsonWithAuth<T>(input: RequestInfo | URL, init: RequestInit = {}): Promise<T> {
