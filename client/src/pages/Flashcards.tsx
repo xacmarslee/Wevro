@@ -30,14 +30,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, Loader2, MoreVertical, Pencil, Trash2, Sparkles, Edit, X } from "lucide-react";
-import LogoText from "@/components/LogoText";
-import TokenDisplay from "@/components/TokenDisplay";
 import { apiRequest, fetchJsonWithAuth, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { trackFlashcardDeckCreated } from "@/lib/analytics";
 import type { FlashcardDeck } from "@shared/schema";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import Header from "@/components/Header";
 
 export default function Flashcards() {
   const { language } = useLanguage();
@@ -253,7 +253,7 @@ export default function Flashcards() {
   };
 
 return (
-  <div className="relative flex flex-col h-full">
+  <div className="h-full overflow-y-auto bg-background relative">
     {isMindMapGenerating && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="flex flex-col items-center gap-2 text-center">
@@ -268,20 +268,9 @@ return (
       </div>
     )}
 
-    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
-      <div className="px-6 py-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <LogoText className="text-xl sm:text-2xl font-bold text-primary shrink-0" />
-          <div className="h-6 w-px bg-border shrink-0" />
-          <h2 className="text-xl sm:text-2xl font-semibold whitespace-nowrap truncate">
-            {language === "en" ? "Flashcards" : "字卡"}
-          </h2>
-        </div>
-        <TokenDisplay variant="header" className="shrink-0" />
-      </div>
-    </div>
+    <Header title={language === "en" ? "Flashcards" : "字卡"} />
 
-    <div className="flex-1 px-6 pb-24 pt-6">
+    <div className="px-6 pb-32" style={{ paddingTop: '20px' }}>
       {!isAuthenticated || !authReady ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -700,6 +689,7 @@ return (
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <EmailVerificationBanner />
     </div>
   );
 }

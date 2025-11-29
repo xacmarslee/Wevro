@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Sparkles, ChevronDown, ChevronUp, History } from "lucide-react";
-import LogoText from "@/components/LogoText";
-import TokenDisplay from "@/components/TokenDisplay";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import Header from "@/components/Header";
 
 export default function Query() {
   const { language } = useLanguage();
@@ -63,23 +63,10 @@ export default function Query() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
-        <div className="px-6 py-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <LogoText className="text-xl sm:text-2xl font-bold text-primary shrink-0" />
-            <div className="h-6 w-px bg-border shrink-0" />
-            <h2 className="text-xl sm:text-2xl font-semibold whitespace-nowrap truncate">
-              {language === "en" ? "Query" : "查詢"}
-            </h2>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <TokenDisplay variant="header" />
-          </div>
-        </div>
-      </div>
+    <div className="h-full overflow-y-auto bg-background relative">
+      <Header title={language === "en" ? "Query" : "查詢"} />
 
-      <div className="flex-1 px-6 pb-24 pt-6 space-y-6 overflow-y-auto">
+      <div className="px-6 pb-32 space-y-6" style={{ paddingTop: '20px' }}>
         <div className="flex justify-center w-full">
           <Tabs
           value={mode}
@@ -193,7 +180,7 @@ export default function Query() {
                           <div className="space-y-2 ml-0">
                             {displayExamples.map((example, idx) => (
                               <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                                <p className="text-sm">{example.en}</p>
+                                <p className="text-sm font-serif">{example.en}</p>
                                 <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
                               </div>
                             ))}
@@ -236,7 +223,7 @@ export default function Query() {
                       return (
                         <div key={idiom.phrase} className="space-y-3">
                           <div>
-                            <p className="font-semibold">{idiom.phrase}</p>
+                            <p className="font-semibold font-serif">{idiom.phrase}</p>
                             <p className="text-base font-medium">{idiom.gloss_zh}</p>
                             <p className="text-sm text-muted-foreground italic">{idiom.gloss}</p>
                           </div>
@@ -244,7 +231,7 @@ export default function Query() {
                           <div className="space-y-2">
                             {displayExamples.map((example, idx) => (
                               <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                                <p className="text-sm">{example.en}</p>
+                                <p className="text-sm font-serif">{example.en}</p>
                                 <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
                               </div>
                             ))}
@@ -287,14 +274,14 @@ export default function Query() {
                       return (
                         <div key={collocation.phrase} className="space-y-3">
                           <div>
-                            <p className="font-semibold">{collocation.phrase}</p>
+                            <p className="font-semibold font-serif">{collocation.phrase}</p>
                             <p className="text-base font-medium">{collocation.gloss_zh}</p>
                           </div>
 
                           <div className="space-y-2">
                             {displayExamples.map((example, idx) => (
                               <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                                <p className="text-sm">{example.en}</p>
+                                <p className="text-sm font-serif">{example.en}</p>
                                 <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
                               </div>
                             ))}
@@ -350,7 +337,7 @@ export default function Query() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-baseline gap-2">
-                          <p className="text-lg font-semibold text-primary">{synonym.word}</p>
+                          <p className="text-lg font-semibold text-primary font-serif">{synonym.word}</p>
                           <span className="text-sm text-muted-foreground">{synonym.pos}</span>
                         </div>
                       </div>
@@ -360,7 +347,7 @@ export default function Query() {
                     <div className="space-y-2">
                       {synonym.examples.map((example, idx) => (
                         <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                          <p className="text-sm">{example.en}</p>
+                          <p className="text-sm font-serif">{example.en}</p>
                           <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
                         </div>
                       ))}
@@ -372,7 +359,8 @@ export default function Query() {
             </div>
           )}
       </div>
-    </div>
+      </div>
+      <EmailVerificationBanner />
     </div>
   );
 }

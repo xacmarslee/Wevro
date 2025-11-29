@@ -201,8 +201,8 @@ export default function Pricing() {
               <Badge variant="secondary" className="text-xs font-semibold">0.5 {language === "en" ? "token" : "點"}</Badge>
               <span className="text-sm">
                 {language === "en"
-                  ? "Mind map expansion (each successful expand, billed every two expands)"
-                  : "心智圖擴展（每次成功展開扣 0.5 點，兩次扣 1 點）"}
+                  ? "Mind map expansion"
+                  : "心智圖擴展"}
               </span>
             </div>
             <div className="flex items-center gap-2">

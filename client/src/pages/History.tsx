@@ -57,26 +57,25 @@ export default function HistoryPage() {
   });
 
   return (
-    <div className="flex flex-col h-full bg-background">
+    <div className="h-full overflow-y-auto bg-background relative">
       {/* Header */}
-      <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
-        <div className="px-6 py-4 flex items-center gap-3">
+      <div className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/50 safe-area-top">
+        <div className="px-6 py-4 flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="-ml-2"
             onClick={() => setLocation("/query")}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h2 className="text-xl font-semibold">
+          <h1 className="text-2xl font-bold">
             {language === "en" ? "History" : "查詢紀錄"}
-          </h2>
+          </h1>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="p-6 pb-32" style={{ paddingTop: '20px' }}>
         {isLoading ? (
           <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
             <p>{language === "en" ? "Loading..." : "載入中..."}</p>

@@ -31,11 +31,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Plus, Loader2, MoreVertical, Pencil, Trash2, Sparkles } from "lucide-react";
-import LogoText from "@/components/LogoText";
-import TokenDisplay from "@/components/TokenDisplay";
 import { format } from "date-fns";
 import { apiRequest, fetchJsonWithAuth, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import Header from "@/components/Header";
 
 export default function MindMaps() {
   const [, setLocation] = useLocation();
@@ -150,21 +150,10 @@ export default function MindMaps() {
   };
 
 return (
-  <div className="flex flex-col h-full">
-    <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
-      <div className="px-6 py-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <LogoText className="text-xl sm:text-2xl font-bold text-primary shrink-0" />
-          <div className="h-6 w-px bg-border shrink-0" />
-          <h2 className="text-xl sm:text-2xl font-semibold whitespace-nowrap truncate">
-            {language === "en" ? "Mind Maps" : "心智圖"}
-          </h2>
-        </div>
-        <TokenDisplay variant="header" className="shrink-0" />
-      </div>
-    </div>
+  <div className="h-full overflow-y-auto bg-background relative">
+    <Header title={language === "en" ? "Mind Maps" : "心智圖"} />
 
-    <div className="flex-1 px-6 pb-24 pt-6">
+    <div className="px-6 pb-32" style={{ paddingTop: '20px' }}>
 
       {!isAuthenticated || !authReady ? (
         <div className="flex items-center justify-center py-12">
@@ -333,6 +322,7 @@ return (
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <EmailVerificationBanner />
     </div>
   );
 }

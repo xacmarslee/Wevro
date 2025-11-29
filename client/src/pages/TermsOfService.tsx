@@ -13,14 +13,14 @@ export default function TermsOfService() {
   const [, setLocation] = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-full overflow-y-auto bg-background relative">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-background border-b safe-area-top">
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/50 border-b safe-area-top">
         <div className="container mx-auto px-4 py-4 flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setLocation("/")}
+            onClick={() => setLocation("/settings")}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -31,7 +31,7 @@ export default function TermsOfService() {
       </div>
 
       {/* Content */}
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-8 pb-32 max-w-4xl">
         <div className="prose prose-slate dark:prose-invert max-w-none">
           {language === "en" ? <EnglishTerms /> : <ChineseTerms />}
         </div>

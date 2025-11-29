@@ -38,6 +38,10 @@ export default function Footer() {
   ];
 
   const isActive = (path: string) => {
+    if (path === "/query") {
+      // Query includes history pages
+      return location === path || location === "/history" || location.startsWith("/history/");
+    }
     if (path === "/mindmaps") {
       // Mind maps is the default route, so "/" should also activate it
       return location === path || location === "/" || location.startsWith("/mindmap/");
@@ -47,14 +51,14 @@ export default function Footer() {
       return location === path || location.startsWith("/flashcards/");
     }
     if (path === "/settings") {
-      // Settings includes pricing and account sub-pages
-      return location === path || location === "/pricing" || location === "/account";
+      // Settings includes pricing, account, privacy-policy, and terms-of-service sub-pages
+      return location === path || location === "/pricing" || location === "/account" || location === "/privacy-policy" || location === "/terms-of-service";
     }
     return location === path;
   };
 
   return (
-    <footer className="border-t bg-card">
+    <footer className="bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/50">
       <nav className="flex items-center justify-around h-16 max-w-2xl mx-auto px-4">
         {navItems.map((item) => {
           const Icon = item.icon;

@@ -14,6 +14,7 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { History } from "lucide-react";
 import { useEffect } from "react";
+import type { ReactNode } from "react";
 import Query from "@/pages/Query";
 import HistoryPage from "@/pages/History";
 import HistoryDetail from "@/pages/HistoryDetail";
@@ -40,9 +41,17 @@ function Router() {
   // Public routes accessible without authentication
   return (
     <Switch>
-      {/* Public routes */}
-      <Route path="/privacy-policy" component={PrivacyPolicy} />
-      <Route path="/terms-of-service" component={TermsOfService} />
+      {/* Public routes with footer */}
+      <Route path="/privacy-policy">
+        <PublicRouteWithFooter>
+          <PrivacyPolicy />
+        </PublicRouteWithFooter>
+      </Route>
+      <Route path="/terms-of-service">
+        <PublicRouteWithFooter>
+          <TermsOfService />
+        </PublicRouteWithFooter>
+      </Route>
       
       {/* Protected routes */}
       <Route>
@@ -60,7 +69,18 @@ function Router() {
   );
 }
 
-import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+function PublicRouteWithFooter({ children }: { children: ReactNode }) {
+  return (
+    <div className="relative flex flex-col h-[100dvh] overflow-hidden">
+      <div className="flex-1 overflow-hidden relative">
+        {children}
+      </div>
+      <div className="z-50 border-t fixed bottom-0 left-0 right-0">
+        <Footer />
+      </div>
+    </div>
+  );
+}
 
 function AuthenticatedRoutes() {
   const [location, setLocation] = useLocation();
@@ -70,7 +90,6 @@ function AuthenticatedRoutes() {
 
   <div className="relative flex flex-col h-[100dvh] overflow-hidden">
     <div className="flex-1 overflow-hidden relative">
-      <EmailVerificationBanner />
       <Switch>
         <Route path="/landing" component={Landing} />
         <Route path="/query" component={Query} />
@@ -91,7 +110,7 @@ function AuthenticatedRoutes() {
     
     {/* History Button removed from here, moved to Query.tsx */}
 
-    <div className="z-50 bg-background border-t">
+    <div className="z-50 border-t fixed bottom-0 left-0 right-0">
       <Footer />
     </div>
   </div>

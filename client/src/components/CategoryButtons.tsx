@@ -34,7 +34,7 @@ export function CategoryButtons({
   };
 
   return (
-    <div className="sticky top-16 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="sticky top-16 z-40 w-full border-b bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container px-4 py-4">
         <div 
           ref={scrollContainerRef}
@@ -58,7 +58,7 @@ export function CategoryButtons({
                 onClick={() => onSelectCategory(category)}
                 disabled={disabled || loading}
                 data-testid={`button-category-${category}`}
-                className="whitespace-nowrap font-medium border-2"
+                className="whitespace-nowrap font-medium border shadow-sm hover:shadow-md transition-all"
                 style={{
                   borderColor: color,
                   color: color,

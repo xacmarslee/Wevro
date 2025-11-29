@@ -69,16 +69,16 @@ export default function HistoryDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur safe-area-top">
-          <div className="px-6 py-4 flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setLocation("/history")}>
+      <div className="h-full overflow-y-auto bg-background relative">
+        <div className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/50 safe-area-top">
+          <div className="px-6 py-4 flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setLocation("/history")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h2 className="text-xl font-semibold">{language === "en" ? "History Detail" : "紀錄詳情"}</h2>
+            <h1 className="text-2xl font-bold">{language === "en" ? "History Detail" : "紀錄詳情"}</h1>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex items-center justify-center" style={{ paddingTop: '20px', minHeight: 'calc(100vh - 73px)' }}>
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
@@ -87,16 +87,16 @@ export default function HistoryDetail() {
 
   if (error || !data) {
     return (
-      <div className="flex flex-col h-full bg-background">
-        <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur safe-area-top">
-          <div className="px-6 py-4 flex items-center gap-3">
-             <Button variant="ghost" size="icon" className="-ml-2" onClick={() => setLocation("/history")}>
+      <div className="h-full overflow-y-auto bg-background relative">
+        <div className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/50 safe-area-top">
+          <div className="px-6 py-4 flex items-center gap-4">
+             <Button variant="ghost" size="icon" onClick={() => setLocation("/history")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h2 className="text-xl font-semibold">{language === "en" ? "Error" : "錯誤"}</h2>
+            <h1 className="text-2xl font-bold">{language === "en" ? "Error" : "錯誤"}</h1>
           </div>
         </div>
-        <div className="flex-1 flex items-center justify-center p-6 text-center">
+        <div className="flex items-center justify-center p-6 text-center" style={{ paddingTop: '20px', minHeight: 'calc(100vh - 73px)' }}>
             <p className="text-muted-foreground">
               {language === "en" ? "Failed to load history detail." : "無法載入紀錄詳情。"}
             </p>
@@ -113,24 +113,23 @@ export default function HistoryDetail() {
   const synonymsData = !isExamples ? (data as SynonymComparisonResponse) : null;
 
   return (
-    <div className="flex flex-col h-full bg-background">
-       <div className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 safe-area-top">
-        <div className="px-6 py-4 flex items-center gap-3">
+    <div className="h-full overflow-y-auto bg-background relative">
+       <div className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/50 safe-area-top">
+        <div className="px-6 py-4 flex items-center gap-4">
           <Button
             variant="ghost"
             size="icon"
-            className="-ml-2"
             onClick={() => setLocation("/history")}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h2 className="text-xl font-semibold">
+          <h1 className="text-2xl font-bold">
              {data.query}
-          </h2>
+          </h1>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="p-6 pb-32 space-y-6" style={{ paddingTop: '20px' }}>
         {isExamples && examplesData && (
           <>
             {/* Senses */}

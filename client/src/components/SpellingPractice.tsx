@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { motion, AnimatePresence } from "framer-motion";
-import { RotateCcw, Shuffle, Check, X as XIcon, CornerDownLeft } from "lucide-react";
+import { RotateCcw, Shuffle, Check, X as XIcon, CornerDownLeft, Lightbulb } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTranslation } from "@/lib/i18n";
 
@@ -122,6 +122,24 @@ export function SpellingPractice({
       setShuffleMode(false);
     }
     handleReset();
+  };
+
+  const handleHint = () => {
+    if (!currentCard) return;
+    const firstLetter = currentCard.word.charAt(0);
+    // 如果輸入框已經是該字母開頭，就不做任何事，或者可以選擇總是重置為第一個字母
+    // 根據需求：提示第一個字母
+    setSpellingInput(firstLetter);
+    
+    // 讓輸入框重新獲得焦點 (Optional, but good UX)
+    const input = document.querySelector('input[type="text"]') as HTMLInputElement;
+    if (input) {
+      input.focus();
+      // 將游標移動到文字最後
+      setTimeout(() => {
+        input.setSelectionRange(1, 1);
+      }, 0);
+    }
   };
 
   const handleCheck = () => {
@@ -319,7 +337,7 @@ export function SpellingPractice({
           </AnimatePresence>
 
           <div className="mt-6 space-y-4">
-            <div className="flex gap-3">
+            <div className="space-y-4">
               <Input
                 value={spellingInput}
                 onChange={(e) => setSpellingInput(e.target.value)}
@@ -329,7 +347,7 @@ export function SpellingPractice({
                   }
                 }}
                 placeholder={language === "en" ? "Type the word..." : "輸入單字..."}
-                className={`text-lg font-mono ${
+                className={`h-10 ${
                   feedback?.type === "correct"
                     ? "border-green-600 dark:border-green-500"
                     : feedback?.type === "incorrect"
@@ -339,16 +357,28 @@ export function SpellingPractice({
                 disabled={isProcessing}
                 autoFocus
               />
-              <Button
-                onClick={handleCheck}
-                disabled={!spellingInput.trim() || isProcessing}
-                size="icon"
-                className="h-10 w-10"
-              >
-                <CornerDownLeft className="h-5 w-5" />
-              </Button>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={handleHint}
+                  disabled={isProcessing}
+                  className="w-1/3"
+                  title={language === "en" ? "Show hint" : "顯示提示"}
+                >
+                  <Lightbulb className="h-4 w-4 mr-2" />
+                  {language === "en" ? "Hint" : "提示"}
+                </Button>
+                <Button
+                  onClick={handleCheck}
+                  disabled={!spellingInput.trim() || isProcessing}
+                  className="flex-1"
+                >
+                  <span>{language === "en" ? "Check Answer" : "檢查答案"}</span>
+                  <CornerDownLeft className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            
+
             {feedback && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}

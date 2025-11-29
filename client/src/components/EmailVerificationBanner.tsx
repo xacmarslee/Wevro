@@ -109,6 +109,7 @@ export function EmailVerificationBanner() {
         description: language === "en" 
           ? "Please check your inbox (and spam folder)." 
           : "請檢查您的信箱（包含垃圾郵件夾）。",
+        duration: 2000,
       });
     } catch (error: any) {
       toast({
@@ -122,15 +123,16 @@ export function EmailVerificationBanner() {
   if (!showVerificationBanner) return null;
 
   return (
-    <div className="px-4 pt-4 md:px-6 md:pt-6">
-      <Card className="bg-yellow-500/10 border-yellow-500/20 text-yellow-700 dark:text-yellow-500">
-        <CardContent className="pt-4 flex items-start gap-3">
-          <Gift className="h-5 w-5 shrink-0 mt-0.5" />
+    <div className="fixed bottom-[65px] left-0 right-0 z-30 p-4 md:p-6 pointer-events-none">
+      <div className="max-w-2xl mx-auto w-full pointer-events-auto">
+        <Card className="bg-yellow-500/90 backdrop-blur-sm border-yellow-500/20 text-yellow-950 shadow-lg">
+          <CardContent className="pt-4 flex items-start gap-3">
+          <Gift className="h-5 w-5 shrink-0 mt-0.5 text-yellow-950" />
           <div className="flex-1">
-            <p className="font-semibold">
-              {language === "en" ? "🎁 Verify your Email to get 20 FREE Tokens!" : "🎁 驗證 Email 即可獲得 20 免費點數！"}
+            <p className="font-semibold text-yellow-950">
+              {language === "en" ? "🎁 Verify your Email to get 20 FREE Tokens!" : "驗證 Email 即可獲得 20 免費點數！"}
             </p>
-            <p className="text-sm mt-1">
+            <p className="text-sm mt-1 text-yellow-950/90">
               {language === "en" ? "Unlock full features and prevent account loss. Check your inbox (including spam)." : "解鎖完整功能並避免帳號丟失。請檢查您的信箱（包含垃圾郵件夾）。"}
             </p>
             <div className="flex gap-2 mt-3">
@@ -139,7 +141,7 @@ export function EmailVerificationBanner() {
                 variant="secondary"
                 onClick={handleSendVerificationEmail}
                 disabled={resendCooldown > 0}
-                className="text-xs bg-yellow-600 hover:bg-yellow-700 text-white"
+                className="text-xs bg-yellow-700 hover:bg-yellow-800 text-white border-transparent"
               >
                 {resendCooldown > 0 ? (
                   <>
@@ -157,7 +159,7 @@ export function EmailVerificationBanner() {
                 size="sm"
                 variant="ghost"
                 onClick={() => setShowVerificationBanner(false)}
-                className="text-xs text-yellow-700 dark:text-yellow-500 hover:bg-yellow-500/20"
+                className="text-xs text-yellow-950 hover:bg-yellow-600/20"
               >
                 <X className="h-3 w-3 mr-1" />
                 {language === "en" ? "Dismiss" : "關閉"}
@@ -166,6 +168,7 @@ export function EmailVerificationBanner() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
