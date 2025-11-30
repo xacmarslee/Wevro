@@ -11,6 +11,8 @@ import { EXPORT } from "@/utils/mindmap/constants";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+import { Capacitor } from "@capacitor/core";
 
 export function useMindMapExport() {
   const { theme } = useTheme();
@@ -241,23 +243,80 @@ export function useMindMapExport() {
       // 清理臨時容器
       document.body.removeChild(tempContainer);
       
-      // 下載圖片
-      const link = document.createElement('a');
+      // 生成文件名
       const filename = centerNode 
         ? `${centerNode.word}-Wevro-mindmap.png` 
         : 'mindmap.png';
       
-      link.download = filename;
+      // 檢測是否在 Capacitor 環境中
+      const isCapacitor = Capacitor.isNativePlatform();
+      
       try {
-        link.href = canvas.toDataURL('image/png');
-        link.click();
-      } catch (dataUrlError) {
-        console.error('toDataURL error:', dataUrlError);
+        // 將 canvas 轉換為 base64
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64Data = dataUrl.split(',')[1]; // 移除 data:image/png;base64, 前綴
+        
+        if (isCapacitor) {
+          // 在 Capacitor 環境中使用 Filesystem API
+          console.log('[Export] Using Capacitor Filesystem API');
+          
+          try {
+            // 嘗試保存到 Downloads 目錄（用戶更容易找到）
+            // 如果失敗，回退到 Documents 目錄
+            let result;
+            let savePath = '';
+            
+            try {
+              result = await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: Directory.ExternalStorage,
+                recursive: true,
+              });
+              savePath = `Downloads/${filename}`;
+            } catch (externalError) {
+              // 如果外部存儲失敗，使用 Documents 目錄
+              console.log('[Export] External storage failed, using Documents directory');
+              result = await Filesystem.writeFile({
+                path: filename,
+                data: base64Data,
+                directory: Directory.Documents,
+                recursive: true,
+              });
+              savePath = `Documents/${filename}`;
+            }
+            
+            console.log('[Export] File saved successfully:', result.uri);
+            
+            toast({
+              title: language === "en" ? "Export successful" : "匯出成功",
+              variant: "default",
+            });
+          } catch (filesystemError: any) {
+            console.error('[Export] Filesystem error:', filesystemError);
+            toast({
+              title: language === "en" ? "Export failed" : "匯出失敗",
+              variant: "destructive",
+            });
+            return;
+          }
+        } else {
+          // 在 Web 環境中使用傳統的下載方式
+          console.log('[Export] Using web download method');
+          
+          const link = document.createElement('a');
+          link.download = filename;
+          link.href = dataUrl;
+          
+          // 將 link 添加到 DOM 並觸發點擊（某些瀏覽器需要）
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+      } catch (dataUrlError: any) {
+        console.error('[Export] toDataURL error:', dataUrlError);
         toast({
           title: language === "en" ? "Export failed" : "匯出失敗",
-          description: language === "en" 
-            ? "Failed to generate image data" 
-            : "無法生成圖片數據",
           variant: "destructive",
         });
         return;
