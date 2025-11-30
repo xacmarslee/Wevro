@@ -242,6 +242,17 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     try {
       const platform = Capacitor.getPlatform();
       
+      // DEBUG: Log all inputs to track down productId loss
+      console.log('[DEBUG] handlePurchaseSuccess called', {
+        arg_originalProductId: originalProductId,
+        arg_originalProductIdType: typeof originalProductId,
+        arg_originalProductIdLength: originalProductId?.length,
+        transaction_productIdentifier: transaction?.productIdentifier,
+        transaction_productIdentifierType: typeof transaction?.productIdentifier,
+        transactionKeys: transaction ? Object.keys(transaction) : 'no transaction',
+        fullTransaction: transaction,
+      });
+      
       // CRITICAL: Always prioritize originalProductId (the one we requested to purchase)
       // Google Play may return Base Plan ID for subscriptions or incorrect format
       // The originalProductId is the one we know is correct and matches our backend mapping
@@ -293,7 +304,12 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
       // Validate productId before sending
       if (!productId || productId.trim() === '') {
-        console.error('IAP: productId is empty or invalid:', productId);
+        console.error('IAP: productId is empty or invalid after all fallbacks:', {
+          productId,
+          originalProductId,
+          transactionProductIdentifier: transaction.productIdentifier,
+          transactionKeys: Object.keys(transaction),
+        });
         toast({
           title: 'Verification Error',
           description: 'Product ID is missing. Please contact support with your transaction ID.',
@@ -303,17 +319,29 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // DEBUG: Log request body before sending
+      const requestBody = {
+        platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
+        productId: productId.trim(), // Ensure no whitespace
+        transactionId: transaction.transactionId,
+        purchaseToken: transaction.purchaseToken || transaction.receipt,
+        receipt: transaction.receipt, // Also send receipt for backwards compatibility
+        orderId: transaction.orderId,
+      };
+      
+      console.log('[DEBUG] About to send verification request:', {
+        productId: requestBody.productId,
+        productIdType: typeof requestBody.productId,
+        productIdLength: requestBody.productId?.length,
+        hasPurchaseToken: !!requestBody.purchaseToken,
+        purchaseTokenLength: requestBody.purchaseToken?.length,
+        fullRequestBody: requestBody,
+      });
+
       // Send receipt to backend for verification
       const response = await fetchWithAuth('/api/billing/verify', {
         method: 'POST',
-        body: JSON.stringify({
-          platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
-          productId: productId.trim(), // Ensure no whitespace
-          transactionId: transaction.transactionId,
-          purchaseToken: transaction.purchaseToken || transaction.receipt,
-          receipt: transaction.receipt, // Also send receipt for backwards compatibility
-          orderId: transaction.orderId,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const responseData = await response.json().catch(() => ({}));
@@ -409,7 +437,25 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const purchase = async (productId: string) => {
-    console.log('[IAP] purchase() called with productId:', productId);
+    // DEBUG: Validate productId parameter at function entry
+    if (!productId || typeof productId !== 'string' || productId.trim() === '') {
+      console.error('[IAP] CRITICAL: purchase() called with invalid productId:', {
+        productId,
+        productIdType: typeof productId,
+        productIdValue: productId,
+      });
+      toast({
+        title: 'Purchase Error',
+        description: 'Invalid product ID. Please try again or contact support.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Store original productId in a const to prevent accidental overwriting
+    const requestedProductId = productId.trim();
+    
+    console.log('[IAP] purchase() called with productId:', requestedProductId);
     console.log('[IAP] isSupported:', isSupported, 'isLoading:', isLoading);
     
     if (!isSupported) {
@@ -429,22 +475,22 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     }
 
     const platform = Capacitor.getPlatform();
-    const isSubscription = productId === PRODUCT_IDS.PRO_MONTHLY;
+    const isSubscription = requestedProductId === PRODUCT_IDS.PRO_MONTHLY;
     const productType = isSubscription ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP;
 
     // Check if product exists in loaded products
-    let product = products.find(p => p.identifier === productId);
+    let product = products.find(p => p.identifier === requestedProductId);
     
     // If product not found in loaded products, try to fetch it directly
     // This handles cases where state hasn't updated yet or product list is empty
     if (!product) {
-      console.warn(`IAP: Product ${productId} not found in loaded products. Attempting to fetch directly...`);
+      console.warn(`IAP: Product ${requestedProductId} not found in loaded products. Attempting to fetch directly...`);
       console.log('IAP: Currently loaded products:', products.map(p => p.identifier));
       
       try {
         // Try to fetch the product directly from Google Play
         const productResult = await NativePurchases.getProduct({
-          productIdentifier: productId,
+          productIdentifier: requestedProductId,
           productType: productType,
         });
         product = productResult.product;
@@ -458,7 +504,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         console.error('IAP: Failed to fetch product directly:', fetchError?.message || fetchError);
         toast({
           title: 'Product not found',
-          description: `Could not find product: ${productId}. Please check Google Play Console configuration.`,
+          description: `Could not find product: ${requestedProductId}. Please check Google Play Console configuration.`,
           variant: 'destructive',
         });
         return;
@@ -467,10 +513,10 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
     // Final check - if still no product, fail
     if (!product) {
-      console.error(`IAP: Product ${productId} still not available after fetch attempt`);
+      console.error(`IAP: Product ${requestedProductId} still not available after fetch attempt`);
       toast({
         title: 'Product not found',
-        description: `Product ${productId} is not available. Available: ${products.map(p => p.identifier).join(', ') || 'none'}`,
+        description: `Product ${requestedProductId} is not available. Available: ${products.map(p => p.identifier).join(', ') || 'none'}`,
         variant: 'destructive',
       });
       return;
@@ -482,7 +528,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     try {
       // For subscriptions, use the subscription product ID (not the Base Plan ID)
       // The loaded product identifier might be the Base Plan ID, but we need to use the subscription ID
-      const purchaseProductId = isSubscription ? productId : finalProduct.identifier;
+      const purchaseProductId = isSubscription ? requestedProductId : finalProduct.identifier;
       
       const purchaseParams: any = {
         productIdentifier: purchaseProductId,
@@ -501,7 +547,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       }
       
       console.log('IAP: Purchasing product:', {
-        requestedProductId: productId,
+        requestedProductId: requestedProductId, // Use the const we saved
         purchaseProductId: purchaseProductId,
         loadedProductIdentifier: finalProduct.identifier,
         productTitle: finalProduct.title,
@@ -522,14 +568,15 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           name: purchaseError?.name,
           stack: purchaseError?.stack,
           purchaseParams: purchaseParams,
-          productId: productId,
+          requestedProductId: requestedProductId, // Use the const we saved
         });
         throw purchaseError; // Re-throw to be handled by outer catch
       }
 
       console.log('IAP: Purchase transaction received', {
+        requestedProductId: requestedProductId, // Log the original requested ID
         transactionId: transaction.transactionId,
-        productId: transaction.productIdentifier,
+        transactionProductIdentifier: transaction.productIdentifier,
         purchaseState: transaction.purchaseState,
         purchaseToken: transaction.purchaseToken,
         orderId: transaction.orderId,
@@ -567,9 +614,18 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         console.log('IAP: Purchase state is PURCHASED, proceeding with verification');
       }
 
-      // Handle purchase success - pass the original productId as fallback
+      // DEBUG: Log before calling handlePurchaseSuccess to ensure productId is preserved
+      console.log('[DEBUG] About to call handlePurchaseSuccess with:', {
+        requestedProductId: requestedProductId,
+        requestedProductIdType: typeof requestedProductId,
+        requestedProductIdLength: requestedProductId?.length,
+        transactionProductIdentifier: transaction.productIdentifier,
+      });
+
+      // Handle purchase success - pass the original requestedProductId
+      // CRITICAL: Use requestedProductId (the const we saved) to ensure it's never lost
       // Use the requested productId (not purchaseProductId) as it's the one we want to verify
-      await handlePurchaseSuccess(transaction, productId);
+      await handlePurchaseSuccess(transaction, requestedProductId);
 
       // For consumable products with autoAcknowledgePurchases: true, the plugin should automatically consume
       // But we still need to manually acknowledge for subscriptions
