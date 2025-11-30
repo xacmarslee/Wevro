@@ -14,11 +14,19 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
     const { platform, productId, transactionId, purchaseToken, receipt, orderId } = req.body;
 
     // Validate required fields
-    if (!productId) {
-      console.error('❌ Missing productId in request:', req.body);
+    if (!productId || productId.trim() === '') {
+      console.error('❌ Missing or empty productId in request:', {
+        productId,
+        productIdType: typeof productId,
+        fullBody: req.body,
+        bodyKeys: Object.keys(req.body),
+      });
       return res.status(400).json({ 
-        error: "Missing productId",
-        received: req.body
+        error: "Missing product ID",
+        message: "Product ID is required but was not provided or is empty",
+        received: req.body,
+        transactionId: transactionId || 'N/A',
+        orderId: orderId || 'N/A',
       });
     }
 

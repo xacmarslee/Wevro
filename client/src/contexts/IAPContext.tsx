@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchWithAuth } from '@/lib/queryClient';
+import { useQueryClient } from '@tanstack/react-query';
 import { Capacitor } from '@capacitor/core';
 import { NativePurchases, PURCHASE_TYPE, type Product, type Transaction } from '@capgo/native-purchases';
 
@@ -34,6 +35,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSupported, setIsSupported] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
@@ -150,7 +152,9 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     if (Capacitor.getPlatform() === 'ios') {
       NativePurchases.addListener('transactionUpdated', async (transaction: Transaction) => {
         console.log('IAP: Transaction updated (iOS)', transaction);
-        await handlePurchaseSuccess(transaction);
+        // For iOS, try to get productId from transaction or use productIdentifier
+        const productId = transaction.productIdentifier || (transaction as any).productId;
+        await handlePurchaseSuccess(transaction, productId);
       }).catch((err) => {
         console.error('IAP: Failed to set up transaction listener', err);
       });
@@ -164,11 +168,41 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const handlePurchaseSuccess = async (transaction: Transaction) => {
+  // Store the original productId when purchase is initiated, so we can use it if transaction.productIdentifier is missing
+  const purchaseProductIdMap = new Map<string, string>();
+  
+  const handlePurchaseSuccess = async (transaction: Transaction, originalProductId?: string) => {
     try {
       const platform = Capacitor.getPlatform();
       // Use productIdentifier from transaction (this is what Google Play/Apple actually returned)
-      const productId = transaction.productIdentifier;
+      // If productIdentifier is missing, use the original productId from purchase request
+      let productId = transaction.productIdentifier;
+      
+      // Fallback: If productIdentifier is missing, use the original productId from purchase
+      if (!productId || productId.trim() === '') {
+        console.warn('IAP: productIdentifier is missing from transaction, using original productId');
+        productId = originalProductId || 
+                   (transaction as any).productId || 
+                   (transaction as any).product_id || 
+                   (transaction as any).sku || 
+                   null;
+        
+        if (!productId) {
+          console.error('IAP: Cannot determine productId from transaction:', {
+            transaction,
+            originalProductId,
+            transactionKeys: Object.keys(transaction),
+          });
+          toast({
+            title: 'Verification Error',
+            description: 'Cannot determine product ID from purchase. Please contact support with your transaction ID.',
+            variant: 'destructive',
+            duration: 10000,
+          });
+          return;
+        }
+        console.log('IAP: Using fallback productId:', productId);
+      }
 
       console.log('IAP: Starting verification process', {
         productId,
@@ -181,12 +215,24 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         fullTransaction: transaction, // Log full transaction for debugging
       });
 
+      // Validate productId before sending
+      if (!productId || productId.trim() === '') {
+        console.error('IAP: productId is empty or invalid:', productId);
+        toast({
+          title: 'Verification Error',
+          description: 'Product ID is missing. Please contact support with your transaction ID.',
+          variant: 'destructive',
+          duration: 10000,
+        });
+        return;
+      }
+
       // Send receipt to backend for verification
       const response = await fetchWithAuth('/api/billing/verify', {
         method: 'POST',
         body: JSON.stringify({
           platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
-          productId: productId, // Use the product ID from transaction
+          productId: productId.trim(), // Ensure no whitespace
           transactionId: transaction.transactionId,
           purchaseToken: transaction.purchaseToken || transaction.receipt,
           receipt: transaction.receipt, // Also send receipt for backwards compatibility
@@ -198,6 +244,11 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         console.log('IAP: Verification successful', responseData);
+        
+        // Immediately refresh quota to show updated token balance
+        await queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+        console.log('IAP: Quota query invalidated, balance will refresh');
+        
         toast({
           title: 'Purchase Successful',
           description: `Your purchase has been processed. ${responseData.tokensAdded ? `${responseData.tokensAdded} tokens added.` : ''}`,
@@ -399,8 +450,9 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         console.log('IAP: Purchase state is PURCHASED, proceeding with verification');
       }
 
-      // Handle purchase success
-      await handlePurchaseSuccess(transaction);
+      // Handle purchase success - pass the original productId as fallback
+      // Use the requested productId (not purchaseProductId) as it's the one we want to verify
+      await handlePurchaseSuccess(transaction, productId);
 
       // Acknowledge the purchase (after verification)
       if (platform === 'android' && transaction.purchaseToken) {
