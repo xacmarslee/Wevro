@@ -86,6 +86,15 @@ export interface IStorage {
   }>;
 
   addTokens(userId: string, amount: number, source: string, metadata?: Record<string, unknown>): Promise<number>;
+
+  // Subscription
+  updateSubscriptionPlan(
+    userId: string,
+    plan: string,
+    subscriptionPeriodEnd: Date,
+    subscriptionStatus: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void>;
 }
 
 const mapFlashcardRow = (card: FlashcardEssentialFields) => ({
@@ -700,6 +709,48 @@ export class DbStorage implements IStorage {
     });
 
     return newBalance;
+  }
+
+  /**
+   * Update user subscription plan and status
+   * @param userId - User ID
+   * @param plan - Subscription plan (e.g., 'pro', 'free')
+   * @param subscriptionPeriodEnd - Subscription period end date
+   * @param subscriptionStatus - Subscription status (e.g., 'active', 'canceled')
+   * @param metadata - Additional subscription metadata (platform, transactionId, etc.)
+   */
+  async updateSubscriptionPlan(
+    userId: string,
+    plan: string,
+    subscriptionPeriodEnd: Date,
+    subscriptionStatus: string,
+    metadata?: Record<string, unknown>
+  ): Promise<void> {
+    // Ensure quota exists
+    await this.getUserQuota(userId);
+
+    // Update subscription info
+    // Note: We reuse stripeSubscriptionId field to store IAP transactionId for simplicity
+    // The metadata will contain platform info to distinguish between Stripe and IAP subscriptions
+    const transactionId = metadata?.transactionId as string | undefined;
+    
+    // Set monthly tokens allowance based on plan
+    // Pro plan: 180 tokens per month
+    const monthlyTokens = plan === 'pro' ? 180 : 0;
+    
+    await db
+      .update(userQuotas)
+      .set({
+        plan,
+        subscriptionStatus,
+        subscriptionPeriodEnd,
+        monthlyTokens,
+        stripeSubscriptionId: transactionId || undefined, // Store transactionId here for IAP subscriptions
+        updatedAt: new Date(),
+      })
+      .where(eq(userQuotas.userId, userId));
+
+    console.log(`✅ Updated subscription plan for user ${userId}: plan=${plan}, status=${subscriptionStatus}, periodEnd=${subscriptionPeriodEnd.toISOString()}, monthlyTokens=${monthlyTokens}`);
   }
 }
 

@@ -11,9 +11,17 @@ const router = Router();
 router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
   try {
     const userId = getUserId(req);
-    const { platform, productId, transactionId, receipt } = req.body;
+    const { platform, productId, transactionId, purchaseToken, receipt, orderId } = req.body;
 
-    console.log(`💰 Processing purchase for user ${userId}: ${productId} on ${platform}`);
+    // Support both purchaseToken (from new plugin) and receipt (legacy)
+    const tokenOrReceipt = purchaseToken || receipt;
+
+    console.log(`💰 Processing purchase for user ${userId}: ${productId} on ${platform}`, {
+      transactionId,
+      orderId,
+      hasToken: !!tokenOrReceipt,
+      tokenLength: tokenOrReceipt?.length,
+    });
 
     // TODO: Verify receipt with Google/Apple servers
     // This is CRITICAL for production security. 
@@ -41,7 +49,8 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
         // Usually Pro gives monthly allowance.
         break;
       default:
-        return res.status(400).json({ error: "Invalid product ID" });
+        console.error(`❌ Invalid product ID: ${productId}`);
+        return res.status(400).json({ error: "Invalid product ID", productId });
     }
 
     if (tokensToAdd > 0) {
@@ -49,24 +58,50 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
         platform,
         productId,
         transactionId,
+        orderId,
+        purchaseToken: tokenOrReceipt,
       });
+      console.log(`✅ Added ${tokensToAdd} tokens to user ${userId}`);
     }
 
     if (newPlan) {
-      // Update user plan
-      // We need to expose a method to update plan in storage, or just use db directly here if we exported it?
-      // Since we didn't export db, let's add a method updatePlan to storage or just accept that we only add tokens for now if updatePlan is missing.
-      // Actually, userQuotas has 'plan' field.
-      // Let's just log for now as I didn't add updatePlan method.
-      console.log(`TODO: Update user plan to ${newPlan}`);
-      // If I really want to support subscription, I should add updatePlan.
-      // But for now, just logging is fine as the user mainly asked about "connection".
+      // Update user subscription plan
+      // Calculate subscription period end date (monthly subscription = current time + 1 month)
+      const subscriptionPeriodEnd = new Date();
+      subscriptionPeriodEnd.setMonth(subscriptionPeriodEnd.getMonth() + 1);
+      
+      // Update subscription plan and status
+      await storage.updateSubscriptionPlan(
+        userId,
+        newPlan,
+        subscriptionPeriodEnd,
+        'active', // Subscription is active when purchased
+        {
+          platform,
+          productId,
+          transactionId,
+          orderId,
+          purchaseToken: tokenOrReceipt,
+          subscriptionType: 'monthly',
+          subscriptionStartDate: new Date().toISOString(),
+        }
+      );
+      
+      console.log(`✅ Updated user ${userId} to ${newPlan} plan. Subscription expires: ${subscriptionPeriodEnd.toISOString()}`);
     }
 
-    res.json({ success: true, message: "Purchase processed" });
+    res.json({ success: true, message: "Purchase processed", tokensAdded: tokensToAdd });
   } catch (error: any) {
-    console.error("Error processing purchase:", error);
-    res.status(500).json({ error: "Failed to process purchase" });
+    console.error("❌ Error processing purchase:", error);
+    console.error("Error details:", {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+    });
+    res.status(500).json({ 
+      error: "Failed to process purchase",
+      message: error?.message || "Unknown error",
+    });
   }
 });
 

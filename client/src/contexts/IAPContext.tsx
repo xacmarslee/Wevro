@@ -139,6 +139,15 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       const platform = Capacitor.getPlatform();
       const productId = transaction.productIdentifier;
 
+      console.log('IAP: Starting verification process', {
+        productId,
+        transactionId: transaction.transactionId,
+        orderId: transaction.orderId,
+        hasPurchaseToken: !!transaction.purchaseToken,
+        hasReceipt: !!transaction.receipt,
+        platform,
+      });
+
       // Send receipt to backend for verification
       const response = await fetchWithAuth('/api/billing/verify', {
         method: 'POST',
@@ -147,25 +156,58 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           productId: productId,
           transactionId: transaction.transactionId,
           purchaseToken: transaction.purchaseToken || transaction.receipt,
+          receipt: transaction.receipt, // Also send receipt for backwards compatibility
           orderId: transaction.orderId,
         }),
       });
 
+      const responseData = await response.json().catch(() => ({}));
+
       if (response.ok) {
+        console.log('IAP: Verification successful', responseData);
         toast({
           title: 'Purchase Successful',
-          description: 'Your purchase has been processed.',
+          description: `Your purchase has been processed. ${responseData.tokensAdded ? `${responseData.tokensAdded} tokens added.` : ''}`,
         });
       } else {
-        console.error('IAP: Verification failed');
+        console.error('IAP: Verification failed', {
+          status: response.status,
+          statusText: response.statusText,
+          responseData,
+          transaction: {
+            productId,
+            transactionId: transaction.transactionId,
+            orderId: transaction.orderId,
+          },
+        });
+        
+        const errorMessage = responseData?.error || responseData?.message || 'Unknown error';
+        
         toast({
           title: 'Verification Failed',
-          description: 'Please contact support.',
+          description: `Purchase verification failed: ${errorMessage}. Transaction ID: ${transaction.transactionId || 'N/A'}. Please contact support with this information.`,
           variant: 'destructive',
+          duration: 10000, // Show for 10 seconds
         });
       }
-    } catch (err) {
-      console.error('IAP: Verification error', err);
+    } catch (err: any) {
+      console.error('IAP: Verification error', {
+        error: err,
+        message: err?.message,
+        stack: err?.stack,
+        transaction: transaction ? {
+          productId: transaction.productIdentifier,
+          transactionId: transaction.transactionId,
+          orderId: transaction.orderId,
+        } : 'No transaction data',
+      });
+      
+      toast({
+        title: 'Verification Error',
+        description: `Network error during verification. Please check your connection and try again. Transaction ID: ${transaction?.transactionId || 'N/A'}.`,
+        variant: 'destructive',
+        duration: 10000,
+      });
     }
   };
 
