@@ -158,11 +158,11 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         console.log('[IAP] Checking for unconsumed purchases...');
         
         // Query for in-app purchases (consumable products)
-        try {
+          try {
           const purchasesResult = await NativePurchases.getPurchases({
             productType: PURCHASE_TYPE.INAPP,
           });
-          
+            
           if (purchasesResult && purchasesResult.purchases && Array.isArray(purchasesResult.purchases)) {
             console.log(`[IAP] Found ${purchasesResult.purchases.length} in-app purchases`);
             
@@ -179,17 +179,25 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
                   transactionId: purchase.transactionId,
                   purchaseToken: purchase.purchaseToken,
                 });
+
+                // Check if productIdentifier is valid (not a long internal ID)
+                const isValidProductId = Object.values(PRODUCT_IDS).some(id => purchase.productIdentifier === id);
                 
-                // Try to consume it - this will allow the user to purchase again
-                const consumed = await tryConsumePurchase(purchase);
-                if (consumed) {
-                  console.log('✅ [IAP] Successfully consumed pending purchase on app launch');
+                if (isValidProductId) {
+                  // Process and consume valid purchases
+                  await handlePurchaseSuccess(purchase as Transaction, purchase.productIdentifier);
+                  await tryConsumePurchase(purchase as Transaction);
+                } else {
+                  console.warn('[IAP] Found unconsumed purchase with invalid/internal product ID:', purchase.productIdentifier);
+                  console.warn('[IAP] Consuming this purchase directly to clean up stuck queue');
+                  // Directly consume invalid/stuck purchases without verification to prevent infinite error loops
+                  await tryConsumePurchase(purchase as Transaction);
                 }
               }
             }
-          }
-        } catch (queryError: any) {
-          console.warn('[IAP] Failed to query purchases:', queryError);
+            }
+          } catch (queryError: any) {
+            console.warn('[IAP] Failed to query purchases:', queryError);
         }
       } catch (error: any) {
         console.error('[IAP] Error checking unconsumed purchases:', error);
@@ -200,17 +208,17 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     const tryConsumePurchase = async (transaction: Transaction) => {
       if (!transaction.purchaseToken) return false;
       
-      try {
+          try {
         // Use the new consumePurchase method we added to the plugin
         await (NativePurchases as any).consumePurchase({
           token: transaction.purchaseToken,
-        });
+            });
         console.log('✅ [IAP] Successfully consumed purchase');
-        return true;
-      } catch (error: any) {
+            return true;
+          } catch (error: any) {
         console.warn('[IAP] Failed to consume purchase:', error?.message || error);
         // If it fails, it might be already consumed - that's OK
-        return false;
+      return false;
       }
     };
 
@@ -319,14 +327,43 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // CRITICAL: Strict Allowlist Check
+      // Ensure the productId is one of our known products
+      // This prevents invalid IDs (like purchase tokens) from being sent to the backend
+      const knownProductIds = [
+        ...Object.values(PRODUCT_IDS),
+        ...Object.values(BASE_PLAN_IDS),
+        'monthly-plan' // Add any other aliases here
+      ];
+      
+      // Check if the productId is in our allowlist
+      const isKnownProduct = knownProductIds.some(id => productId === id) || 
+                             // Also allow if it ends with one of our IDs (handling potential prefixes)
+                             knownProductIds.some(id => productId!.endsWith(id));
+
+      if (!isKnownProduct) {
+        console.error('IAP: Blocked invalid productId from verification:', productId);
+        console.warn('IAP: This ID is not in our allowlist and looks like an internal token or error.');
+        
+        // If it's definitely not a valid product, we should probably just consume it to clear the queue
+        // But for safety, let's just show a user-friendly error first
+        toast({
+          title: 'Purchase Error',
+          description: 'Invalid product identifier detected. The purchase cannot be verified.',
+          variant: 'destructive',
+          duration: 10000,
+        });
+        return;
+      }
+
       // DEBUG: Log request body before sending
       const requestBody = {
-        platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
-        productId: productId.trim(), // Ensure no whitespace
-        transactionId: transaction.transactionId,
-        purchaseToken: transaction.purchaseToken || transaction.receipt,
-        receipt: transaction.receipt, // Also send receipt for backwards compatibility
-        orderId: transaction.orderId,
+          platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
+          productId: productId.trim(), // Ensure no whitespace
+          transactionId: transaction.transactionId,
+          purchaseToken: transaction.purchaseToken || transaction.receipt,
+          receipt: transaction.receipt, // Also send receipt for backwards compatibility
+          orderId: transaction.orderId,
       };
       
       console.log('[DEBUG] About to send verification request:', {
@@ -651,7 +688,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
             // Use the new consumePurchase method we added to the plugin
             await (NativePurchases as any).consumePurchase({
               token: transaction.purchaseToken,
-            });
+                  });
             console.log('✅ IAP: Purchase consumed successfully - user can now purchase again');
           } catch (consumeError: any) {
             // If consume fails, it might mean:
