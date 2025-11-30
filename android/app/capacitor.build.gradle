@@ -12,8 +12,9 @@ dependencies {
     implementation project(':capacitor-app')
     implementation project(':capacitor-browser')
     implementation project(':capacitor-filesystem')
+    implementation project(':capgo-native-purchases')
     implementation project(':codetrix-studio-capacitor-google-auth')
-    implementation "com.android.billingclient:billing:7.1.1"
+
 }
 
 

@@ -3,82 +3,23 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchWithAuth } from '@/lib/queryClient';
 import { Capacitor } from '@capacitor/core';
-
-// Declare global CdvPurchase type if not available
-declare global {
-  interface Window {
-    CdvPurchase: any;
-  }
-  var CdvPurchase: any;
-}
-
-namespace CdvPurchase {
-  export interface Store {
-    register(products: Product[]): void;
-    when(): When;
-    initialize(platforms: Platform[]): void;
-    get(id: string): Product | undefined;
-    off(callback: Function): void;
-    restore(): Promise<void>;
-    products: Product[];
-  }
-
-  export interface Product {
-    id: string;
-    type: ProductType;
-    platform: Platform;
-    getOffer(): Offer | undefined;
-    transaction: any;
-  }
-
-  export interface Offer {
-    order(): Promise<void>;
-  }
-
-  export interface When {
-    productUpdated(callback: (product: Product) => void): When;
-    approved(callback: (transaction: Transaction) => void): When;
-    verified(callback: (receipt: Receipt) => void): When;
-  }
-
-  export interface Transaction {
-    platform: Platform;
-    products: Product[];
-    transactionId: string;
-    finish(): void;
-  }
-
-  export interface Receipt {
-    finish(): void;
-  }
-
-  export enum ProductType {
-    CONSUMABLE = 'consumable',
-    PAID_SUBSCRIPTION = 'paid subscription',
-    NON_CONSUMABLE = 'non consumable',
-  }
-
-  export enum Platform {
-    GOOGLE_PLAY = 'google-play',
-    APPLE_APPSTORE = 'apple-appstore',
-  }
-
-  export enum ErrorCode {
-    PAYMENT_CANCELLED = 6777010
-  }
-}
+import { NativePurchases, PURCHASE_TYPE, type Product, type Transaction } from '@capgo/native-purchases';
 
 // Define product IDs
 export const PRODUCT_IDS = {
   TOKEN_S: 'wevro_token_s',
   TOKEN_M: 'wevro_token_m',
   TOKEN_L: 'wevro_token_l',
-  PRO_MONTHLY: 'wevro_pro_monthly',
+  PRO_MONTHLY: 'wevro_pro_monthly', // Match the actual product ID in Google Play Console
+};
+
+// Define Base Plan IDs for subscriptions (Android only)
+export const BASE_PLAN_IDS = {
+  PRO_MONTHLY: 'monthly-plan', // Base Plan ID for monthly subscription
 };
 
 interface IAPContextType {
-  store: CdvPurchase.Store | null;
-  products: CdvPurchase.Product[];
+  products: Product[];
   purchase: (productId: string) => Promise<void>;
   restore: () => Promise<void>;
   isLoading: boolean;
@@ -88,188 +29,148 @@ interface IAPContextType {
 const IAPContext = createContext<IAPContextType | null>(null);
 
 export function IAPProvider({ children }: { children: React.ReactNode }) {
-  const [store, setStore] = useState<CdvPurchase.Store | null>(null);
-  const [products, setProducts] = useState<CdvPurchase.Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSupported, setIsSupported] = useState(false);
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    const initStore = () => {
-      // Diagnostic logs to check plugin availability
-      console.log('IAP: [DIAGNOSTIC] Checking CdvPurchase availability:', !!window.CdvPurchase);
-      console.log('IAP: [DIAGNOSTIC] Checking store:', !!window.CdvPurchase?.store);
-      console.log('IAP: [DIAGNOSTIC] Device ready state:', document.readyState);
-      console.log('IAP: [DIAGNOSTIC] window.CdvPurchase object:', window.CdvPurchase);
-      
-      // Check if CdvPurchase is available (it's a global variable from the plugin)
-      if (!window.CdvPurchase?.store) {
-        console.log('IAP: Store not available (running in browser?)');
-        console.log('IAP: [DIAGNOSTIC] window.CdvPurchase is:', window.CdvPurchase);
+    const initIAP = async () => {
+      // Only initialize on mobile platforms
+      const platform = Capacitor.getPlatform();
+      if (platform === 'web') {
+        console.log('IAP: Running on web, IAP not supported');
         setIsLoading(false);
+        setIsSupported(false);
         return;
       }
 
-      const store = window.CdvPurchase.store;
-      setStore(store);
-      setIsSupported(true);
-
-      // Determine platform and only register/initialize for current platform
-      const platform = Capacitor.getPlatform();
-      console.log('IAP: [DIAGNOSTIC] Current platform:', platform);
-      
-      const currentPlatform = platform === 'ios' 
-        ? CdvPurchase.Platform.APPLE_APPSTORE 
-        : CdvPurchase.Platform.GOOGLE_PLAY;
-      
-      // Filter products for current platform only
-      const platformProducts = [
-        {
-          id: PRODUCT_IDS.TOKEN_S,
-          type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: currentPlatform,
-        },
-        {
-          id: PRODUCT_IDS.TOKEN_M,
-          type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: currentPlatform,
-        },
-        {
-          id: PRODUCT_IDS.TOKEN_L,
-          type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: currentPlatform,
-        },
-        {
-          id: PRODUCT_IDS.PRO_MONTHLY,
-          type: CdvPurchase.ProductType.PAID_SUBSCRIPTION,
-          platform: currentPlatform,
-        },
-      ];
-      
-      console.log('IAP: [DIAGNOSTIC] Registering products for platform:', currentPlatform, platformProducts);
-      store.register(platformProducts);
-
-      // Setup event listeners BEFORE initialize
-      console.log('IAP: [DIAGNOSTIC] Setting up event listeners...');
-      const whenChain = store.when();
-      
-      // Try to listen for ready event if available
-      if (typeof whenChain.ready === 'function') {
-        whenChain.ready(() => {
-          console.log('IAP: [DIAGNOSTIC] Store ready event fired!');
-          console.log('IAP: [DIAGNOSTIC] Products after ready:', store.products);
-          setProducts(store.products);
-        });
-      }
-      
-      whenChain
-        .productUpdated((product: CdvPurchase.Product) => {
-          console.log('IAP: [DIAGNOSTIC] productUpdated event fired!', product);
-          console.log('IAP: [DIAGNOSTIC] All products now:', store.products);
-          setProducts(store.products);
-        })
-        .approved(async (transaction: CdvPurchase.Transaction) => {
-          console.log('IAP: Transaction approved', transaction);
-          
-          try {
-            // Send receipt to backend for verification and granting tokens/subscription
-            // Note: For security, you should verify the receipt on the server
-            const response = await fetchWithAuth('/api/billing/verify', {
-              method: 'POST',
-              body: JSON.stringify({
-                platform: transaction.platform,
-                productId: transaction.products[0].id,
-                transactionId: transaction.transactionId,
-                receipt: transaction.products[0].transaction // Or specific receipt field depending on platform
-              }),
-            });
-
-            if (response.ok) {
-              transaction.finish();
-              toast({
-                title: 'Purchase Successful',
-                description: 'Your purchase has been processed.',
-              });
-            } else {
-              console.error('IAP: Verification failed');
-              toast({
-                title: 'Verification Failed',
-                description: 'Please contact support.',
-                variant: 'destructive',
-              });
-            }
-          } catch (err) {
-            console.error('IAP: Verification error', err);
-          }
-        })
-        .verified((receipt: CdvPurchase.Receipt) => {
-          console.log('IAP: Receipt verified', receipt);
-          receipt.finish();
-        });
-
-      // Initialize the store - only for current platform
-      console.log('IAP: [DIAGNOSTIC] About to initialize store for platform:', currentPlatform);
       try {
-        store.initialize([currentPlatform]);
-        console.log('IAP: [DIAGNOSTIC] Store initialize() called successfully');
-        
-        // Try to manually refresh products after a short delay
-        // Sometimes Google Billing needs time to connect
-        setTimeout(() => {
-          console.log('IAP: [DIAGNOSTIC] Attempting manual refresh after 2 seconds...');
-          console.log('IAP: [DIAGNOSTIC] Products before refresh:', store.products);
-          
-          // Try refresh if available
-          if (typeof store.refresh === 'function') {
-            console.log('IAP: [DIAGNOSTIC] Calling store.refresh()...');
-            store.refresh();
-          } else {
-            console.log('IAP: [DIAGNOSTIC] store.refresh() not available, checking products directly');
-          }
-          
-          // Check products again after refresh
-          setTimeout(() => {
-            console.log('IAP: [DIAGNOSTIC] Products after refresh delay:', store.products);
-            if (store.products.length > 0) {
-              setProducts(store.products);
-              console.log('IAP: [DIAGNOSTIC] Products loaded:', store.products.map((p: CdvPurchase.Product) => p.id));
-            } else {
-              console.warn('IAP: [DIAGNOSTIC] Still no products after refresh delay');
-            }
-          }, 3000);
-        }, 2000);
-      } catch (err) {
-        console.error('IAP: [DIAGNOSTIC] Store initialize() threw error:', err);
-      }
+        // Check if billing is supported
+        const billingCheck = await NativePurchases.isBillingSupported();
+        if (!billingCheck.isBillingSupported) {
+          console.log('IAP: Billing not supported on this device');
+          setIsLoading(false);
+          setIsSupported(false);
+          return;
+        }
 
-      setIsLoading(false);
+        setIsSupported(true);
+
+        // Load products
+        await loadProducts();
+      } catch (error) {
+        console.error('IAP: Initialization error', error);
+        setIsLoading(false);
+        setIsSupported(false);
+      }
     };
 
-    console.log('IAP: [DIAGNOSTIC] Setting up deviceready listener...');
-    console.log('IAP: [DIAGNOSTIC] Current readyState:', document.readyState);
-    
-    // If already ready (e.g. in browser or late binding), call immediately
-    if (document.readyState === 'complete' || (window as any).cordova) {
-      console.log('IAP: [DIAGNOSTIC] Document already ready or Cordova detected, calling initStore immediately');
-      initStore();
-    } else {
-      document.addEventListener('deviceready', () => {
-        console.log('IAP: [DIAGNOSTIC] deviceready event fired!');
-        initStore();
+    const loadProducts = async () => {
+      try {
+        const platform = Capacitor.getPlatform();
+        const productIds = [
+          PRODUCT_IDS.TOKEN_S,
+          PRODUCT_IDS.TOKEN_M,
+          PRODUCT_IDS.TOKEN_L,
+        ];
+
+        const allProducts: Product[] = [];
+
+        // Load consumable products (tokens) - handle errors gracefully
+        try {
+          const consumableResult = await NativePurchases.getProducts({
+            productIdentifiers: productIds,
+            productType: PURCHASE_TYPE.INAPP,
+          });
+          allProducts.push(...consumableResult.products);
+          console.log('IAP: Loaded consumable products:', consumableResult.products.map(p => p.identifier));
+        } catch (error: any) {
+          console.warn('IAP: Failed to load consumable products:', error?.message || error);
+        }
+
+        // Load subscription product - handle errors gracefully
+        try {
+          const subscriptionResult = await NativePurchases.getProducts({
+            productIdentifiers: [PRODUCT_IDS.PRO_MONTHLY],
+            productType: PURCHASE_TYPE.SUBS,
+          });
+          allProducts.push(...subscriptionResult.products);
+          console.log('IAP: Loaded subscription products:', subscriptionResult.products.map(p => p.identifier));
+        } catch (error: any) {
+          console.warn('IAP: Failed to load subscription products:', error?.message || error);
+        }
+
+        if (allProducts.length > 0) {
+          console.log('IAP: Total products loaded:', allProducts.length, allProducts.map(p => p.identifier));
+          setProducts(allProducts);
+        } else {
+          console.warn('IAP: No products were loaded. Check Google Play Console configuration.');
+        }
+        setIsLoading(false);
+      } catch (error: any) {
+        console.error('IAP: Failed to load products:', error?.message || error);
+        setIsLoading(false);
+      }
+    };
+
+    // Note: Android purchases are handled synchronously in purchaseProduct()
+    // iOS uses transactionUpdated listener for StoreKit 2
+    if (Capacitor.getPlatform() === 'ios') {
+      NativePurchases.addListener('transactionUpdated', async (transaction: Transaction) => {
+        console.log('IAP: Transaction updated (iOS)', transaction);
+        await handlePurchaseSuccess(transaction);
+      }).catch((err) => {
+        console.error('IAP: Failed to set up transaction listener', err);
       });
     }
 
+    initIAP();
+
     return () => {
-      document.removeEventListener('deviceready', initStore);
-      if (store) {
-        store.off(initStore);
-      }
+      // Cleanup listeners if needed
+      NativePurchases.removeAllListeners().catch(console.error);
     };
   }, []);
 
+  const handlePurchaseSuccess = async (transaction: Transaction) => {
+    try {
+      const platform = Capacitor.getPlatform();
+      const productId = transaction.productIdentifier;
+
+      // Send receipt to backend for verification
+      const response = await fetchWithAuth('/api/billing/verify', {
+        method: 'POST',
+        body: JSON.stringify({
+          platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
+          productId: productId,
+          transactionId: transaction.transactionId,
+          purchaseToken: transaction.purchaseToken || transaction.receipt,
+          orderId: transaction.orderId,
+        }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Purchase Successful',
+          description: 'Your purchase has been processed.',
+        });
+      } else {
+        console.error('IAP: Verification failed');
+        toast({
+          title: 'Verification Failed',
+          description: 'Please contact support.',
+          variant: 'destructive',
+        });
+      }
+    } catch (err) {
+      console.error('IAP: Verification error', err);
+    }
+  };
+
   const purchase = async (productId: string) => {
-    if (!store) {
+    if (!isSupported) {
       toast({
         title: 'Store not available',
         description: 'In-App Purchases are only available on mobile devices.',
@@ -278,38 +179,238 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const product = store.get(productId);
+    const platform = Capacitor.getPlatform();
+    const isSubscription = productId === PRODUCT_IDS.PRO_MONTHLY;
+    const productType = isSubscription ? PURCHASE_TYPE.SUBS : PURCHASE_TYPE.INAPP;
+
+    // Check if product exists in loaded products
+    let product = products.find(p => p.identifier === productId);
+    
+    // If product not found in loaded products, try to fetch it directly
+    // This handles cases where state hasn't updated yet or product list is empty
     if (!product) {
-      console.error(`IAP: Product not found: ${productId}`);
-      console.log('IAP: Available products:', store.products.map(p => p.id));
+      console.warn(`IAP: Product ${productId} not found in loaded products. Attempting to fetch directly...`);
+      console.log('IAP: Currently loaded products:', products.map(p => p.identifier));
+      
+      try {
+        // Try to fetch the product directly from Google Play
+        const productResult = await NativePurchases.getProduct({
+          productIdentifier: productId,
+          productType: productType,
+        });
+        product = productResult.product;
+        console.log('IAP: Successfully fetched product directly:', productResult.product.identifier);
+        
+        // Update products state with the fetched product
+        if (productResult.product && !products.find(p => p.identifier === productResult.product.identifier)) {
+          setProducts([...products, productResult.product]);
+        }
+      } catch (fetchError: any) {
+        console.error('IAP: Failed to fetch product directly:', fetchError?.message || fetchError);
+        toast({
+          title: 'Product not found',
+          description: `Could not find product: ${productId}. Please check Google Play Console configuration.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    // Final check - if still no product, fail
+    if (!product) {
+      console.error(`IAP: Product ${productId} still not available after fetch attempt`);
       toast({
         title: 'Product not found',
-        description: `Could not find product: ${productId}. Available: ${store.products.map(p => p.id).join(', ')}`,
+        description: `Product ${productId} is not available. Available: ${products.map(p => p.identifier).join(', ') || 'none'}`,
         variant: 'destructive',
       });
       return;
     }
 
+    // At this point, product is guaranteed to be defined
+    const finalProduct = product;
+
     try {
-      await product.getOffer()?.order();
+      // For subscriptions, use the subscription product ID (not the Base Plan ID)
+      // The loaded product identifier might be the Base Plan ID, but we need to use the subscription ID
+      const purchaseProductId = isSubscription ? productId : finalProduct.identifier;
+      
+      const purchaseParams: any = {
+        productIdentifier: purchaseProductId,
+        productType: productType,
+        isConsumable: !isSubscription, // Tokens are consumable, subscriptions are not
+        autoAcknowledgePurchases: false, // We'll acknowledge after server verification
+      };
+      
+      // For Android subscriptions, add Base Plan ID (required)
+      if (platform === 'android' && isSubscription) {
+        purchaseParams.planIdentifier = BASE_PLAN_IDS.PRO_MONTHLY;
+      }
+      
+      console.log('IAP: Purchasing product:', {
+        requestedProductId: productId,
+        purchaseProductId: purchaseProductId,
+        loadedProductIdentifier: finalProduct.identifier,
+        productTitle: finalProduct.title,
+        productType: productType,
+        isSubscription: isSubscription,
+        planIdentifier: purchaseParams.planIdentifier,
+        platform: platform,
+      });
+
+      let transaction: Transaction;
+      try {
+        transaction = await NativePurchases.purchaseProduct(purchaseParams);
+      } catch (purchaseError: any) {
+        console.error('IAP: purchaseProduct() threw error:', {
+          error: purchaseError,
+          message: purchaseError?.message,
+          code: purchaseError?.code,
+          name: purchaseError?.name,
+          stack: purchaseError?.stack,
+          purchaseParams: purchaseParams,
+          productId: productId,
+        });
+        throw purchaseError; // Re-throw to be handled by outer catch
+      }
+
+      console.log('IAP: Purchase transaction received', {
+        transactionId: transaction.transactionId,
+        productId: transaction.productIdentifier,
+        purchaseState: transaction.purchaseState,
+        purchaseToken: transaction.purchaseToken,
+        orderId: transaction.orderId,
+        productType: transaction.productType,
+      });
+
+      // For Android, check purchaseState - "1" means PURCHASED
+      if (platform === 'android') {
+        const purchaseState = transaction.purchaseState;
+        console.log('IAP: Android purchase state:', purchaseState, typeof purchaseState);
+        
+        // purchaseState is a string (numeric string) on Android
+        if (purchaseState !== "1") {
+          console.warn('IAP: Purchase state is not PURCHASED. State:', purchaseState, 'Type:', typeof purchaseState);
+          
+          // Purchase state: "0" = PENDING, "1" = PURCHASED, others = various states
+          if (purchaseState === "0") {
+            toast({
+              title: 'Purchase Pending',
+              description: 'Your purchase is being processed. Please wait for confirmation.',
+              variant: 'default',
+            });
+          } else {
+            toast({
+              title: 'Purchase Status Unknown',
+              description: `Purchase state: ${purchaseState || 'unknown'}. Please check your purchase history.`,
+              variant: 'default',
+            });
+          }
+          
+          // Don't process as successful purchase yet
+          return;
+        }
+        
+        console.log('IAP: Purchase state is PURCHASED, proceeding with verification');
+      }
+
+      // Handle purchase success
+      await handlePurchaseSuccess(transaction);
+
+      // Acknowledge the purchase (after verification)
+      if (platform === 'android' && transaction.purchaseToken) {
+        try {
+          await NativePurchases.acknowledgePurchase({
+            purchaseToken: transaction.purchaseToken,
+          });
+          console.log('IAP: Purchase acknowledged successfully');
+        } catch (ackError: any) {
+          console.error('IAP: Failed to acknowledge purchase:', ackError);
+          // Don't fail the purchase if acknowledgment fails, as backend can handle it
+        }
+      }
     } catch (err: any) {
-      console.error('IAP: Purchase failed', err);
-      if (err.code !== CdvPurchase.ErrorCode.PAYMENT_CANCELLED) {
+      console.error('IAP: Purchase failed', {
+        error: err,
+        message: err?.message,
+        code: err?.code,
+        name: err?.name,
+        stack: err?.stack,
+      });
+      
+      // Check if user cancelled
+      const errorMessage = err?.message || '';
+      const errorName = err?.name || '';
+      
+      // Handle specific error cases
+      if (
+        errorMessage.includes('cancel') || 
+        errorMessage.includes('Cancel') ||
+        errorMessage.includes('User cancelled') ||
+        errorName.includes('UserCancel')
+      ) {
+        console.log('IAP: User cancelled purchase');
+        // User cancelled, don't show error
+        return;
+      }
+      
+      // Handle "Product not found" from Google Play
+      if (
+        errorMessage.includes('not found') ||
+        errorMessage.includes('could not be found') ||
+        errorMessage.includes('Product not found') ||
+        errorMessage.includes('item you were attempting to purchase')
+      ) {
+        console.error('IAP: Google Play returned "Product not found" error');
+        console.error('IAP: This may indicate:', {
+          reason: 'Product ID mismatch or product not available in test environment',
+          productId: productId,
+          productType: productType,
+          suggestion: 'Check Google Play Console to ensure product is published and available',
+        });
         toast({
-          title: 'Purchase Failed',
-          description: err.message || 'An error occurred during purchase.',
+          title: 'Product Not Available',
+          description: 'This product is not available for purchase. Please check Google Play Console configuration or try again later.',
           variant: 'destructive',
         });
+        return;
       }
+      
+      // Handle "Purchase is not purchased" error - this can happen when:
+      // 1. Purchase is still pending (state = 0)
+      // 2. Purchase was cancelled before completion
+      // 3. Purchase failed for some reason
+      if (
+        errorMessage.includes('not purchased') ||
+        errorMessage.includes('Purchase is not purchased') ||
+        errorMessage.includes('purchaseState')
+      ) {
+        console.warn('IAP: Purchase not completed - state is not PURCHASED');
+        toast({
+          title: 'Purchase Not Completed',
+          description: 'The purchase was not completed. If you were charged, the transaction will be processed shortly.',
+          variant: 'default',
+        });
+        return;
+      }
+
+      // Show error for other cases
+      console.error('IAP: Unknown purchase error:', errorMessage);
+      toast({
+        title: 'Purchase Failed',
+        description: errorMessage || 'An error occurred during purchase. Please try again.',
+        variant: 'destructive',
+      });
     }
   };
 
   const restore = async () => {
-    if (!store) {
+    if (!isSupported) {
       return;
     }
+
     try {
-      await store.restore();
+      await NativePurchases.restorePurchases();
       toast({
         title: 'Purchases Restored',
         description: 'Your previous purchases have been restored.',
@@ -325,7 +426,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <IAPContext.Provider value={{ store, products, purchase, restore, isLoading, isSupported }}>
+    <IAPContext.Provider value={{ products, purchase, restore, isLoading, isSupported }}>
       {children}
     </IAPContext.Provider>
   );
@@ -338,4 +439,3 @@ export function useIAP() {
   }
   return context;
 }
-
