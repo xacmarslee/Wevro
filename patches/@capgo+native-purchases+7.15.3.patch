@@ -1,0 +1,323 @@
+diff --git a/node_modules/@capgo/native-purchases/android/build/.transforms/cbab7b354fe4257d678e1fe8a480222d/results.bin b/node_modules/@capgo/native-purchases/android/build/.transforms/cbab7b354fe4257d678e1fe8a480222d/results.bin
+new file mode 100644
+index 0000000..0d259dd
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/.transforms/cbab7b354fe4257d678e1fe8a480222d/results.bin
+@@ -0,0 +1 @@
++o/classes
+diff --git a/node_modules/@capgo/native-purchases/android/build/.transforms/cbab7b354fe4257d678e1fe8a480222d/transformed/classes/classes_dex/classes.dex b/node_modules/@capgo/native-purchases/android/build/.transforms/cbab7b354fe4257d678e1fe8a480222d/transformed/classes/classes_dex/classes.dex
+new file mode 100644
+index 0000000..eca4c6a
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/.transforms/cbab7b354fe4257d678e1fe8a480222d/transformed/classes/classes_dex/classes.dex differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/aapt_friendly_merged_manifests/release/processReleaseManifest/aapt/AndroidManifest.xml b/node_modules/@capgo/native-purchases/android/build/intermediates/aapt_friendly_merged_manifests/release/processReleaseManifest/aapt/AndroidManifest.xml
+new file mode 100644
+index 0000000..2e0ce8a
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/aapt_friendly_merged_manifests/release/processReleaseManifest/aapt/AndroidManifest.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="ee.forgr.nativepurchases" >
++
++    <uses-sdk android:minSdkVersion="23" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/aapt_friendly_merged_manifests/release/processReleaseManifest/aapt/output-metadata.json b/node_modules/@capgo/native-purchases/android/build/intermediates/aapt_friendly_merged_manifests/release/processReleaseManifest/aapt/output-metadata.json
+new file mode 100644
+index 0000000..7d96dad
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/aapt_friendly_merged_manifests/release/processReleaseManifest/aapt/output-metadata.json
+@@ -0,0 +1,18 @@
++{
++  "version": 3,
++  "artifactType": {
++    "type": "AAPT_FRIENDLY_MERGED_MANIFESTS",
++    "kind": "Directory"
++  },
++  "applicationId": "ee.forgr.nativepurchases",
++  "variantName": "release",
++  "elements": [
++    {
++      "type": "SINGLE",
++      "filters": [],
++      "attributes": [],
++      "outputFile": "AndroidManifest.xml"
++    }
++  ],
++  "elementType": "File"
++}
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/aar_metadata/release/writeReleaseAarMetadata/aar-metadata.properties b/node_modules/@capgo/native-purchases/android/build/intermediates/aar_metadata/release/writeReleaseAarMetadata/aar-metadata.properties
+new file mode 100644
+index 0000000..1211b1e
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/aar_metadata/release/writeReleaseAarMetadata/aar-metadata.properties
+@@ -0,0 +1,6 @@
++aarFormatVersion=1.0
++aarMetadataVersion=1.0
++minCompileSdk=1
++minCompileSdkExtension=0
++minAndroidGradlePluginVersion=1.0.0
++coreLibraryDesugaringEnabled=false
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/annotation_processor_list/release/javaPreCompileRelease/annotationProcessors.json b/node_modules/@capgo/native-purchases/android/build/intermediates/annotation_processor_list/release/javaPreCompileRelease/annotationProcessors.json
+new file mode 100644
+index 0000000..9e26dfe
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/annotation_processor_list/release/javaPreCompileRelease/annotationProcessors.json
+@@ -0,0 +1 @@
++{}
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/compile_library_classes_jar/release/bundleLibCompileToJarRelease/classes.jar b/node_modules/@capgo/native-purchases/android/build/intermediates/compile_library_classes_jar/release/bundleLibCompileToJarRelease/classes.jar
+new file mode 100644
+index 0000000..714067c
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/compile_library_classes_jar/release/bundleLibCompileToJarRelease/classes.jar differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/compile_r_class_jar/release/generateReleaseRFile/R.jar b/node_modules/@capgo/native-purchases/android/build/intermediates/compile_r_class_jar/release/generateReleaseRFile/R.jar
+new file mode 100644
+index 0000000..c66ce02
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/compile_r_class_jar/release/generateReleaseRFile/R.jar differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/compile_symbol_list/release/generateReleaseRFile/R.txt b/node_modules/@capgo/native-purchases/android/build/intermediates/compile_symbol_list/release/generateReleaseRFile/R.txt
+new file mode 100644
+index 0000000..e69de29
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/mergeReleaseJniLibFolders/merger.xml b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/mergeReleaseJniLibFolders/merger.xml
+new file mode 100644
+index 0000000..fbe3a91
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/mergeReleaseJniLibFolders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\jniLibs"/></dataSet><dataSet config="release" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\release\jniLibs"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/mergeReleaseShaders/merger.xml b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/mergeReleaseShaders/merger.xml
+new file mode 100644
+index 0000000..3d52ae8
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/mergeReleaseShaders/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\shaders"/></dataSet><dataSet config="release" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\release\shaders"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/packageReleaseAssets/merger.xml b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/packageReleaseAssets/merger.xml
+new file mode 100644
+index 0000000..c69a8c3
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/packageReleaseAssets/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet config="main" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\assets"/></dataSet><dataSet config="release" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\release\assets"/></dataSet><dataSet config="generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\build\intermediates\shader_assets\release\compileReleaseShaders\out"/></dataSet></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/release/packageReleaseResources/compile-file-map.properties b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/release/packageReleaseResources/compile-file-map.properties
+new file mode 100644
+index 0000000..f2894e9
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/release/packageReleaseResources/compile-file-map.properties
+@@ -0,0 +1 @@
++#Mon Dec 01 01:33:36 CST 2025
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/release/packageReleaseResources/merger.xml b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/release/packageReleaseResources/merger.xml
+new file mode 100644
+index 0000000..fbf1d9e
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/incremental/release/packageReleaseResources/merger.xml
+@@ -0,0 +1,2 @@
++<?xml version="1.0" encoding="utf-8"?>
++<merger version="3"><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="main" generated-set="main$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="release$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\release\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="release" generated-set="release$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\release\res"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated$Generated" generated="true" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\build\generated\res\resValues\release"/></dataSet><dataSet aapt-namespace="http://schemas.android.com/apk/res-auto" config="generated" generated-set="generated$Generated" ignore_pattern="!.svn:!.git:!.ds_store:!*.scc:.*:&lt;dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~"><source path="E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\build\generated\res\resValues\release"/></dataSet><mergedItems/></merger>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$1.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$1.class
+new file mode 100644
+index 0000000..305493d
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$1.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$2.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$2.class
+new file mode 100644
+index 0000000..a84f0dc
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$2.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$3.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$3.class
+new file mode 100644
+index 0000000..8acb6a1
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$3.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$4.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$4.class
+new file mode 100644
+index 0000000..cc2cf14
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$4.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$5.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$5.class
+new file mode 100644
+index 0000000..5ae9a2a
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$5.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$6.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$6.class
+new file mode 100644
+index 0000000..cd87a20
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$6.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$7.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$7.class
+new file mode 100644
+index 0000000..2cfc045
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$7.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$8.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$8.class
+new file mode 100644
+index 0000000..91a1bb2
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin$8.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin.class
+new file mode 100644
+index 0000000..dda951f
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/NativePurchasesPlugin.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseAction.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseAction.class
+new file mode 100644
+index 0000000..08f3a59
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseAction.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider$PurchaseDetails.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider$PurchaseDetails.class
+new file mode 100644
+index 0000000..6535d4a
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider$PurchaseDetails.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider$PurchaseDetailsAdapter.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider$PurchaseDetailsAdapter.class
+new file mode 100644
+index 0000000..8da8167
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider$PurchaseDetailsAdapter.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider.class b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider.class
+new file mode 100644
+index 0000000..a689f8e
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/javac/release/compileReleaseJavaWithJavac/classes/ee/forgr/nativepurchases/PurchaseActionDecider.class differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/local_only_symbol_list/release/parseReleaseLocalResources/R-def.txt b/node_modules/@capgo/native-purchases/android/build/intermediates/local_only_symbol_list/release/parseReleaseLocalResources/R-def.txt
+new file mode 100644
+index 0000000..78ac5b8
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/local_only_symbol_list/release/parseReleaseLocalResources/R-def.txt
+@@ -0,0 +1,2 @@
++R_DEF: Internal format may change without notice
++local
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/manifest_merge_blame_file/release/processReleaseManifest/manifest-merger-blame-release-report.txt b/node_modules/@capgo/native-purchases/android/build/intermediates/manifest_merge_blame_file/release/processReleaseManifest/manifest-merger-blame-release-report.txt
+new file mode 100644
+index 0000000..ae4c09c
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/manifest_merge_blame_file/release/processReleaseManifest/manifest-merger-blame-release-report.txt
+@@ -0,0 +1,7 @@
++1<?xml version="1.0" encoding="utf-8"?>
++2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++3    package="ee.forgr.nativepurchases" >
++4
++5    <uses-sdk android:minSdkVersion="23" />
++6
++7</manifest>
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/merged_manifest/release/processReleaseManifest/AndroidManifest.xml b/node_modules/@capgo/native-purchases/android/build/intermediates/merged_manifest/release/processReleaseManifest/AndroidManifest.xml
+new file mode 100644
+index 0000000..2e0ce8a
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/merged_manifest/release/processReleaseManifest/AndroidManifest.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="ee.forgr.nativepurchases" >
++
++    <uses-sdk android:minSdkVersion="23" />
++
++</manifest>
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/navigation_json/release/extractDeepLinksRelease/navigation.json b/node_modules/@capgo/native-purchases/android/build/intermediates/navigation_json/release/extractDeepLinksRelease/navigation.json
+new file mode 100644
+index 0000000..0637a08
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/navigation_json/release/extractDeepLinksRelease/navigation.json
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/nested_resources_validation_report/release/generateReleaseResources/nestedResourcesValidationReport.txt b/node_modules/@capgo/native-purchases/android/build/intermediates/nested_resources_validation_report/release/generateReleaseResources/nestedResourcesValidationReport.txt
+new file mode 100644
+index 0000000..08f4ebe
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/nested_resources_validation_report/release/generateReleaseResources/nestedResourcesValidationReport.txt
+@@ -0,0 +1 @@
++0 Warning/Error
+\ No newline at end of file
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/runtime_library_classes_jar/release/bundleLibRuntimeToJarRelease/classes.jar b/node_modules/@capgo/native-purchases/android/build/intermediates/runtime_library_classes_jar/release/bundleLibRuntimeToJarRelease/classes.jar
+new file mode 100644
+index 0000000..f378082
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/intermediates/runtime_library_classes_jar/release/bundleLibRuntimeToJarRelease/classes.jar differ
+diff --git a/node_modules/@capgo/native-purchases/android/build/intermediates/symbol_list_with_package_name/release/generateReleaseRFile/package-aware-r.txt b/node_modules/@capgo/native-purchases/android/build/intermediates/symbol_list_with_package_name/release/generateReleaseRFile/package-aware-r.txt
+new file mode 100644
+index 0000000..8c34868
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/intermediates/symbol_list_with_package_name/release/generateReleaseRFile/package-aware-r.txt
+@@ -0,0 +1 @@
++ee.forgr.nativepurchases
+diff --git a/node_modules/@capgo/native-purchases/android/build/outputs/logs/manifest-merger-release-report.txt b/node_modules/@capgo/native-purchases/android/build/outputs/logs/manifest-merger-release-report.txt
+new file mode 100644
+index 0000000..43c1404
+--- /dev/null
++++ b/node_modules/@capgo/native-purchases/android/build/outputs/logs/manifest-merger-release-report.txt
+@@ -0,0 +1,16 @@
++-- Merging decision tree log ---
++manifest
++ADDED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml:1:1-2:12
++INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml:1:1-2:12
++	package
++		INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml
++	xmlns:android
++		ADDED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml:1:11-69
++uses-sdk
++INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml reason: use-sdk injection requested
++INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml
++INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml
++	android:targetSdkVersion
++		INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml
++	android:minSdkVersion
++		INJECTED from E:\Projects\Wevro\node_modules\@capgo\native-purchases\android\src\main\AndroidManifest.xml
+diff --git a/node_modules/@capgo/native-purchases/android/build/tmp/compileReleaseJavaWithJavac/previous-compilation-data.bin b/node_modules/@capgo/native-purchases/android/build/tmp/compileReleaseJavaWithJavac/previous-compilation-data.bin
+new file mode 100644
+index 0000000..48fc835
+Binary files /dev/null and b/node_modules/@capgo/native-purchases/android/build/tmp/compileReleaseJavaWithJavac/previous-compilation-data.bin differ
+diff --git a/node_modules/@capgo/native-purchases/android/src/main/java/ee/forgr/nativepurchases/NativePurchasesPlugin.java b/node_modules/@capgo/native-purchases/android/src/main/java/ee/forgr/nativepurchases/NativePurchasesPlugin.java
+index 9ad5638..1e59fe7 100644
+--- a/node_modules/@capgo/native-purchases/android/src/main/java/ee/forgr/nativepurchases/NativePurchasesPlugin.java
++++ b/node_modules/@capgo/native-purchases/android/src/main/java/ee/forgr/nativepurchases/NativePurchasesPlugin.java
+@@ -1012,4 +1012,54 @@ public class NativePurchasesPlugin extends Plugin {
+             call.reject(e.getMessage());
+         }
+     }
++
++    @PluginMethod
++    public void consumePurchase(PluginCall call) {
++        Log.d(TAG, "consumePurchase() called");
++        String purchaseToken = call.getString("token");
++
++        if (purchaseToken == null || purchaseToken.isEmpty()) {
++            Log.d(TAG, "Error: purchaseToken is empty");
++            call.reject("purchaseToken is required");
++            return;
++        }
++
++        Log.d(TAG, "Consuming purchase with token: " + purchaseToken);
++        this.initBillingClient(null);
++
++        try {
++            ConsumeParams consumeParams = ConsumeParams.newBuilder()
++                .setPurchaseToken(purchaseToken)
++                .build();
++
++            billingClient.consumeAsync(
++                consumeParams,
++                new com.android.billingclient.api.ConsumeResponseListener() {
++                    @Override
++                    public void onConsumeResponse(@NonNull BillingResult billingResult, @NonNull String token) {
++                        Log.d(TAG, "onConsumeResponse() called");
++                        Log.d(TAG, "Consume result: " + billingResult.getResponseCode() + " - " + billingResult.getDebugMessage());
++                        Log.d(TAG, "Consumed purchase token: " + token);
++
++                        if (billingResult.getResponseCode() == BillingClient.BillingResponseCode.OK) {
++                            Log.d(TAG, "Purchase consumed successfully");
++                            JSObject ret = new JSObject();
++                            ret.put("token", token);
++                            ret.put("success", true);
++                            closeBillingClient();
++                            call.resolve(ret);
++                        } else {
++                            Log.d(TAG, "Purchase consumption failed");
++                            closeBillingClient();
++                            call.reject("Failed to consume purchase: " + billingResult.getDebugMessage());
++                        }
++                    }
++                }
++            );
++        } catch (Exception e) {
++            Log.d(TAG, "Exception during consumePurchase: " + e.getMessage());
++            closeBillingClient();
++            call.reject(e.getMessage());
++        }
++    }
+ }

@@ -157,25 +157,39 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('[IAP] Checking for unconsumed purchases...');
         
-        // Also try queryPurchases if available (Android specific)
-        if (typeof (NativePurchases as any).queryPurchases === 'function') {
-          try {
-            const queryResult = await (NativePurchases as any).queryPurchases();
-            console.log('[IAP] Query purchases result:', queryResult);
+        // Query for in-app purchases (consumable products)
+        try {
+          const purchasesResult = await NativePurchases.getPurchases({
+            productType: PURCHASE_TYPE.INAPP,
+          });
+          
+          if (purchasesResult && purchasesResult.purchases && Array.isArray(purchasesResult.purchases)) {
+            console.log(`[IAP] Found ${purchasesResult.purchases.length} in-app purchases`);
             
-            if (queryResult && (queryResult as any).purchases && Array.isArray((queryResult as any).purchases)) {
-              for (const purchase of (queryResult as any).purchases) {
-                console.log('[IAP] Found unconsumed purchase:', purchase);
-                // Process and consume
-                await handlePurchaseSuccess(purchase as Transaction, purchase.productIdentifier);
-                if (purchase.purchaseToken && !purchase.productIdentifier?.includes('pro_monthly')) {
-                  await tryConsumePurchase(purchase as Transaction);
+            for (const purchase of purchasesResult.purchases) {
+              // Skip subscription products
+              if (purchase.productIdentifier?.includes('pro_monthly')) {
+                continue;
+              }
+              
+              // Only process purchased items (state === "1")
+              if (purchase.purchaseState === "1" && purchase.purchaseToken) {
+                console.log('[IAP] Found unconsumed consumable purchase:', {
+                  productId: purchase.productIdentifier,
+                  transactionId: purchase.transactionId,
+                  purchaseToken: purchase.purchaseToken,
+                });
+                
+                // Try to consume it - this will allow the user to purchase again
+                const consumed = await tryConsumePurchase(purchase);
+                if (consumed) {
+                  console.log('✅ [IAP] Successfully consumed pending purchase on app launch');
                 }
               }
             }
-          } catch (queryError: any) {
-            console.warn('[IAP] Failed to query purchases:', queryError);
           }
+        } catch (queryError: any) {
+          console.warn('[IAP] Failed to query purchases:', queryError);
         }
       } catch (error: any) {
         console.error('[IAP] Error checking unconsumed purchases:', error);
@@ -186,24 +200,18 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     const tryConsumePurchase = async (transaction: Transaction) => {
       if (!transaction.purchaseToken) return false;
       
-      const consumeMethods = ['consumePurchase', 'consumeProduct', 'finishTransaction', 'consumeAsync'];
-      
-      for (const methodName of consumeMethods) {
-        if (typeof (NativePurchases as any)[methodName] === 'function') {
-          try {
-            await (NativePurchases as any)[methodName]({
-              purchaseToken: transaction.purchaseToken,
-            });
-            console.log(`✅ [IAP] Successfully consumed purchase using ${methodName}`);
-            return true;
-          } catch (error: any) {
-            console.warn(`[IAP] Method ${methodName} failed:`, error);
-          }
-        }
+      try {
+        // Use the new consumePurchase method we added to the plugin
+        await (NativePurchases as any).consumePurchase({
+          token: transaction.purchaseToken,
+        });
+        console.log('✅ [IAP] Successfully consumed purchase');
+        return true;
+      } catch (error: any) {
+        console.warn('[IAP] Failed to consume purchase:', error?.message || error);
+        // If it fails, it might be already consumed - that's OK
+        return false;
       }
-      
-      console.warn('[IAP] Could not consume purchase - no working method found');
-      return false;
     };
 
     // Note: Android purchases are handled synchronously in purchaseProduct()
@@ -545,45 +553,26 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
             console.error('IAP: Failed to acknowledge subscription purchase:', ackError);
           }
         } else {
-          // For consumable products, if autoAcknowledgePurchases is true, plugin should auto-consume
-          // But let's still try to manually consume as a fallback
+          // For consumable products, manually consume to ensure Google Play removes the purchase
+          // This is critical for allowing repeated purchases of the same consumable product
           try {
-            console.log('IAP: Checking if purchase was auto-consumed by plugin...');
-            console.log('IAP: Available NativePurchases methods:', Object.getOwnPropertyNames(NativePurchases).filter(name => typeof (NativePurchases as any)[name] === 'function'));
+            console.log('IAP: Manually consuming purchase to allow repeated purchases...');
+            console.log('IAP: Purchase token:', transaction.purchaseToken);
             
-            // Try to manually consume as a fallback (in case auto-consume didn't work)
-            const consumeMethods = [
-              'consumePurchase',
-              'consumeProduct',
-              'finishTransaction',
-              'consumeAsync',
-            ];
-            
-            let consumed = false;
-            
-            for (const methodName of consumeMethods) {
-              if (typeof (NativePurchases as any)[methodName] === 'function') {
-                try {
-                  console.log(`IAP: Trying to manually consume using method: ${methodName}`);
-                  await (NativePurchases as any)[methodName]({
-                    purchaseToken: transaction.purchaseToken,
-                  });
-                  console.log(`✅ IAP: Purchase consumed successfully using ${methodName}`);
-                  consumed = true;
-                  break;
-                } catch (methodError: any) {
-                  // If method exists but fails, it might mean purchase was already consumed
-                  console.log(`IAP: Method ${methodName} result:`, methodError?.message || methodError);
-                  // Don't treat as error - might be already consumed
-                }
-              }
-            }
-            
-            if (!consumed) {
-              console.log('IAP: No manual consume method found - assuming plugin auto-consumed (isConsumable: true, autoAcknowledgePurchases: true)');
-            }
+            // Use the new consumePurchase method we added to the plugin
+            await (NativePurchases as any).consumePurchase({
+              token: transaction.purchaseToken,
+            });
+            console.log('✅ IAP: Purchase consumed successfully - user can now purchase again');
           } catch (consumeError: any) {
-            console.warn('IAP: Manual consume attempt failed (may be normal if plugin auto-consumed):', consumeError);
+            // If consume fails, it might mean:
+            // 1. Purchase was already consumed (OK, can ignore)
+            // 2. Network error (should retry later)
+            // 3. Purchase doesn't exist (shouldn't happen, but log it)
+            console.warn('IAP: Failed to consume purchase:', consumeError?.message || consumeError);
+            
+            // Don't throw - the purchase was already verified and tokens were added
+            // We'll try to consume again on next app launch if needed
           }
         }
       }
