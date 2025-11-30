@@ -241,23 +241,26 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   const handlePurchaseSuccess = async (transaction: Transaction, originalProductId?: string) => {
     try {
       const platform = Capacitor.getPlatform();
-      // Use productIdentifier from transaction (this is what Google Play/Apple actually returned)
-      // If productIdentifier is missing, use the original productId from purchase request
-      let productId = transaction.productIdentifier;
       
-      // Fallback: If productIdentifier is missing, use the original productId from purchase
+      // CRITICAL: Always prioritize originalProductId (the one we requested to purchase)
+      // Google Play may return Base Plan ID for subscriptions or incorrect format
+      // The originalProductId is the one we know is correct and matches our backend mapping
+      let productId = originalProductId;
+      
+      // Only use transaction.productIdentifier as fallback if originalProductId is not available
       if (!productId || productId.trim() === '') {
-        console.warn('IAP: productIdentifier is missing from transaction, using original productId');
-        productId = originalProductId || 
+        console.warn('IAP: originalProductId is missing, falling back to transaction.productIdentifier');
+        productId = transaction.productIdentifier || 
                    (transaction as any).productId || 
                    (transaction as any).product_id || 
                    (transaction as any).sku || 
                    null;
         
-        if (!productId) {
+        if (!productId || productId.trim() === '') {
           console.error('IAP: Cannot determine productId from transaction:', {
             transaction,
             originalProductId,
+            productIdentifier: transaction.productIdentifier,
             transactionKeys: Object.keys(transaction),
           });
           toast({
@@ -268,7 +271,13 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           });
           return;
         }
-        console.log('IAP: Using fallback productId:', productId);
+        console.log('IAP: Using fallback productId from transaction:', productId);
+      } else {
+        console.log('IAP: Using originalProductId (requested product):', productId);
+        // Log what Google Play returned for debugging
+        if (transaction.productIdentifier && transaction.productIdentifier !== productId) {
+          console.log('IAP: Note - Google Play returned different productIdentifier:', transaction.productIdentifier, 'but using requested:', productId);
+        }
       }
 
       console.log('IAP: Starting verification process', {
@@ -334,24 +343,48 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           duration: 5000,
         });
       } else {
+        // Log detailed error information
         console.error('IAP: Verification failed', {
           status: response.status,
           statusText: response.statusText,
           responseData,
+          requestData: {
+            platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
+            productId: productId,
+            transactionId: transaction.transactionId,
+            orderId: transaction.orderId,
+            purchaseToken: transaction.purchaseToken ? 'present' : 'missing',
+          },
           transaction: {
             productId,
+            productIdentifier: transaction.productIdentifier,
+            originalProductId: originalProductId,
             transactionId: transaction.transactionId,
             orderId: transaction.orderId,
           },
         });
         
         const errorMessage = responseData?.error || responseData?.message || 'Unknown error';
+        const errorDetails = responseData?.available ? `Available products: ${responseData.available.join(', ')}` : '';
+        const receivedProductId = responseData?.productId ? `Received: ${responseData.productId}` : '';
+        
+        // Show detailed error message
+        let errorDescription = `Purchase verification failed: ${errorMessage}`;
+        if (responseData?.normalized || responseData?.mapped) {
+          errorDescription += `\nProduct ID: ${productId}`;
+          if (responseData.normalized) errorDescription += ` (normalized: ${responseData.normalized})`;
+          if (responseData.mapped) errorDescription += ` (mapped: ${responseData.mapped})`;
+        }
+        if (errorDetails) errorDescription += `\n${errorDetails}`;
+        if (receivedProductId) errorDescription += `\n${receivedProductId}`;
+        errorDescription += `\nTransaction ID: ${transaction.transactionId || 'N/A'}`;
+        errorDescription += `\nPlease contact support with this information.`;
         
         toast({
           title: 'Verification Failed',
-          description: `Purchase verification failed: ${errorMessage}. Transaction ID: ${transaction.transactionId || 'N/A'}. Please contact support with this information.`,
+          description: errorDescription,
           variant: 'destructive',
-          duration: 10000, // Show for 10 seconds
+          duration: 15000, // Show for 15 seconds to allow user to read
         });
       }
     } catch (err: any) {

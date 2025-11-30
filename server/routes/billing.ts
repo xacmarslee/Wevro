@@ -55,6 +55,7 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
     
     // Product ID mapping for Google Play (in case it returns Base Plan ID or different format)
     const productIdMap: Record<string, string> = {
+      // Standard product IDs
       'wevro_token_s': 'wevro_token_s',
       'wevro_token_m': 'wevro_token_m',
       'wevro_token_l': 'wevro_token_l',
@@ -64,6 +65,8 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
       'wevro_tokens_small': 'wevro_token_s',
       'wevro_tokens_medium': 'wevro_token_m',
       'wevro_tokens_large': 'wevro_token_l',
+      // Base Plan IDs (for subscriptions - Google Play may return these instead of product ID)
+      'monthly-plan': 'wevro_pro_monthly', // Base Plan ID for monthly subscription
     };
     
     const mappedProductId = productIdMap[normalizedProductId] || normalizedProductId;
@@ -92,14 +95,22 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
         // Usually Pro gives monthly allowance.
         break;
       default:
+        // Log detailed error information for debugging
         console.error(`❌ Invalid product ID: "${productId}" (normalized: "${normalizedProductId}", mapped: "${mappedProductId}")`);
+        console.error(`Full request body:`, JSON.stringify(req.body, null, 2));
         console.error(`Available product IDs: wevro_token_s, wevro_token_m, wevro_token_l, wevro_token_test, wevro_pro_monthly`);
+        console.error(`Also accepts Base Plan IDs: monthly-plan`);
+        
+        // Return detailed error for debugging
         return res.status(400).json({ 
           error: "Invalid product ID", 
+          message: `Product ID "${productId}" is not recognized. Please check the product ID matches one of the available products.`,
           productId: productId,
           normalized: normalizedProductId,
           mapped: mappedProductId,
-          available: ['wevro_token_s', 'wevro_token_m', 'wevro_token_l', 'wevro_token_test', 'wevro_pro_monthly']
+          available: ['wevro_token_s', 'wevro_token_m', 'wevro_token_l', 'wevro_token_test', 'wevro_pro_monthly'],
+          basePlanIds: ['monthly-plan'],
+          receivedBody: req.body, // Include full request for debugging
         });
     }
 
