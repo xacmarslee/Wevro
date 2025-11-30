@@ -13,6 +13,15 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
     const userId = getUserId(req);
     const { platform, productId, transactionId, purchaseToken, receipt, orderId } = req.body;
 
+    // Validate required fields
+    if (!productId) {
+      console.error('❌ Missing productId in request:', req.body);
+      return res.status(400).json({ 
+        error: "Missing productId",
+        received: req.body
+      });
+    }
+
     // Support both purchaseToken (from new plugin) and receipt (legacy)
     const tokenOrReceipt = purchaseToken || receipt;
 
@@ -21,6 +30,9 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
       orderId,
       hasToken: !!tokenOrReceipt,
       tokenLength: tokenOrReceipt?.length,
+      productId,
+      productIdType: typeof productId,
+      fullRequestBody: req.body, // Log full request for debugging
     });
 
     // TODO: Verify receipt with Google/Apple servers
@@ -30,10 +42,30 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
 
     // For now, we trust the client (Development/MVP mode)
     
+    // Normalize product ID (trim whitespace, handle case variations)
+    const normalizedProductId = productId?.trim()?.toLowerCase();
+    
+    // Product ID mapping for Google Play (in case it returns Base Plan ID or different format)
+    const productIdMap: Record<string, string> = {
+      'wevro_token_s': 'wevro_token_s',
+      'wevro_token_m': 'wevro_token_m',
+      'wevro_token_l': 'wevro_token_l',
+      'wevro_pro_monthly': 'wevro_pro_monthly',
+      'wevro_token_test': 'wevro_token_test', // Test product: $0.3 for 2 tokens
+      // Handle potential variations
+      'wevro_tokens_small': 'wevro_token_s',
+      'wevro_tokens_medium': 'wevro_token_m',
+      'wevro_tokens_large': 'wevro_token_l',
+    };
+    
+    const mappedProductId = productIdMap[normalizedProductId] || normalizedProductId;
+    
+    console.log(`🔍 Product ID mapping: "${productId}" -> "${mappedProductId}"`);
+    
     let tokensToAdd = 0;
     let newPlan = null;
 
-    switch (productId) {
+    switch (mappedProductId) {
       case 'wevro_token_s':
         tokensToAdd = 40;
         break;
@@ -43,14 +75,24 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
       case 'wevro_token_l':
         tokensToAdd = 300;
         break;
+      case 'wevro_token_test':
+        tokensToAdd = 2; // Test product: $0.3 for 2 tokens
+        break;
       case 'wevro_pro_monthly':
         newPlan = 'pro';
         tokensToAdd = 180; // Initial tokens for Pro? Or just update plan?
         // Usually Pro gives monthly allowance.
         break;
       default:
-        console.error(`❌ Invalid product ID: ${productId}`);
-        return res.status(400).json({ error: "Invalid product ID", productId });
+        console.error(`❌ Invalid product ID: "${productId}" (normalized: "${normalizedProductId}", mapped: "${mappedProductId}")`);
+        console.error(`Available product IDs: wevro_token_s, wevro_token_m, wevro_token_l, wevro_token_test, wevro_pro_monthly`);
+        return res.status(400).json({ 
+          error: "Invalid product ID", 
+          productId: productId,
+          normalized: normalizedProductId,
+          mapped: mappedProductId,
+          available: ['wevro_token_s', 'wevro_token_m', 'wevro_token_l', 'wevro_token_test', 'wevro_pro_monthly']
+        });
     }
 
     if (tokensToAdd > 0) {
