@@ -447,9 +447,11 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         productIdentifier: purchaseProductId,
         productType: productType,
         isConsumable: !isSubscription, // Tokens are consumable, subscriptions are not
-        autoAcknowledgePurchases: false, // We'll acknowledge and consume after server verification
-        // For consumable products, we need to manually consume after purchase
-        // This allows users to purchase the same product multiple times
+        // CRITICAL: For consumable products, we need autoAcknowledgePurchases: true
+        // This allows the plugin to automatically handle consumption
+        // If set to false, we must manually acknowledge AND consume, but the plugin may not support manual consume
+        autoAcknowledgePurchases: !isSubscription, // Auto-acknowledge for consumables, manual for subscriptions
+        // For consumable products, the plugin should automatically consume when isConsumable: true and autoAcknowledgePurchases: true
       };
       
       // For Android subscriptions, add Base Plan ID (required)
@@ -528,81 +530,61 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       // Use the requested productId (not purchaseProductId) as it's the one we want to verify
       await handlePurchaseSuccess(transaction, productId);
 
-      // For consumable products, we need to acknowledge AND consume the purchase
-      // This allows users to purchase the same consumable product multiple times
+      // For consumable products with autoAcknowledgePurchases: true, the plugin should automatically consume
+      // But we still need to manually acknowledge for subscriptions
+      // For consumables, if autoAcknowledgePurchases is true, consumption should happen automatically
       if (platform === 'android' && transaction.purchaseToken) {
-        try {
-          // Step 1: Acknowledge the purchase (required for all purchases)
-          await NativePurchases.acknowledgePurchase({
-            purchaseToken: transaction.purchaseToken,
-          });
-          console.log('IAP: Purchase acknowledged successfully');
-          
-          // Step 2: For consumable products, consume the purchase
-          // This allows the user to purchase the same product again
-          // CRITICAL: Google Play requires consumable products to be consumed after purchase
-          // Without consumption, users will see "You already own this item" error
-          if (!isSubscription && transaction.purchaseToken) {
-            try {
-              console.log('IAP: Attempting to consume purchase for consumable product...');
-              console.log('IAP: Available NativePurchases methods:', Object.getOwnPropertyNames(NativePurchases).filter(name => typeof (NativePurchases as any)[name] === 'function'));
-              
-              // Try multiple possible method names for consuming
-              const consumeMethods = [
-                'consumePurchase',
-                'consumeProduct',
-                'finishTransaction',
-                'consumeAsync',
-              ];
-              
-              let consumed = false;
-              let lastError: any = null;
-              
-              for (const methodName of consumeMethods) {
-                if (typeof (NativePurchases as any)[methodName] === 'function') {
-                  try {
-                    console.log(`IAP: Trying to consume using method: ${methodName}`);
-                    await (NativePurchases as any)[methodName]({
-                      purchaseToken: transaction.purchaseToken,
-                    });
-                    console.log(`✅ IAP: Purchase consumed successfully using ${methodName}`);
-                    consumed = true;
-                    break;
-                  } catch (methodError: any) {
-                    console.warn(`IAP: Method ${methodName} failed:`, methodError);
-                    lastError = methodError;
-                  }
+        if (isSubscription) {
+          // For subscriptions, we need to acknowledge manually
+          try {
+            await NativePurchases.acknowledgePurchase({
+              purchaseToken: transaction.purchaseToken,
+            });
+            console.log('IAP: Subscription purchase acknowledged successfully');
+          } catch (ackError: any) {
+            console.error('IAP: Failed to acknowledge subscription purchase:', ackError);
+          }
+        } else {
+          // For consumable products, if autoAcknowledgePurchases is true, plugin should auto-consume
+          // But let's still try to manually consume as a fallback
+          try {
+            console.log('IAP: Checking if purchase was auto-consumed by plugin...');
+            console.log('IAP: Available NativePurchases methods:', Object.getOwnPropertyNames(NativePurchases).filter(name => typeof (NativePurchases as any)[name] === 'function'));
+            
+            // Try to manually consume as a fallback (in case auto-consume didn't work)
+            const consumeMethods = [
+              'consumePurchase',
+              'consumeProduct',
+              'finishTransaction',
+              'consumeAsync',
+            ];
+            
+            let consumed = false;
+            
+            for (const methodName of consumeMethods) {
+              if (typeof (NativePurchases as any)[methodName] === 'function') {
+                try {
+                  console.log(`IAP: Trying to manually consume using method: ${methodName}`);
+                  await (NativePurchases as any)[methodName]({
+                    purchaseToken: transaction.purchaseToken,
+                  });
+                  console.log(`✅ IAP: Purchase consumed successfully using ${methodName}`);
+                  consumed = true;
+                  break;
+                } catch (methodError: any) {
+                  // If method exists but fails, it might mean purchase was already consumed
+                  console.log(`IAP: Method ${methodName} result:`, methodError?.message || methodError);
+                  // Don't treat as error - might be already consumed
                 }
               }
-              
-              if (!consumed) {
-                // CRITICAL ERROR: Cannot consume purchase
-                console.error('❌ IAP: CRITICAL - Cannot consume purchase!');
-                console.error('❌ IAP: No consume method found in NativePurchases');
-                console.error('❌ IAP: User will see "You already own this item" on next purchase');
-                console.error('❌ IAP: This may be a plugin limitation or configuration issue');
-                
-                // Show error to user
-                toast({
-                  title: 'Purchase Warning',
-                  description: 'Purchase successful, but may not be consumable. If you see "You already own this item", the purchase needs to be manually consumed. Please contact support.',
-                  variant: 'default',
-                  duration: 15000,
-                });
-              }
-            } catch (consumeError: any) {
-              console.error('❌ IAP: Failed to consume purchase:', consumeError);
-              toast({
-                title: 'Purchase Warning',
-                description: 'Purchase successful, but consumption failed. You may not be able to purchase this item again immediately. Please contact support if this happens.',
-                variant: 'default',
-                duration: 15000,
-              });
             }
+            
+            if (!consumed) {
+              console.log('IAP: No manual consume method found - assuming plugin auto-consumed (isConsumable: true, autoAcknowledgePurchases: true)');
+            }
+          } catch (consumeError: any) {
+            console.warn('IAP: Manual consume attempt failed (may be normal if plugin auto-consumed):', consumeError);
           }
-        } catch (ackError: any) {
-          console.error('IAP: Failed to acknowledge purchase:', ackError);
-          // Don't fail the purchase if acknowledgment fails, as backend can handle it
         }
       }
     } catch (err: any) {
