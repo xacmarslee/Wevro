@@ -87,9 +87,31 @@ function withAuthInit(init: RequestInit = {}): RequestInit {
 
 export async function fetchWithAuth(input: RequestInfo | URL, init: RequestInit = {}) {
   const resolvedInput = resolveRequestInfo(input);
+  
+  // 添加超時處理（30秒超時，避免 ANR）
+  const timeoutMs = 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
   try {
-    return await fetch(resolvedInput, withAuthInit(init));
-  } catch (error) {
+    const response = await fetch(resolvedInput, {
+      ...withAuthInit(init),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      console.error("[fetchWithAuth] Request timeout:", {
+        url: resolvedInput.toString(),
+        base: API_BASE_URL,
+        timeout: timeoutMs
+      });
+      throw new Error(`Request timeout after ${timeoutMs}ms`);
+    }
+    
     console.error("[fetchWithAuth] Network/Fetch Error:", error, {
       url: resolvedInput.toString(),
       base: API_BASE_URL

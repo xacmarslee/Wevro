@@ -10,6 +10,7 @@ export const PRODUCT_IDS = {
   TOKEN_S: 'wevro_token_s',
   TOKEN_M: 'wevro_token_m',
   TOKEN_L: 'wevro_token_l',
+  TOKEN_TEST: 'wevro_token_test', // Test product: $0.3 for 2 tokens
   PRO_MONTHLY: 'wevro_pro_monthly', // Match the actual product ID in Google Play Console
 };
 
@@ -39,6 +40,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     const initIAP = async () => {
       // Only initialize on mobile platforms
       const platform = Capacitor.getPlatform();
+      console.log('[IAP] Initializing IAP, platform:', platform);
+      
       if (platform === 'web') {
         console.log('IAP: Running on web, IAP not supported');
         setIsLoading(false);
@@ -48,20 +51,36 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
       try {
         // Check if billing is supported
+        console.log('[IAP] Checking if billing is supported...');
         const billingCheck = await NativePurchases.isBillingSupported();
+        console.log('[IAP] Billing support check result:', billingCheck);
+        
         if (!billingCheck.isBillingSupported) {
-          console.log('IAP: Billing not supported on this device');
+          console.warn('IAP: Billing not supported on this device');
+          toast({
+            title: 'Billing Not Supported',
+            description: 'In-App Purchases are not supported on this device or emulator. Please use a real device or Google Play test environment.',
+            variant: 'destructive',
+            duration: 10000,
+          });
           setIsLoading(false);
           setIsSupported(false);
           return;
         }
 
+        console.log('[IAP] Billing is supported, setting isSupported to true');
         setIsSupported(true);
 
         // Load products
         await loadProducts();
       } catch (error) {
         console.error('IAP: Initialization error', error);
+        toast({
+          title: 'IAP Initialization Failed',
+          description: `Failed to initialize In-App Purchases: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your device and try again.`,
+          variant: 'destructive',
+          duration: 10000,
+        });
         setIsLoading(false);
         setIsSupported(false);
       }
@@ -74,12 +93,14 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           PRODUCT_IDS.TOKEN_S,
           PRODUCT_IDS.TOKEN_M,
           PRODUCT_IDS.TOKEN_L,
+          PRODUCT_IDS.TOKEN_TEST, // Test product for development
         ];
 
         const allProducts: Product[] = [];
 
         // Load consumable products (tokens) - handle errors gracefully
         try {
+          console.log('[IAP] Loading consumable products...');
           const consumableResult = await NativePurchases.getProducts({
             productIdentifiers: productIds,
             productType: PURCHASE_TYPE.INAPP,
@@ -88,10 +109,12 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           console.log('IAP: Loaded consumable products:', consumableResult.products.map(p => p.identifier));
         } catch (error: any) {
           console.warn('IAP: Failed to load consumable products:', error?.message || error);
+          // 即使加載失敗，也繼續（可以在購買時動態獲取）
         }
 
         // Load subscription product - handle errors gracefully
         try {
+          console.log('[IAP] Loading subscription products...');
           const subscriptionResult = await NativePurchases.getProducts({
             productIdentifiers: [PRODUCT_IDS.PRO_MONTHLY],
             productType: PURCHASE_TYPE.SUBS,
@@ -100,17 +123,24 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           console.log('IAP: Loaded subscription products:', subscriptionResult.products.map(p => p.identifier));
         } catch (error: any) {
           console.warn('IAP: Failed to load subscription products:', error?.message || error);
+          // 即使加載失敗，也繼續（可以在購買時動態獲取）
         }
 
         if (allProducts.length > 0) {
           console.log('IAP: Total products loaded:', allProducts.length, allProducts.map(p => p.identifier));
           setProducts(allProducts);
         } else {
-          console.warn('IAP: No products were loaded. Check Google Play Console configuration.');
+          console.warn('IAP: No products were loaded. Products will be fetched dynamically when needed.');
+          // 即使沒有產品，也允許繼續（購買時會動態獲取）
         }
+        
+        // 無論成功或失敗，都設置 isLoading 為 false
+        // 這樣用戶可以嘗試購買（購買時會動態獲取產品）
+        console.log('[IAP] Product loading completed, setting isLoading to false');
         setIsLoading(false);
       } catch (error: any) {
         console.error('IAP: Failed to load products:', error?.message || error);
+        // 確保即使出錯也設置 isLoading 為 false
         setIsLoading(false);
       }
     };
@@ -137,15 +167,18 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   const handlePurchaseSuccess = async (transaction: Transaction) => {
     try {
       const platform = Capacitor.getPlatform();
+      // Use productIdentifier from transaction (this is what Google Play/Apple actually returned)
       const productId = transaction.productIdentifier;
 
       console.log('IAP: Starting verification process', {
         productId,
+        productIdentifier: transaction.productIdentifier,
         transactionId: transaction.transactionId,
         orderId: transaction.orderId,
         hasPurchaseToken: !!transaction.purchaseToken,
         hasReceipt: !!transaction.receipt,
         platform,
+        fullTransaction: transaction, // Log full transaction for debugging
       });
 
       // Send receipt to backend for verification
@@ -153,7 +186,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         body: JSON.stringify({
           platform: platform === 'ios' ? 'apple-appstore' : 'google-play',
-          productId: productId,
+          productId: productId, // Use the product ID from transaction
           transactionId: transaction.transactionId,
           purchaseToken: transaction.purchaseToken || transaction.receipt,
           receipt: transaction.receipt, // Also send receipt for backwards compatibility
@@ -212,13 +245,23 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   };
 
   const purchase = async (productId: string) => {
+    console.log('[IAP] purchase() called with productId:', productId);
+    console.log('[IAP] isSupported:', isSupported, 'isLoading:', isLoading);
+    
     if (!isSupported) {
+      console.warn('[IAP] IAP not supported on this device');
       toast({
         title: 'Store not available',
         description: 'In-App Purchases are only available on mobile devices.',
         variant: 'destructive',
       });
       return;
+    }
+    
+    if (isLoading) {
+      console.warn('[IAP] IAP is still loading, but attempting to proceed with dynamic product fetch');
+      // 不阻止購買，允許動態獲取產品
+      // 這樣即使產品列表還沒加載完成，也可以嘗試購買
     }
 
     const platform = Capacitor.getPlatform();
@@ -384,6 +427,13 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       const errorMessage = err?.message || '';
       const errorName = err?.name || '';
       
+      console.log('[IAP] Error details:', {
+        errorMessage,
+        errorName,
+        code: err?.code,
+        fullError: err,
+      });
+      
       // Handle specific error cases
       if (
         errorMessage.includes('cancel') || 
@@ -392,7 +442,12 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         errorName.includes('UserCancel')
       ) {
         console.log('IAP: User cancelled purchase');
-        // User cancelled, don't show error
+        // User cancelled, show a friendly message instead of error
+        toast({
+          title: 'Purchase Cancelled',
+          description: 'Purchase was cancelled. No charges were made.',
+          variant: 'default',
+        });
         return;
       }
       

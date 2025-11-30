@@ -91,29 +91,37 @@ export function useAuth() {
   const { data: user } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     queryFn: async () => {
-      const response = await fetchWithAuth("/api/auth/user");
+      try {
+        const response = await fetchWithAuth("/api/auth/user");
 
-      if (response.status === 401 || response.status === 404) {
-        console.warn("[useAuth] Unauthorized or user not found, returning null");
+        if (response.status === 401 || response.status === 404) {
+          console.warn("[useAuth] Unauthorized or user not found, returning null");
+          return null;
+        }
+
+        await throwIfResNotOk(response);
+        const userData = await response.json();
+        
+        // 如果是新用戶，確保 quota 已創建（觸發 quota 查詢）
+        if (userData) {
+          queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
+          
+          // 設定 Analytics 用戶 ID 和屬性
+          setAnalyticsUserId(userData.id);
+          // 用戶屬性會從 quota 查詢中更新（在 quota 查詢成功後）
+        }
+        
+        return userData;
+      } catch (error: any) {
+        // 網絡錯誤時不阻塞啟動，返回 null
+        console.error("[useAuth] Failed to fetch user data:", error);
         return null;
       }
-
-      await throwIfResNotOk(response);
-      const userData = await response.json();
-      
-      // 如果是新用戶，確保 quota 已創建（觸發 quota 查詢）
-      if (userData) {
-        queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
-        
-        // 設定 Analytics 用戶 ID 和屬性
-        setAnalyticsUserId(userData.id);
-        // 用戶屬性會從 quota 查詢中更新（在 quota 查詢成功後）
-      }
-      
-      return userData;
     },
     enabled: !!firebaseUser && authReady,
     retry: false,
+    // 設置較長的 staleTime，避免頻繁請求
+    staleTime: 5 * 60 * 1000, // 5 分鐘
   });
 
   return {

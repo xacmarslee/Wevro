@@ -109,14 +109,20 @@ export default function Pricing() {
   };
 
   const handlePurchaseTokens = async (amount: number) => {
+    console.log('[Pricing] handlePurchaseTokens called with amount:', amount);
+    
     // Check if email is verified before allowing token purchase
     if (!isEmailVerified) {
+      console.log('[Pricing] Email not verified, showing verification dialog');
       setShowVerificationDialog(true);
       return;
     }
     
     let productId;
     switch (amount) {
+      case 2:
+        productId = PRODUCT_IDS.TOKEN_TEST; // Test product: $0.3 for 2 tokens
+        break;
       case 40:
         productId = PRODUCT_IDS.TOKEN_S;
         break;
@@ -127,11 +133,29 @@ export default function Pricing() {
         productId = PRODUCT_IDS.TOKEN_L;
         break;
       default:
-        console.error("Invalid token amount:", amount);
+        console.error("[Pricing] Invalid token amount:", amount);
+        toast({
+          title: language === "en" ? "Error" : "錯誤",
+          description: language === "en" ? "Invalid token amount" : "無效的點數數量",
+          variant: "destructive",
+        });
         return;
     }
     
-    await purchase(productId);
+    console.log('[Pricing] Calling purchase with productId:', productId);
+    
+    try {
+      await purchase(productId);
+      console.log('[Pricing] Purchase function completed');
+    } catch (error: any) {
+      console.error('[Pricing] Purchase function threw error:', error);
+      // Purchase function should handle its own errors, but just in case
+      toast({
+        title: language === "en" ? "Purchase Error" : "購買錯誤",
+        description: error?.message || (language === "en" ? "An error occurred during purchase" : "購買過程中發生錯誤"),
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCancelSubscription = () => {
@@ -397,7 +421,32 @@ export default function Pricing() {
               : "一次購買，永久有效。不會過期，無需訂閱。"}
           </p>
 
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
+            {/* 測試點數包（開發用） */}
+            <Card className="shadow-md border-purple-500 border-2">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="h-5 w-5 text-purple-600" />
+                  TEST
+                </CardTitle>
+                <CardDescription className="text-2xl font-bold text-foreground">
+                  2 {language === "en" ? "tokens" : "點"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="text-2xl font-bold">$0.30</div>
+                <div className="text-xs text-muted-foreground">
+                  {language === "en" ? "~NT$ 9" : "約 NT$ 9"}
+                </div>
+                <Button 
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white border-purple-500 hover:border-purple-600"
+                  onClick={() => handlePurchaseTokens(2)}
+                >
+                  {language === "en" ? "Buy Now" : "購買"}
+                </Button>
+              </CardContent>
+            </Card>
+
             {/* 小點數包 */}
             <Card className="shadow-md border-slate-200">
               <CardHeader className="pb-3">
