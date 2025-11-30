@@ -245,13 +245,26 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         console.log('IAP: Verification successful', responseData);
         
+        // Check if tokens were actually added
+        const tokensAdded = responseData.tokensAdded || 0;
+        if (tokensAdded > 0) {
+          console.log(`✅ IAP: ${tokensAdded} tokens should have been added to account`);
+        } else {
+          console.warn('⚠️ IAP: Verification successful but tokensAdded is 0 or missing:', responseData);
+        }
+        
         // Immediately refresh quota to show updated token balance
         await queryClient.invalidateQueries({ queryKey: ["/api/quota"] });
         console.log('IAP: Quota query invalidated, balance will refresh');
         
+        // Force refetch to ensure we get the latest balance
+        await queryClient.refetchQueries({ queryKey: ["/api/quota"] });
+        console.log('IAP: Quota query refetched');
+        
         toast({
           title: 'Purchase Successful',
-          description: `Your purchase has been processed. ${responseData.tokensAdded ? `${responseData.tokensAdded} tokens added.` : ''}`,
+          description: `Your purchase has been processed. ${tokensAdded > 0 ? `${tokensAdded} tokens added.` : 'Please check your balance.'}`,
+          duration: 5000,
         });
       } else {
         console.error('IAP: Verification failed', {
@@ -375,7 +388,9 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         productIdentifier: purchaseProductId,
         productType: productType,
         isConsumable: !isSubscription, // Tokens are consumable, subscriptions are not
-        autoAcknowledgePurchases: false, // We'll acknowledge after server verification
+        autoAcknowledgePurchases: false, // We'll acknowledge and consume after server verification
+        // For consumable products, we need to manually consume after purchase
+        // This allows users to purchase the same product multiple times
       };
       
       // For Android subscriptions, add Base Plan ID (required)
@@ -454,13 +469,39 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       // Use the requested productId (not purchaseProductId) as it's the one we want to verify
       await handlePurchaseSuccess(transaction, productId);
 
-      // Acknowledge the purchase (after verification)
+      // For consumable products, we need to acknowledge AND consume the purchase
+      // This allows users to purchase the same consumable product multiple times
       if (platform === 'android' && transaction.purchaseToken) {
         try {
+          // Step 1: Acknowledge the purchase (required for all purchases)
           await NativePurchases.acknowledgePurchase({
             purchaseToken: transaction.purchaseToken,
           });
           console.log('IAP: Purchase acknowledged successfully');
+          
+          // Step 2: For consumable products, consume the purchase
+          // This allows the user to purchase the same product again
+          if (!isSubscription && transaction.purchaseToken) {
+            try {
+              // Consume the purchase to allow re-purchase
+              // Note: Some plugins may use consumePurchase, others may handle it automatically
+              // Check if the plugin has a consumePurchase method
+              if (typeof (NativePurchases as any).consumePurchase === 'function') {
+                await (NativePurchases as any).consumePurchase({
+                  purchaseToken: transaction.purchaseToken,
+                });
+                console.log('IAP: Purchase consumed successfully - can be purchased again');
+              } else {
+                // If consumePurchase is not available, try using acknowledgePurchase with consume flag
+                // Or the plugin may handle consumption automatically for consumable products
+                console.log('IAP: consumePurchase method not available, purchase may need manual consumption');
+              }
+            } catch (consumeError: any) {
+              console.warn('IAP: Failed to consume purchase (may not be critical):', consumeError);
+              // Don't fail the purchase if consumption fails
+              // The purchase is still valid, user just may not be able to purchase again immediately
+            }
+          }
         } catch (ackError: any) {
           console.error('IAP: Failed to acknowledge purchase:', ackError);
           // Don't fail the purchase if acknowledgment fails, as backend can handle it

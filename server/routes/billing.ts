@@ -104,14 +104,17 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
     }
 
     if (tokensToAdd > 0) {
-      await storage.addTokens(userId, tokensToAdd, "iap_purchase", {
+      console.log(`💰 About to add ${tokensToAdd} tokens to user ${userId}`);
+      const newBalance = await storage.addTokens(userId, tokensToAdd, "iap_purchase", {
         platform,
         productId,
         transactionId,
         orderId,
         purchaseToken: tokenOrReceipt,
       });
-      console.log(`✅ Added ${tokensToAdd} tokens to user ${userId}`);
+      console.log(`✅ Successfully added ${tokensToAdd} tokens to user ${userId}. New balance: ${newBalance}`);
+    } else {
+      console.warn(`⚠️ tokensToAdd is 0 or negative: ${tokensToAdd}. No tokens will be added.`);
     }
 
     if (newPlan) {
@@ -140,7 +143,13 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
       console.log(`✅ Updated user ${userId} to ${newPlan} plan. Subscription expires: ${subscriptionPeriodEnd.toISOString()}`);
     }
 
-    res.json({ success: true, message: "Purchase processed", tokensAdded: tokensToAdd });
+    res.json({ 
+      success: true, 
+      message: "Purchase processed", 
+      tokensAdded: tokensToAdd,
+      productId: productId,
+      transactionId: transactionId,
+    });
   } catch (error: any) {
     console.error("❌ Error processing purchase:", error);
     console.error("Error details:", {
