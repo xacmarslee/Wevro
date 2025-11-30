@@ -98,19 +98,34 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
         // Log detailed error information for debugging
         console.error(`❌ Invalid product ID: "${productId}" (normalized: "${normalizedProductId}", mapped: "${mappedProductId}")`);
         console.error(`Full request body:`, JSON.stringify(req.body, null, 2));
-        console.error(`Available product IDs: wevro_token_s, wevro_token_m, wevro_token_l, wevro_token_test, wevro_pro_monthly`);
-        console.error(`Also accepts Base Plan IDs: monthly-plan`);
         
-        // Return detailed error for debugging
+        // CRITICAL FIX: For invalid product IDs that look like tokens (stuck transactions),
+        // we must return 200 OK so the frontend can consume them and clear the queue.
+        // If we return 400, the frontend throws an error and doesn't consume, causing an infinite loop.
+        
+        // Check if it looks like a token (long string) or just an unknown ID
+        if (productId && productId.length > 50) {
+          console.warn(`⚠️ Detecting potential stuck transaction with Token as ID. Returning success to allow consumption.`);
+          return res.json({ 
+            success: true, 
+            message: "Processed stuck transaction (Invalid ID)", 
+            tokensAdded: 0, // Don't add tokens for unknown products
+            productId: productId,
+            transactionId: transactionId,
+            isStuckTransaction: true
+          });
+        }
+
+        // For short/normal IDs that are just wrong, still return 400
         return res.status(400).json({ 
           error: "Invalid product ID", 
-          message: `Product ID "${productId}" is not recognized. Please check the product ID matches one of the available products.`,
+          message: `Product ID "${productId}" is not recognized.`,
           productId: productId,
           normalized: normalizedProductId,
           mapped: mappedProductId,
           available: ['wevro_token_s', 'wevro_token_m', 'wevro_token_l', 'wevro_token_test', 'wevro_pro_monthly'],
           basePlanIds: ['monthly-plan'],
-          receivedBody: req.body, // Include full request for debugging
+          receivedBody: req.body,
         });
     }
 

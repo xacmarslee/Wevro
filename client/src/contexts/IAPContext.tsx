@@ -40,6 +40,9 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initIAP = async () => {
+      // DEBUG: Log version to verify update
+      console.log('[IAP] IAPContext loaded - Version: 1.0.40 (Fix for stuck transactions)');
+      
       // Only initialize on mobile platforms
       const platform = Capacitor.getPlatform();
       console.log('[IAP] Initializing IAP, platform:', platform);
