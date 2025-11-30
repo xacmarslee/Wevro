@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { fetchWithAuth } from '@/lib/queryClient';
+import { Capacitor } from '@capacitor/core';
 
 // Declare global CdvPurchase type if not available
 declare global {
@@ -96,9 +97,16 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initStore = () => {
+      // Diagnostic logs to check plugin availability
+      console.log('IAP: [DIAGNOSTIC] Checking CdvPurchase availability:', !!window.CdvPurchase);
+      console.log('IAP: [DIAGNOSTIC] Checking store:', !!window.CdvPurchase?.store);
+      console.log('IAP: [DIAGNOSTIC] Device ready state:', document.readyState);
+      console.log('IAP: [DIAGNOSTIC] window.CdvPurchase object:', window.CdvPurchase);
+      
       // Check if CdvPurchase is available (it's a global variable from the plugin)
       if (!window.CdvPurchase?.store) {
         console.log('IAP: Store not available (running in browser?)');
+        console.log('IAP: [DIAGNOSTIC] window.CdvPurchase is:', window.CdvPurchase);
         setIsLoading(false);
         return;
       }
@@ -107,53 +115,58 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       setStore(store);
       setIsSupported(true);
 
-      // Register products
-      store.register([
+      // Determine platform and only register/initialize for current platform
+      const platform = Capacitor.getPlatform();
+      console.log('IAP: [DIAGNOSTIC] Current platform:', platform);
+      
+      const currentPlatform = platform === 'ios' 
+        ? CdvPurchase.Platform.APPLE_APPSTORE 
+        : CdvPurchase.Platform.GOOGLE_PLAY;
+      
+      // Filter products for current platform only
+      const platformProducts = [
         {
           id: PRODUCT_IDS.TOKEN_S,
           type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: CdvPurchase.Platform.GOOGLE_PLAY,
-        },
-        {
-          id: PRODUCT_IDS.TOKEN_S,
-          type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: CdvPurchase.Platform.APPLE_APPSTORE,
+          platform: currentPlatform,
         },
         {
           id: PRODUCT_IDS.TOKEN_M,
           type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: CdvPurchase.Platform.GOOGLE_PLAY,
-        },
-        {
-          id: PRODUCT_IDS.TOKEN_M,
-          type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: CdvPurchase.Platform.APPLE_APPSTORE,
+          platform: currentPlatform,
         },
         {
           id: PRODUCT_IDS.TOKEN_L,
           type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: CdvPurchase.Platform.GOOGLE_PLAY,
-        },
-        {
-          id: PRODUCT_IDS.TOKEN_L,
-          type: CdvPurchase.ProductType.CONSUMABLE,
-          platform: CdvPurchase.Platform.APPLE_APPSTORE,
+          platform: currentPlatform,
         },
         {
           id: PRODUCT_IDS.PRO_MONTHLY,
           type: CdvPurchase.ProductType.PAID_SUBSCRIPTION,
-          platform: CdvPurchase.Platform.GOOGLE_PLAY,
+          platform: currentPlatform,
         },
-        {
-          id: PRODUCT_IDS.PRO_MONTHLY,
-          type: CdvPurchase.ProductType.PAID_SUBSCRIPTION,
-          platform: CdvPurchase.Platform.APPLE_APPSTORE,
-        },
-      ]);
+      ];
+      
+      console.log('IAP: [DIAGNOSTIC] Registering products for platform:', currentPlatform, platformProducts);
+      store.register(platformProducts);
 
-      // Setup event listeners
-      store.when()
+      // Setup event listeners BEFORE initialize
+      console.log('IAP: [DIAGNOSTIC] Setting up event listeners...');
+      const whenChain = store.when();
+      
+      // Try to listen for ready event if available
+      if (typeof whenChain.ready === 'function') {
+        whenChain.ready(() => {
+          console.log('IAP: [DIAGNOSTIC] Store ready event fired!');
+          console.log('IAP: [DIAGNOSTIC] Products after ready:', store.products);
+          setProducts(store.products);
+        });
+      }
+      
+      whenChain
         .productUpdated((product: CdvPurchase.Product) => {
+          console.log('IAP: [DIAGNOSTIC] productUpdated event fired!', product);
+          console.log('IAP: [DIAGNOSTIC] All products now:', store.products);
           setProducts(store.products);
         })
         .approved(async (transaction: CdvPurchase.Transaction) => {
@@ -195,16 +208,57 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           receipt.finish();
         });
 
-      // Initialize the store
-      store.initialize([
-        CdvPurchase.Platform.GOOGLE_PLAY,
-        CdvPurchase.Platform.APPLE_APPSTORE,
-      ]);
+      // Initialize the store - only for current platform
+      console.log('IAP: [DIAGNOSTIC] About to initialize store for platform:', currentPlatform);
+      try {
+        store.initialize([currentPlatform]);
+        console.log('IAP: [DIAGNOSTIC] Store initialize() called successfully');
+        
+        // Try to manually refresh products after a short delay
+        // Sometimes Google Billing needs time to connect
+        setTimeout(() => {
+          console.log('IAP: [DIAGNOSTIC] Attempting manual refresh after 2 seconds...');
+          console.log('IAP: [DIAGNOSTIC] Products before refresh:', store.products);
+          
+          // Try refresh if available
+          if (typeof store.refresh === 'function') {
+            console.log('IAP: [DIAGNOSTIC] Calling store.refresh()...');
+            store.refresh();
+          } else {
+            console.log('IAP: [DIAGNOSTIC] store.refresh() not available, checking products directly');
+          }
+          
+          // Check products again after refresh
+          setTimeout(() => {
+            console.log('IAP: [DIAGNOSTIC] Products after refresh delay:', store.products);
+            if (store.products.length > 0) {
+              setProducts(store.products);
+              console.log('IAP: [DIAGNOSTIC] Products loaded:', store.products.map((p: CdvPurchase.Product) => p.id));
+            } else {
+              console.warn('IAP: [DIAGNOSTIC] Still no products after refresh delay');
+            }
+          }, 3000);
+        }, 2000);
+      } catch (err) {
+        console.error('IAP: [DIAGNOSTIC] Store initialize() threw error:', err);
+      }
 
       setIsLoading(false);
     };
 
-    document.addEventListener('deviceready', initStore);
+    console.log('IAP: [DIAGNOSTIC] Setting up deviceready listener...');
+    console.log('IAP: [DIAGNOSTIC] Current readyState:', document.readyState);
+    
+    // If already ready (e.g. in browser or late binding), call immediately
+    if (document.readyState === 'complete' || (window as any).cordova) {
+      console.log('IAP: [DIAGNOSTIC] Document already ready or Cordova detected, calling initStore immediately');
+      initStore();
+    } else {
+      document.addEventListener('deviceready', () => {
+        console.log('IAP: [DIAGNOSTIC] deviceready event fired!');
+        initStore();
+      });
+    }
 
     return () => {
       document.removeEventListener('deviceready', initStore);
