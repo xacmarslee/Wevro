@@ -413,11 +413,19 @@ export const idiomWithExamplesSchema = z.object({
 
 export type IdiomWithExamples = z.infer<typeof idiomWithExamplesSchema>;
 
-// Collocation with examples
+// Collocation (without examples)
+export const collocationSchema = z.object({
+  phrase: z.string(),
+  gloss_zh: z.string(), // Chinese translation of the entire collocation phrase
+});
+
+export type Collocation = z.infer<typeof collocationSchema>;
+
+// Collocation with examples (deprecated, kept for backward compatibility)
 export const collocationWithExamplesSchema = z.object({
   phrase: z.string(),
   gloss_zh: z.string(), // Chinese translation of the collocation
-  examples: z.array(exampleSentenceSchema),
+  examples: z.array(exampleSentenceSchema).optional(), // Optional for backward compatibility
 });
 
 export type CollocationWithExamples = z.infer<typeof collocationWithExamplesSchema>;
@@ -427,7 +435,7 @@ export const examplesResponseSchema = z.object({
   query: z.string(),
   senses: z.array(senseWithExamplesSchema),
   idioms: z.array(idiomWithExamplesSchema),
-  collocations: z.array(collocationWithExamplesSchema),
+  collocations: z.array(collocationSchema), // Use new schema without examples
   tokenInfo: tokenInfoSchema.optional(),
 });
 
@@ -455,6 +463,9 @@ export const synonymEntrySchema = z.object({
   examples: z.array(z.object({
     en: z.string(),
     zh_tw: z.string(),
+    difficulty: z.enum(difficultyLevels).optional(),
+    topic: z.enum(exampleTopics).optional(),
+    length: z.enum(sentenceLengths).optional(),
   })).length(2), // Fixed 2 examples
 });
 
@@ -463,7 +474,7 @@ export type SynonymEntry = z.infer<typeof synonymEntrySchema>;
 // Complete synonym comparison response
 export const synonymComparisonResponseSchema = z.object({
   query: z.string(),
-  synonyms: z.array(synonymEntrySchema).max(7),
+  synonyms: z.array(synonymEntrySchema).max(8), // 輸入字本身 + 最多7個同義字
   tokenInfo: tokenInfoSchema.optional(),
 });
 

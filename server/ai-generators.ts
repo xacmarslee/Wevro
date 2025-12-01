@@ -84,7 +84,14 @@ Generate related words if they exist. If there are no appropriate related words 
 
 Example: ${examples[category]}
 
-${category === "idioms" ? `IMPORTANT: For idioms, ALL idioms must contain the word "${word}" in them. If no idioms exist with this word, return an empty array.` : ""}
+${category === "idioms" ? `IMPORTANT for idioms:
+- **CRITICAL DISTINCTION**: Idioms are NON-LITERAL, figurative expressions (meaning cannot be inferred from the words)
+- **DO NOT** include collocations (literal meaning combinations) - those belong in the collocations category
+- ALL idioms must contain the word "${word}" in them. If no idioms exist with this word, return an empty array.
+- **Phrasal Verbs**: Include phrasal verbs ONLY if they have non-literal meaning (e.g., "give up" = abandon, cannot infer from "give" + "up")
+- **Exclude**: Literal phrasal verbs like "settle in" (can infer "settle into" from words) - these are collocations
+- **Test**: Can you understand the meaning from the literal words? If NO (figurative) → idiom. If YES → collocation.
+- Examples: "settle the score" (figurative: get revenge) → idiom ✓, "settle in" (literal: settle into) → collocation ✗` : ""}
 
 ${category === "derivatives" ? `CRITICAL for derivatives:
 - ONLY include derivational forms that appear as separate entries (headwords) in major learner dictionaries such as Oxford Learner's Dictionaries, Cambridge, Merriam-Webster, Collins, or Longman.
@@ -110,16 +117,22 @@ ${category === "topic-related" ? `CRITICAL for topic-related words - OPPOSITE of
 - Example for "computer": ✓ "keyboard", "mouse", "monitor", "internet", "technology" (related devices/concepts)` : ""}
 
 ${category === "collocations" ? `IMPORTANT for collocations:
+- **CRITICAL DISTINCTION**: Collocations are LITERAL meaning combinations (meaning can be inferred from the words)
+- **DO NOT** include idioms (non-literal, figurative expressions) - those belong in the idioms category
 - If "${word}" is a VERB:
-  * INTRANSITIVE VERB: Return common preposition combinations (e.g., "look at", "look for", "look after")
-  * TRANSITIVE VERB: Return common object combinations (e.g., "make a decision", "take action", "give advice")
+  * INTRANSITIVE VERB: Return common preposition combinations with LITERAL meaning (e.g., "look at", "settle in", "set up")
+  * TRANSITIVE VERB: Return common object combinations with LITERAL meaning (e.g., "make a decision", "settle a dispute")
 - If "${word}" is a NOUN:
   * Return common adjective + noun combinations (e.g., "tough decision", "final decision")
-  * Return common verb + noun combinations where this noun is the object (e.g., "make a decision", "reach a decision")` : ""}
+  * Return common verb + noun combinations where this noun is the object (e.g., "make a decision", "reach a decision")
+- **Phrasal Verbs**: Include phrasal verbs ONLY if they have literal meaning (e.g., "settle in" = settle into a place, "set up" = establish)
+- **Exclude**: Non-literal phrasal verbs like "give up" (cannot infer "abandon" from "give" + "up") - these are idioms` : ""}
 
 ${category === "collocations" ? `ABSOLUTE RULE for collocations:
 - Every collocation MUST explicitly contain the base word "${word}" (with its preposition, modifier, or object). Examples: "restrict access", "restrict someone", "restrict from doing".
-- DO NOT output synonyms, related concepts, or collocations that omit "${word}". If you cannot find valid collocations that include "${word}", return an empty array.` : ""}
+- **Test**: Can you understand the meaning from the literal words? If YES → collocation. If NO (figurative) → idiom.
+- Examples: "settle in" (literal: settle into) → collocation ✓, "settle the score" (figurative: get revenge) → idiom ✗
+- DO NOT output synonyms, related concepts, idioms, or collocations that omit "${word}". If you cannot find valid collocations that include "${word}", return an empty array.` : ""}
 
 Instructions:
 - Generate as many ACCURATE ${categoryDescriptions[category]} as you can find (up to 7 words maximum)
@@ -227,8 +240,41 @@ async function generateWordStructure(query: string, sensesCount: number, phraseC
 
 規則：
 1. 找出 2-3 個真正不同的詞義 (Senses)
-2. 找出 1-2 個常見慣用語 (Idioms)
-3. 找出 1-2 個常見搭配詞 (Collocations)
+2. 找出 1-5 個常見慣用語 (Idioms)
+   - 如果該單字確實有很多慣用語，盡量找出 3-5 個
+   - 如果該單字慣用語較少，找出 1-2 個即可
+   - **絕對不要**為了達到數量而生成不常見、不準確的慣用語
+   - 質量優先於數量，只生成真正常見、實用的慣用語
+   - **重要區分**：慣用語必須是非字面意思的（比喻性），意思不能從單詞字面推斷
+   - **絕對不要**包含搭配詞（字面意思的組合）
+   - 判斷標準：如果短語的意思不能從單詞字面意思推斷（比喻性）→ 慣用語
+   - 短語動詞：只包含非字面意思的（如 "give up" = 放棄，不能從 "give" + "up" 推斷）
+   - 排除：字面意思的短語動詞（如 "settle in" = 安頓下來，可以從字面推斷）→ 這些是搭配詞
+   - 例如："settle the score" → 字面是「解決分數」，實際是「算帳」→ 慣用語 ✓
+   - 例如："settle in" → 字面是「安頓在...裡」，實際也是「安頓下來」→ 不是慣用語 ✗
+3. 找出 3-15 個常見搭配詞 (Collocations)，必須包含：
+   - **重要區分**：搭配詞必須是字面意思的組合（意思可以從單詞推斷）
+   - **絕對不要**包含慣用語（非字面意思的短語）
+   - 如果該單字確實有很多常見搭配（如常用動詞、名詞），盡量找出 5-15 個
+   - 如果該單字搭配詞較少（如專業名詞、抽象名詞、專有名詞），找出 3-5 個即可
+   - **絕對不要**為了達到數量而生成不常見、不準確或勉強的搭配詞
+   - 質量優先於數量，只生成真正常見、實用的搭配
+   - 包含以下類型：
+     * 短語動詞 (Phrasal Verbs)：只包含字面意思的（如 "settle in" = 安頓下來，可以從字面推斷）
+     * 介詞搭配模式：動詞 + 介詞結構（如 "give sth to sb", "give sb sth", "result in", "result from"）
+     * 固定搭配：動詞 + 名詞/形容詞（如 "make a decision", "settle a dispute", "important decision"）
+   - 排除：非字面意思的短語動詞（如 "give up" = 放棄，不能從字面推斷）→ 這些是慣用語
+   - 根據單字的詞性，生成不同類型的搭配詞：
+     * 及物動詞：列出常見受詞和介詞搭配（如 "give money", "give sth to sb", "settle a dispute"）
+     * 不及物動詞：列出常見介系詞搭配和短語動詞（如 "result in", "settle in", "set up"）
+     * 名詞：列出常見動詞搭配和形容詞搭配（如 "make a decision", "important decision"）
+     * 形容詞：列出常見名詞搭配（如 "important decision", "serious problem"）
+   - 每個搭配詞提供整個片語的繁體中文翻譯（不是逐詞翻譯，而是片語整體的意思）
+   - 判斷標準：如果短語的意思可以從單詞字面意思推斷 → 搭配詞
+   - 例如："settle in" → 字面是「安頓在...裡」，實際也是「安頓下來」→ 搭配詞 ✓
+   - 例如："settle a dispute" → 字面是「解決爭議」，實際也是「解決爭議」→ 搭配詞 ✓
+   - 例如："set up" → 字面是「設置上去」，實際是「建立」（字面延伸）→ 搭配詞 ✓
+   - 例如："settle the score" → 字面是「解決分數」，實際是「算帳」→ 不是搭配詞 ✗（這是慣用語）
 4. 提供繁體中文翻譯 (gloss_zh) 和英文定義 (gloss)
 
 輸出格式 (JSON Only):
@@ -240,7 +286,7 @@ async function generateWordStructure(query: string, sensesCount: number, phraseC
     { "phrase": "idiom phrase", "gloss_zh": "中文", "gloss": "English meaning" }
   ],
   "collocations": [
-    { "phrase": "collocation phrase", "gloss_zh": "中文" }
+    { "phrase": "collocation phrase", "gloss_zh": "整個片語的繁體中文翻譯" }
   ]
 }`;
 
@@ -270,8 +316,9 @@ async function generateSentencesForUnint(
   
 要求：
 1. 例句要自然、實用，使用臺灣繁體中文翻譯。
-2. 標註難度 (A2-C1)、主題、長度。
-3. 格式 (JSON): { "examples": [{ "en": "...", "zh_tw": "...", "difficulty": "...", "topic": "...", "length": "..." }] }`;
+2. **重要**：${count} 個例句的難度 (A2-C1)、主題必須不同，長度建議不同。
+3. 標註難度 (A2-C1)、主題、長度。
+4. 格式 (JSON): { "examples": [{ "en": "...", "zh_tw": "...", "difficulty": "...", "topic": "...", "length": "..." }] }`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o", // Keep using gpt-4o for quality
@@ -313,12 +360,8 @@ export async function generateExampleSentences(
       });
     }
 
-    // Collocations
-    if (structure.collocations) {
-      structure.collocations.forEach((col: any) => {
-        tasks.push(generateSentencesForUnint("collocation", col, query, phraseCount));
-      });
-    }
+    // Collocations - No longer generate examples, just use the structure data
+    // (Collocations are now stored without examples)
 
     // Wait for all
     const rawResults = await Promise.all(tasks);
@@ -336,11 +379,17 @@ export async function generateExampleSentences(
     }));
 
     // Reassemble
+    // Collocations are now from structure directly (no examples generated)
+    const collocations = (structure.collocations || []).map((col: any) => ({
+      phrase: String(col.phrase || ""),
+      gloss_zh: String(col.gloss_zh || "")
+    }));
+
     const finalResponse = {
       query,
       senses: sanitizedResults.filter((r: any) => r.pos && r.gloss), 
       idioms: sanitizedResults.filter((r: any) => r.phrase && r.gloss && !r.pos), 
-      collocations: sanitizedResults.filter((r: any) => r.phrase && !r.gloss && !r.pos), 
+      collocations: collocations, 
     };
 
     console.log(`✓ Parallel generation completed for "${query}"`);
@@ -571,12 +620,17 @@ async function generateSynonymStructure(query: string): Promise<any> {
 
 你的任務：
 1. 找出 3-7 個真正的同義字 (Synonyms)
-2. 為每個同義字提供：詞性、相似度、繁體中文差異說明
+2. 為每個同義字提供：詞性、相似度、繁體中文使用時機說明
 3. *絕對不要* 生成例句
 
 規則：
 - 按相似度由高到低排序
-- 差異說明要簡潔 (20-40字)
+- 使用時機說明要簡潔 (20-40字)
+- 說明該字的使用情境和特點：什麼時候用這個字？在什麼場合使用？與其他相似字有什麼差異？
+- **絕對不要**在說明中提到其他字（包括輸入字或其他同義字）的名稱
+- 直接描述該字本身的特點：使用時機、正式程度、常見搭配、使用場合、語體風格、語義差異等
+- 例如：不要寫「比XX更強烈」，而是直接寫「語氣較強烈」或「用於表達較強烈的情緒」
+- 例如：不要寫「與XX的差異是...」，而是直接描述該字的使用時機和特點
 
 輸出格式 (JSON Only):
 {
@@ -603,12 +657,16 @@ async function generateSynonymStructure(query: string): Promise<any> {
 
 // Phase 2: Parallel Example Generation for Synonyms
 async function generateSynonymExamples(synonym: any, query: string): Promise<any> {
-  const prompt = `請為同義字 "${synonym.word}" (相對於原字 "${query}" 的意思) 造 2 個英文例句。
+  const prompt = `請為同義字 "${synonym.word}" 造 2 個英文例句。
+
+使用時機說明：「${synonym.difference_zh}」
 
 要求：
-1. 例句要能展現該同義字的特點，與 "${query}" 的細微差異。
-2. 提供繁體中文翻譯。
-3. 格式 (JSON): { "examples": [{ "en": "...", "zh_tw": "..." }] }`;
+1. 例句必須符合上述使用時機說明，能展現該字的使用情境和特點
+2. 例句要能體現該字的使用時機、正式程度、使用場合、語義差異等特徵
+3. 提供繁體中文翻譯
+4. **重要**：2 個例句的難度 (A2-C1)、主題必須不同，長度建議不同
+5. 格式 (JSON): { "examples": [{ "en": "...", "zh_tw": "...", "difficulty": "...", "topic": "...", "length": "..." }] }`;
 
   const response = await openai.chat.completions.create({
     model: "gpt-4o", // Keep using gpt-4o
@@ -619,6 +677,38 @@ async function generateSynonymExamples(synonym: any, query: string): Promise<any
 
   const result = JSON.parse(response.choices[0]?.message?.content || "{}");
   return { ...synonym, examples: result.examples || [] };
+}
+
+// Phase 2.5: Generate examples, POS, and usage context for the original query word
+async function generateQueryWordData(query: string, referencePos?: string): Promise<any> {
+  const prompt = `請為單字 "${query}" 提供以下資訊：
+1. 該單字的主要詞性（如 n., v., adj., adv. 等）
+2. 繁體中文使用時機說明（20-40字）：說明該字的使用情境和特點，什麼時候用這個字？在什麼場合使用？與其他相似字有什麼差異？**絕對不要**在說明中提到其他字的名稱，直接描述該字本身的特點
+3. 2 個英文例句，要能展現該字的使用情境和特點，並提供繁體中文翻譯
+4. **重要**：2 個例句的難度 (A2-C1)、主題必須不同，長度建議不同
+5. 標註難度 (A2-C1)、主題、長度
+
+格式 (JSON): { 
+  "pos": "n./v./adj./...",
+  "usage_zh": "使用時機說明...",
+  "examples": [{ "en": "...", "zh_tw": "...", "difficulty": "...", "topic": "...", "length": "..." }]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [{ role: "user", content: prompt }],
+    response_format: { type: "json_object" },
+    temperature: 0.7,
+  });
+
+  const result = JSON.parse(response.choices[0]?.message?.content || "{}");
+  return {
+    word: query,
+    pos: result.pos || referencePos || "unknown",
+    similarity: 1.0,
+    difference_zh: result.usage_zh || "輸入字本身",
+    examples: result.examples || []
+  };
 }
 
 export async function generateSynonymComparison(
@@ -647,16 +737,54 @@ export async function generateSynonymComparison(
       difference_zh: String(item.difference_zh || item.difference || "無差異說明"),
       examples: Array.isArray(item.examples) ? item.examples.map((ex: any) => ({
         en: String(ex.en || ""),
-        zh_tw: String(ex.zh_tw || ex.zh || "")
+        zh_tw: String(ex.zh_tw || ex.zh || ""),
+        difficulty: ex.difficulty || undefined,
+        topic: ex.topic || undefined,
+        length: ex.length || undefined,
       })) : []
     })).filter((item: any) => item.word && item.examples.length > 0); // Filter out empty results
 
+    // Step 3: Check if query word is already in results, if not, add it
+    const queryLower = query.toLowerCase().trim();
+    const hasQueryWord = sanitizedResults.some((item: any) => 
+      item.word.toLowerCase().trim() === queryLower
+    );
+
+    let finalSynonyms = sanitizedResults;
+
+    if (!hasQueryWord) {
+      console.log(`📝 Adding query word "${query}" to results...`);
+      // Get reference POS from first synonym if available
+      const referencePos = sanitizedResults.length > 0 ? sanitizedResults[0].pos : undefined;
+      const queryWordData = await generateQueryWordData(query, referencePos);
+      
+      // Add query word at the beginning with similarity 1.0
+      finalSynonyms = [queryWordData, ...sanitizedResults];
+    } else {
+      // If query word exists, move it to the beginning and set similarity to 1.0
+      const queryWordIndex = sanitizedResults.findIndex((item: any) => 
+        item.word.toLowerCase().trim() === queryLower
+      );
+      if (queryWordIndex > 0) {
+        const queryWordItem = sanitizedResults[queryWordIndex];
+        queryWordItem.similarity = 1.0;
+        finalSynonyms = [
+          queryWordItem,
+          ...sanitizedResults.slice(0, queryWordIndex),
+          ...sanitizedResults.slice(queryWordIndex + 1)
+        ];
+      } else if (queryWordIndex === 0) {
+        // Already at the beginning, just update similarity
+        finalSynonyms[0].similarity = 1.0;
+      }
+    }
+
     const finalResponse = {
       query,
-      synonyms: sanitizedResults
+      synonyms: finalSynonyms
     };
 
-    console.log(`✓ Parallel synonym generation completed for "${query}"`);
+    console.log(`✓ Parallel synonym generation completed for "${query}" (${finalSynonyms.length} words total)`);
     return finalResponse;
 
   } catch (error: any) {

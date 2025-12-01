@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
@@ -41,6 +42,7 @@ import Header from "@/components/Header";
 
 export default function Flashcards() {
   const { language } = useLanguage();
+  const t = useTranslation(language);
   const { isAuthenticated, authReady } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -148,8 +150,8 @@ export default function Flashcards() {
     },
     onError: () => {
       toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description: language === "en" ? "Failed to delete deck" : "刪除字卡組失敗",
+        title: t.toast.error,
+        description: t.toast.failedToDeleteDeck,
         variant: "destructive",
       });
     },
@@ -180,8 +182,8 @@ export default function Flashcards() {
       setDeckName("");
       setWordsList("");
       toast({
-        title: language === "en" ? "Success" : "成功",
-        description: language === "en" ? "Deck created successfully" : "字卡組建立成功",
+        title: t.toast.success,
+        description: t.toast.deckCreatedSuccessfully,
       });
 
       // Track Analytics event
@@ -194,12 +196,8 @@ export default function Flashcards() {
     onError: (error: Error) => {
       console.error("[Flashcards] Create failed:", error);
       toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description:
-          parseTokenError(
-            error,
-            error.message || (language === "en" ? "Failed to create deck" : "建立字卡組失敗"),
-          ),
+        title: t.toast.error,
+        description: parseTokenError(error, error.message || t.toast.failedToCreateDeck),
         variant: "destructive",
         duration: 5000,
       });
@@ -233,10 +231,8 @@ export default function Flashcards() {
       
       if (words.length > 10) {
         toast({
-          title: language === "en" ? "Too many words" : "單字過多",
-          description: language === "en" 
-            ? "Maximum 10 words per batch. Please remove some words."
-            : "每次最多 10 個單字，請減少單字數量。",
+          title: t.toast.tooManyWords,
+          description: t.toast.tooManyWordsDesc,
           variant: "destructive",
         });
         return;

@@ -145,7 +145,7 @@ export function useMindMapNodes() {
     // 取得同類別的所有節點
     const sameCategory = nodes.filter(
       n => n.category === nodeToDelete.category && 
-           n.parentId === nodeToDelete.parentId
+      n.parentId === nodeToDelete.parentId
     );
     
     // 先移除該節點
@@ -167,6 +167,37 @@ export function useMindMapNodes() {
     return nodesAfterDelete;
   };
 
+  /**
+   * 更新節點位置
+   */
+  const updateNodePosition = (
+    nodes: MindMapNode[], 
+    nodeId: string, 
+    x: number, 
+    y: number
+  ): MindMapNode[] => {
+    return nodes.map(node => 
+      node.id === nodeId 
+        ? { ...node, x, y } 
+        : node
+    );
+  };
+
+  /**
+   * 更新節點文字
+   */
+  const updateNodeWord = (
+    nodes: MindMapNode[], 
+    nodeId: string, 
+    newWord: string
+  ): MindMapNode[] => {
+    return nodes.map(node => 
+      node.id === nodeId 
+        ? { ...node, word: newWord.trim() } 
+        : node
+    );
+  };
+
   return {
     // 新增節點相關狀態
     addNodeDialog,
@@ -183,6 +214,8 @@ export function useMindMapNodes() {
     openDeleteDialog,
     closeDeleteDialog,
     deleteNode,
+    updateNodePosition,
+    updateNodeWord,
   };
 }
 

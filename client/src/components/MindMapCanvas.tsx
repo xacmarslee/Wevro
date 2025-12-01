@@ -12,6 +12,8 @@ interface MindMapCanvasProps {
   onNodeClick: (nodeId: string) => void;
   onNodeDelete: (nodeId: string) => void;
   onNodeAdd?: (parentNodeId: string, category: WordCategory) => void;
+  onNodeDragEnd?: (nodeId: string, x: number, y: number) => void;
+  onNodeEdit?: (nodeId: string) => void;
   centerNodeId?: string;
   focusNodeId?: string;
   maxNodes?: number;
@@ -22,6 +24,8 @@ export function MindMapCanvas({
   onNodeClick,
   onNodeDelete,
   onNodeAdd,
+  onNodeDragEnd,
+  onNodeEdit,
   centerNodeId,
   focusNodeId,
   maxNodes = 60,
@@ -33,6 +37,42 @@ export function MindMapCanvas({
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  
+  // Node dragging state
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [nodeDragStart, setNodeDragStart] = useState({ x: 0, y: 0 });
+  const [nodeOriginalPos, setNodeOriginalPos] = useState({ x: 0, y: 0 });
+  const [nodeDragOffset, setNodeDragOffset] = useState({ x: 0, y: 0 });
+
+  // Hover state for interaction
+  const [hoverNodeId, setHoverNodeId] = useState<string | null>(null);
+
+  const highlightedIds = useMemo(() => {
+    if (!hoverNodeId) return null;
+    
+    const ids = new Set<string>();
+    ids.add(hoverNodeId);
+
+    // Add ancestors
+    let current = nodes.find(n => n.id === hoverNodeId);
+    while (current && current.parentId) {
+      ids.add(current.parentId);
+      current = nodes.find(n => n.id === current.parentId); // eslint-disable-line no-loop-func
+    }
+
+    // Add children (recursive)
+    const addChildren = (parentId: string) => {
+      const children = nodes.filter(n => n.parentId === parentId);
+      children.forEach(child => {
+        ids.add(child.id);
+        addChildren(child.id);
+      });
+    };
+    addChildren(hoverNodeId);
+
+    return ids;
+  }, [hoverNodeId, nodes]);
+
   const pinchStateRef = useRef<{
     distance: number;
     zoom: number;
@@ -99,6 +139,14 @@ export function MindMapCanvas({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingNodeId) {
+      const scale = zoom;
+      const deltaX = (e.clientX - nodeDragStart.x) / scale;
+      const deltaY = (e.clientY - nodeDragStart.y) / scale;
+      setNodeDragOffset({ x: deltaX, y: deltaY });
+      return;
+    }
+
     if (!isDragging) return;
     setPan({
       x: e.clientX - dragStart.x,
@@ -107,7 +155,29 @@ export function MindMapCanvas({
   };
 
   const handleMouseUp = () => {
+    if (draggingNodeId && onNodeDragEnd) {
+      const finalX = nodeOriginalPos.x + nodeDragOffset.x;
+      const finalY = nodeOriginalPos.y + nodeDragOffset.y;
+      if (nodeDragOffset.x !== 0 || nodeDragOffset.y !== 0) {
+        onNodeDragEnd(draggingNodeId, finalX, finalY);
+      }
+    }
+
     setIsDragging(false);
+    setDraggingNodeId(null);
+    setNodeDragOffset({ x: 0, y: 0 });
+  };
+
+  // Node mouse down handler
+  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string, x: number, y: number) => {
+    e.stopPropagation(); // Prevent canvas panning
+    // Allow clicking delete button/add button without dragging
+    if ((e.target as HTMLElement).closest("button")) return;
+    
+    setDraggingNodeId(nodeId);
+    setNodeDragStart({ x: e.clientX, y: e.clientY });
+    setNodeOriginalPos({ x, y });
+    setNodeDragOffset({ x: 0, y: 0 });
   };
 
   // Touch event handlers for mobile support
@@ -318,17 +388,28 @@ export function MindMapCanvas({
               const { category, from, to } = thread;
               const categoryColor = getCategoryColor(category as WordCategory, isDark) || "#999";
               
+              // Calculate dynamic positions
+              const fromX = from.id === draggingNodeId ? from.x + nodeDragOffset.x : from.x;
+              const fromY = from.id === draggingNodeId ? from.y + nodeDragOffset.y : from.y;
+              const toX = to.id === draggingNodeId ? to.x + nodeDragOffset.x : to.x;
+              const toY = to.id === draggingNodeId ? to.y + nodeDragOffset.y : to.y;
+
+              // Check if thread should be highlighted
+              const isHighlighted = !hoverNodeId || (highlightedIds?.has(from.id) && highlightedIds?.has(to.id));
+              const opacity = isHighlighted ? 0.8 : 0.1;
+              const width = isHighlighted ? 2 : 1;
+              
               return (
-                <line
+                <motion.path
                   key={`thread-${category ?? "default"}-${from.id}-${to.id}-${index}`}
-                  x1={from.x}
-                  y1={from.y}
-                  x2={to.x}
-                  y2={to.y}
+                  d={`M ${fromX} ${fromY} L ${toX} ${toY}`}
                   stroke={categoryColor}
-                  strokeWidth={1.5}
-                  opacity={0.6}
+                  strokeWidth={width}
+                  fill="none"
                   strokeLinecap="round"
+                  initial={{ pathLength: 0, opacity: 0 }}
+                  animate={{ pathLength: 1, opacity }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
                   vectorEffect="non-scaling-stroke"
                 />
               );
@@ -349,9 +430,15 @@ export function MindMapCanvas({
             const { category, from, to } = thread;
             const categoryColor = getCategoryColor(category as WordCategory, isDark) || "#999";
             
+            // Calculate dynamic positions
+            const fromX = from.id === draggingNodeId ? from.x + nodeDragOffset.x : from.x;
+            const fromY = from.id === draggingNodeId ? from.y + nodeDragOffset.y : from.y;
+            const toX = to.id === draggingNodeId ? to.x + nodeDragOffset.x : to.x;
+            const toY = to.id === draggingNodeId ? to.y + nodeDragOffset.y : to.y;
+            
             // Calculate button position: same distance as node spacing (boundaryGap = 80px)
-            const dx = to.x - from.x;
-            const dy = to.y - from.y;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
             const distance = Math.sqrt(dx * dx + dy * dy);
             const unitX = dx / distance;
             const unitY = dy / distance;
@@ -370,8 +457,8 @@ export function MindMapCanvas({
             
             // Position button: furthest node center + half its width + gap + half button width
             const buttonDistance = toNodeWidth / 2 + boundaryGap + buttonWidth / 2;
-            const buttonX = to.x + unitX * buttonDistance;
-            const buttonY = to.y + unitY * buttonDistance;
+            const buttonX = toX + unitX * buttonDistance;
+            const buttonY = toY + unitY * buttonDistance;
             
             return (
               <div
@@ -415,25 +502,38 @@ export function MindMapCanvas({
             {nodes.map((node) => {
               const isCenter = node.id === centerNodeId;
               const categoryColor = node.category ? getCategoryColor(node.category, isDark) : undefined;
+              const isDraggingNode = node.id === draggingNodeId;
               
+              // Calculate dynamic position including drag offset
+              const currentX = isDraggingNode ? node.x + nodeDragOffset.x : node.x;
+              const currentY = isDraggingNode ? node.y + nodeDragOffset.y : node.y;
+              
+              // Highlight logic
+              const isHighlighted = !hoverNodeId || highlightedIds?.has(node.id);
+              const opacity = isHighlighted ? 1 : 0.3;
+
               return (
                 <div
                   key={node.id}
                   className="absolute"
                   style={{
-                    left: node.x,
-                    top: node.y,
+                    left: currentX,
+                    top: currentY,
                     transform: "translate(-50%, -50%)",
+                    zIndex: isDraggingNode ? 100 : (isCenter ? 50 : 1),
                   }}
                 >
                   <motion.div
                     data-node
                     initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
+                    animate={{ scale: 1, opacity }}
                     exit={{ scale: 0, opacity: 0 }}
                     transition={{ type: "spring", stiffness: 260, damping: 20 }}
                     className="relative group"
                     data-testid={`node-${node.word}`}
+                    onMouseDown={(e) => handleNodeMouseDown(e, node.id, node.x, node.y)}
+                    onMouseEnter={() => setHoverNodeId(node.id)}
+                    onMouseLeave={() => setHoverNodeId(null)}
                   >
                     {/* Delete button - only show on non-center nodes */}
                     {!isCenter && (
@@ -453,28 +553,32 @@ export function MindMapCanvas({
                     
                     <div
                       className={`
-                        rounded-xl font-semibold shadow-lg border-2 transition-all cursor-pointer
-                        px-4 py-2.5 text-lg min-w-[100px] hover-elevate active-elevate-2 hover:scale-105
+                        rounded-xl font-semibold transition-all cursor-grab active:cursor-grabbing
+                        px-4 py-2.5 text-lg min-w-[100px]
                         ${
                           isCenter
-                            ? "bg-primary text-primary-foreground border-primary-border shadow-xl ring-4 ring-primary/20"
-                            : "bg-card text-card-foreground"
+                            ? "bg-primary text-primary-foreground shadow-xl border-2 border-primary/20"
+                            : "bg-card hover:bg-card/90 shadow-sm hover:shadow-md border-2"
                         }
                       `}
-                      style={!isCenter && categoryColor ? {
-                        borderColor: categoryColor,
-                        color: categoryColor,
-                      } : undefined}
+                      style={{
+                        borderColor: !isCenter && categoryColor ? categoryColor : undefined,
+                        color: !isCenter && categoryColor ? categoryColor : undefined,
+                      }}
                       onClick={(e) => {
                         e.stopPropagation();
                         onNodeClick(node.id);
                       }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        onNodeEdit?.(node.id);
+                      }}
                     >
-                      <div className="text-center whitespace-nowrap">
+                      <div className="text-center whitespace-nowrap select-none">
                         {node.word}
                       </div>
                       {node.category && !isCenter && (
-                        <div className="text-xs text-muted-foreground text-center mt-1 font-normal">
+                        <div className="text-xs text-muted-foreground text-center mt-1 font-normal select-none">
                           {getCategoryLabel(node.category, language)}
                         </div>
                       )}

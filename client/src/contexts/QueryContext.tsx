@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, ReactNod
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslation } from "@/lib/i18n";
 import { useToast } from "@/hooks/use-toast";
 import { trackExampleGeneration, trackSynonymComparison } from "@/lib/analytics";
 import type {
@@ -69,6 +70,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
   const [synonymsNotFound, setSynonymsNotFound] = useState(false);
 
   const { language } = useLanguage();
+  const t = useTranslation(language);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -208,7 +210,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       const hasContent =
         (data.senses?.length ?? 0) > 0 ||
         (data.idioms?.some((i) => i.examples.length > 0) ?? false) ||
-        (data.collocations?.some((c) => c.examples.length > 0) ?? false);
+        (data.collocations && data.collocations.length > 0);
 
       if (!hasContent) {
         setExamplesResults(null);
@@ -276,13 +278,8 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       }
       console.error("Examples generation error:", error);
       toast({
-        title: language === "en" ? "Generation failed" : "生成失敗",
-        description: parseError(
-          error,
-          language === "en"
-            ? "Failed to generate example sentences. Please check your connection and try again."
-            : "無法生成例句，請檢查網路連線後重試",
-        ),
+        title: t.toast.generationFailed,
+        description: parseError(error, t.toast.failedToGenerateExamples),
         variant: "destructive",
       });
     },
@@ -327,13 +324,8 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       }
       console.error("Synonyms generation error:", error);
       toast({
-        title: language === "en" ? "Generation failed" : "生成失敗",
-        description: parseError(
-          error,
-          language === "en"
-            ? "Failed to generate synonyms. Please check your connection and try again."
-            : "無法生成同義字，請檢查網路連線後重試",
-        ),
+        title: t.toast.generationFailed,
+        description: parseError(error, t.toast.failedToGenerateSynonyms),
         variant: "destructive",
       });
     },
@@ -377,12 +369,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       newExpanded.delete(phrase);
     } else {
       newExpanded.add(phrase);
-      if (examplesResults) {
-        const idiom = examplesResults.idioms.find(i => i.phrase === phrase);
-        if (idiom && idiom.examples.length < 4) {
-          handleExamplesSearch(examplesResults.query, { sense: 3, phrase: 4 });
-        }
-      }
+      // Idioms now only have 1 example each, so no need to generate more on expansion
     }
     setExpandedIdioms(newExpanded);
   };
@@ -393,12 +380,7 @@ export function QueryProvider({ children }: { children: ReactNode }) {
       newExpanded.delete(phrase);
     } else {
       newExpanded.add(phrase);
-      if (examplesResults) {
-        const collocation = examplesResults.collocations.find(c => c.phrase === phrase);
-        if (collocation && collocation.examples.length < 4) {
-          handleExamplesSearch(examplesResults.query, { sense: 3, phrase: 4 });
-        }
-      }
+      // Collocations no longer have examples, so no need to check for expansion
     }
     setExpandedCollocations(newExpanded);
   };

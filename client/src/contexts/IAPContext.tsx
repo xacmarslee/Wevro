@@ -5,6 +5,8 @@ import { fetchWithAuth } from '@/lib/queryClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Capacitor } from '@capacitor/core';
 import { NativePurchases, PURCHASE_TYPE, type Product, type Transaction } from '@capgo/native-purchases';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useTranslation } from '@/lib/i18n';
 
 // Define product IDs
 export const PRODUCT_IDS = {
@@ -37,6 +39,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAuthenticated } = useAuth();
+  const { language } = useLanguage();
+  const t = useTranslation(language);
 
   useEffect(() => {
     const initIAP = async () => {
@@ -63,8 +67,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         if (!billingCheck.isBillingSupported) {
           console.warn('IAP: Billing not supported on this device');
           toast({
-            title: 'Billing Not Supported',
-            description: 'In-App Purchases are not supported on this device or emulator. Please use a real device or Google Play test environment.',
+            title: t.iap.billingNotSupported,
+            description: t.iap.billingNotSupportedDesc,
             variant: 'destructive',
             duration: 10000,
           });
@@ -84,8 +88,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         console.error('IAP: Initialization error', error);
         toast({
-          title: 'IAP Initialization Failed',
-          description: `Failed to initialize In-App Purchases: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your device and try again.`,
+          title: t.iap.initializationFailed,
+          description: t.iap.initializationFailedDesc,
           variant: 'destructive',
           duration: 10000,
         });
@@ -286,8 +290,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
             transactionKeys: Object.keys(transaction),
           });
           toast({
-            title: 'Verification Error',
-            description: 'Cannot determine product ID from purchase. Please contact support with your transaction ID.',
+            title: t.iap.verificationError,
+            description: t.iap.cannotDetermineProductId,
             variant: 'destructive',
             duration: 10000,
           });
@@ -322,8 +326,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           transactionKeys: Object.keys(transaction),
         });
         toast({
-          title: 'Verification Error',
-          description: 'Product ID is missing. Please contact support with your transaction ID.',
+          title: t.iap.verificationError,
+          description: t.iap.productIdMissing,
           variant: 'destructive',
           duration: 10000,
         });
@@ -355,8 +359,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         // If it's definitely not a valid product, we should probably just consume it to clear the queue
         // But for safety, let's just show a user-friendly error first
         toast({
-          title: 'Purchase Error',
-          description: 'Invalid product identifier detected. The purchase cannot be verified.',
+          title: t.iap.purchaseError,
+          description: t.iap.invalidProductIdentifier,
           variant: 'destructive',
           duration: 10000,
         });
@@ -413,8 +417,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         console.log('IAP: Quota query refetched');
         
         toast({
-          title: 'Purchase Successful',
-          description: `Your purchase has been processed. ${tokensAdded > 0 ? `${tokensAdded} tokens added.` : 'Please check your balance.'}`,
+          title: t.iap.purchaseSuccessful,
+          description: t.iap.purchaseSuccessfulDesc(tokensAdded),
           duration: 5000,
         });
       } else {
@@ -444,7 +448,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         const receivedProductId = responseData?.productId ? `Received: ${responseData.productId}` : '';
         
         // Show detailed error message
-        let errorDescription = `Purchase verification failed: ${errorMessage}`;
+        let errorDescription = `${t.iap.verificationFailed}: ${errorMessage}`;
         if (responseData?.normalized || responseData?.mapped) {
           errorDescription += `\nProduct ID: ${productId}`;
           if (responseData.normalized) errorDescription += ` (normalized: ${responseData.normalized})`;
@@ -452,11 +456,11 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         }
         if (errorDetails) errorDescription += `\n${errorDetails}`;
         if (receivedProductId) errorDescription += `\n${receivedProductId}`;
-        errorDescription += `\nTransaction ID: ${transaction.transactionId || 'N/A'}`;
-        errorDescription += `\nPlease contact support with this information.`;
+        errorDescription += `\n${t.iap.transactionId}: ${transaction.transactionId || 'N/A'}`;
+        errorDescription += `\n${t.iap.contactSupport}`;
         
         toast({
-          title: 'Verification Failed',
+          title: t.iap.verificationFailed,
           description: errorDescription,
           variant: 'destructive',
           duration: 15000, // Show for 15 seconds to allow user to read
@@ -475,8 +479,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       });
       
       toast({
-        title: 'Verification Error',
-        description: `Network error during verification. Please check your connection and try again. Transaction ID: ${transaction?.transactionId || 'N/A'}.`,
+        title: t.iap.verificationError,
+        description: `${t.iap.networkError} ${t.iap.transactionId}: ${transaction?.transactionId || 'N/A'}.`,
         variant: 'destructive',
         duration: 10000,
       });
@@ -492,8 +496,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         productIdValue: productId,
       });
       toast({
-        title: 'Purchase Error',
-        description: 'Invalid product ID. Please try again or contact support.',
+        title: t.iap.purchaseError,
+        description: t.iap.invalidProductId,
         variant: 'destructive',
       });
       return;
@@ -508,8 +512,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     if (!isSupported) {
       console.warn('[IAP] IAP not supported on this device');
       toast({
-        title: 'Store not available',
-        description: 'In-App Purchases are only available on mobile devices.',
+        title: t.iap.storeNotAvailable,
+        description: t.iap.storeNotAvailableDesc,
         variant: 'destructive',
       });
       return;
@@ -550,8 +554,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       } catch (fetchError: any) {
         console.error('IAP: Failed to fetch product directly:', fetchError?.message || fetchError);
         toast({
-          title: 'Product not found',
-          description: `Could not find product: ${requestedProductId}. Please check Google Play Console configuration.`,
+          title: t.iap.productNotFound,
+          description: t.iap.productNotFoundDesc(requestedProductId),
           variant: 'destructive',
         });
         return;
@@ -562,8 +566,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     if (!product) {
       console.error(`IAP: Product ${requestedProductId} still not available after fetch attempt`);
       toast({
-        title: 'Product not found',
-        description: `Product ${requestedProductId} is not available. Available: ${products.map(p => p.identifier).join(', ') || 'none'}`,
+        title: t.iap.productNotAvailable,
+        description: t.iap.productNotAvailableDesc(requestedProductId, products.map(p => p.identifier).join(', ') || 'none'),
         variant: 'destructive',
       });
       return;
@@ -642,14 +646,14 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           // Purchase state: "0" = PENDING, "1" = PURCHASED, others = various states
           if (purchaseState === "0") {
             toast({
-              title: 'Purchase Pending',
-              description: 'Your purchase is being processed. Please wait for confirmation.',
+              title: t.iap.purchasePending,
+              description: t.iap.purchasePendingDesc,
               variant: 'default',
             });
           } else {
             toast({
-              title: 'Purchase Status Unknown',
-              description: `Purchase state: ${purchaseState || 'unknown'}. Please check your purchase history.`,
+              title: t.iap.purchaseStatusUnknown,
+              description: t.iap.purchaseStatusUnknownDesc(purchaseState || 'unknown'),
               variant: 'default',
             });
           }
@@ -742,8 +746,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
         console.log('IAP: User cancelled purchase');
         // User cancelled, show a friendly message instead of error
         toast({
-          title: 'Purchase Cancelled',
-          description: 'Purchase was cancelled. No charges were made.',
+          title: t.iap.purchaseCancelled,
+          description: t.iap.purchaseCancelledDesc,
           variant: 'default',
         });
         return;
@@ -764,8 +768,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
           suggestion: 'Check Google Play Console to ensure product is published and available',
         });
         toast({
-          title: 'Product Not Available',
-          description: 'This product is not available for purchase. Please check Google Play Console configuration or try again later.',
+          title: t.iap.productNotAvailableForPurchase,
+          description: t.iap.productNotAvailableForPurchaseDesc,
           variant: 'destructive',
         });
         return;
@@ -782,8 +786,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       ) {
         console.warn('IAP: Purchase not completed - state is not PURCHASED');
         toast({
-          title: 'Purchase Not Completed',
-          description: 'The purchase was not completed. If you were charged, the transaction will be processed shortly.',
+          title: t.iap.purchaseNotCompleted,
+          description: t.iap.purchaseNotCompletedDesc,
           variant: 'default',
         });
         return;
@@ -792,8 +796,8 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       // Show error for other cases
       console.error('IAP: Unknown purchase error:', errorMessage);
       toast({
-        title: 'Purchase Failed',
-        description: errorMessage || 'An error occurred during purchase. Please try again.',
+        title: t.iap.purchaseFailed,
+        description: t.iap.purchaseFailedDesc(errorMessage),
         variant: 'destructive',
       });
     }
@@ -807,14 +811,14 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
     try {
       await NativePurchases.restorePurchases();
       toast({
-        title: 'Purchases Restored',
-        description: 'Your previous purchases have been restored.',
+        title: t.iap.purchasesRestored,
+        description: t.iap.purchasesRestoredDesc,
       });
     } catch (err: any) {
       console.error('IAP: Restore failed', err);
       toast({
-        title: 'Restore Failed',
-        description: 'Failed to restore purchases.',
+        title: t.iap.restoreFailed,
+        description: t.iap.restoreFailedDesc,
         variant: 'destructive',
       });
     }

@@ -130,9 +130,22 @@ export async function getHistoryDetail(userId: string, historyId: string) {
             idiomsList = Array.from(idiomsMap.values());
         }
         
-        // 3. Fetch Collocations
+        // 3. Fetch Collocations (support both old and new format)
         let collocationsList: any[] = [];
-        if (snapshot.collocationExampleIds && Array.isArray(snapshot.collocationExampleIds) && snapshot.collocationExampleIds.length > 0) {
+        
+        // New format: collocationIds (no examples)
+        if (snapshot.collocationIds && Array.isArray(snapshot.collocationIds) && snapshot.collocationIds.length > 0) {
+            const colRecords = await db.query.collocations.findMany({
+                where: inArray(collocations.id, snapshot.collocationIds)
+            });
+            
+            collocationsList = colRecords.map(col => ({
+                phrase: col.phrase,
+                gloss_zh: col.glossZh
+            }));
+        }
+        // Backward compatibility: old format with collocationExampleIds
+        else if (snapshot.collocationExampleIds && Array.isArray(snapshot.collocationExampleIds) && snapshot.collocationExampleIds.length > 0) {
             const colExRecords = await db.query.collocationExamples.findMany({
                 where: inArray(collocationExamples.id, snapshot.collocationExampleIds),
                 with: { collocation: true }
@@ -144,14 +157,10 @@ export async function getHistoryDetail(userId: string, historyId: string) {
                 if (!colMap.has(ex.collocation.id)) {
                     colMap.set(ex.collocation.id, {
                         phrase: ex.collocation.phrase,
-                        gloss_zh: ex.collocation.glossZh,
-                        examples: []
+                        gloss_zh: ex.collocation.glossZh
+                        // Old format had examples, but we'll return without them for consistency
                     });
                 }
-                colMap.get(ex.collocation.id).examples.push({
-                    en: ex.sentenceEn,
-                    zh_tw: ex.sentenceZh
-                });
             }
             collocationsList = Array.from(colMap.values());
         }

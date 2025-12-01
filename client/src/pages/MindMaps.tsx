@@ -1,6 +1,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import Header from "@/components/Header";
 export default function MindMaps() {
   const [, setLocation] = useLocation();
   const { language } = useLanguage();
+  const t = useTranslation(language);
   const { isAuthenticated, authReady } = useAuth();
   const { toast } = useToast();
   
@@ -91,8 +93,8 @@ export default function MindMaps() {
     },
     onError: () => {
       toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description: language === "en" ? "Failed to rename mind map" : "重新命名心智圖失敗",
+        title: t.toast.error,
+        description: t.toast.failedToRenameMindMap,
         variant: "destructive",
       });
     },
@@ -109,8 +111,8 @@ export default function MindMaps() {
     },
     onError: () => {
       toast({
-        title: language === "en" ? "Error" : "錯誤",
-        description: language === "en" ? "Failed to delete mind map" : "刪除心智圖失敗",
+        title: t.toast.error,
+        description: t.toast.failedToDeleteMindMap,
         variant: "destructive",
       });
     },

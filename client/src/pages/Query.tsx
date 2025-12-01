@@ -95,7 +95,7 @@ export default function Query() {
                   if (e.key === "Enter") {
                     e.preventDefault();
                     if (mode === "examples") {
-                      if (examplesInput.trim()) handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 });
+                      if (examplesInput.trim()) handleExamplesSearch(examplesInput, { sense: 3, phrase: 1 });
                     } else {
                       if (synonymsInput.trim()) handleSynonymsSearch(synonymsInput);
                     }
@@ -107,7 +107,7 @@ export default function Query() {
 
               <div className="flex gap-3">
                 <Button
-                  onClick={() => mode === "examples" ? handleExamplesSearch(examplesInput, { sense: 3, phrase: 2 }) : handleSynonymsSearch(synonymsInput)}
+                  onClick={() => mode === "examples" ? handleExamplesSearch(examplesInput, { sense: 3, phrase: 1 }) : handleSynonymsSearch(synonymsInput)}
                   disabled={!(mode === "examples" ? examplesInput.trim() : synonymsInput.trim()) || (mode === "examples" ? isExamplesPending : isSynonymsPending)}
                   className="flex-1"
                   data-testid={mode === "examples" ? "button-search-examples" : "button-search-synonyms"}
@@ -180,7 +180,7 @@ export default function Query() {
                           <div className="space-y-2 ml-0">
                             {displayExamples.map((example, idx) => (
                               <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                                <p className="text-sm font-serif">{example.en}</p>
+                                <p className="text-sm">{example.en}</p>
                                 <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
                               </div>
                             ))}
@@ -216,100 +216,39 @@ export default function Query() {
                 {examplesResults.idioms && examplesResults.idioms.length > 0 && examplesResults.idioms.some(i => i.examples.length > 0) && (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Idioms" : "慣用語"}</h3>
-                    {examplesResults.idioms.map((idiom) => {
-                      const isExpanded = expandedIdioms.has(idiom.phrase);
-                      const displayExamples = isExpanded ? idiom.examples : idiom.examples.slice(0, 2);
-
-                      return (
-                        <div key={idiom.phrase} className="space-y-3">
-                          <div>
-                            <p className="font-semibold font-serif">{idiom.phrase}</p>
-                            <p className="text-base font-medium">{idiom.gloss_zh}</p>
-                            <p className="text-sm text-muted-foreground italic">{idiom.gloss}</p>
-                          </div>
-
-                          <div className="space-y-2">
-                            {displayExamples.map((example, idx) => (
-                              <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                                <p className="text-sm font-serif">{example.en}</p>
-                                <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {idiom.examples.length > 2 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleIdiomExpansion(idiom.phrase)}
-                              className="w-full"
-                            >
-                              {isExpanded ? (
-                                <>
-                                  <ChevronUp className="h-4 w-4 mr-2" />
-                                  {language === "en" ? "Show Less" : "收起"}
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="h-4 w-4 mr-2" />
-                                  {language === "en" ? "Show More" : "展開更多"}
-                                </>
-                              )}
-                            </Button>
-                          )}
+                    {examplesResults.idioms.map((idiom) => (
+                      <div key={idiom.phrase} className="space-y-3">
+                        <div>
+                          <p className="font-semibold">{idiom.phrase}</p>
+                          <p className="text-base font-medium">{idiom.gloss_zh}</p>
+                          <p className="text-sm text-muted-foreground italic">{idiom.gloss}</p>
                         </div>
-                      );
-                    })}
+
+                        <div className="space-y-2">
+                          {idiom.examples.map((example, idx) => (
+                            <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
+                              <p className="text-sm">{example.en}</p>
+                              <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Collocations - only show if there are collocations */}
-                {examplesResults.collocations && examplesResults.collocations.length > 0 && examplesResults.collocations.some(c => c.examples.length > 0) && (
+                {examplesResults.collocations && examplesResults.collocations.length > 0 && (
                   <div className="space-y-6">
                     <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Collocations" : "搭配詞"}</h3>
-                    {examplesResults.collocations.map((collocation) => {
-                      const isExpanded = expandedCollocations.has(collocation.phrase);
-                      const displayExamples = isExpanded ? collocation.examples : collocation.examples.slice(0, 2);
-
-                      return (
-                        <div key={collocation.phrase} className="space-y-3">
-                          <div>
-                            <p className="font-semibold font-serif">{collocation.phrase}</p>
-                            <p className="text-base font-medium">{collocation.gloss_zh}</p>
-                          </div>
-
-                          <div className="space-y-2">
-                            {displayExamples.map((example, idx) => (
-                              <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                                <p className="text-sm font-serif">{example.en}</p>
-                                <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {collocation.examples.length > 2 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleCollocationExpansion(collocation.phrase)}
-                              className="w-full"
-                            >
-                              {isExpanded ? (
-                                <>
-                                  <ChevronUp className="h-4 w-4 mr-2" />
-                                  {language === "en" ? "Show Less" : "收起"}
-                                </>
-                              ) : (
-                                <>
-                                  <ChevronDown className="h-4 w-4 mr-2" />
-                                  {language === "en" ? "Show More" : "展開更多"}
-                                </>
-                              )}
-                            </Button>
-                          )}
+                    <div className="space-y-3">
+                      {examplesResults.collocations.map((collocation) => (
+                        <div key={collocation.phrase} className="space-y-1">
+                          <p className="font-semibold">• {collocation.phrase}</p>
+                          <p className="text-base font-medium pl-6">{collocation.gloss_zh}</p>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 )}
               </>
@@ -337,7 +276,7 @@ export default function Query() {
                     <div>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-baseline gap-2">
-                          <p className="text-lg font-semibold text-primary font-serif">{synonym.word}</p>
+                          <p className="text-lg font-semibold text-primary">{synonym.word}</p>
                           <span className="text-sm text-muted-foreground">{synonym.pos}</span>
                         </div>
                       </div>
@@ -347,7 +286,7 @@ export default function Query() {
                     <div className="space-y-2">
                       {synonym.examples.map((example, idx) => (
                         <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                          <p className="text-sm font-serif">{example.en}</p>
+                          <p className="text-sm">{example.en}</p>
                           <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
                         </div>
                       ))}

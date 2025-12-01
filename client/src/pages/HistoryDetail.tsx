@@ -193,7 +193,10 @@ export default function HistoryDetail() {
                 <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Idioms" : "慣用語"}</h3>
                 {examplesData.idioms.map((idiom: IdiomWithExamples) => {
                   const isExpanded = expandedIdioms.has(idiom.phrase);
-                  const displayExamples = isExpanded ? idiom.examples : idiom.examples.slice(0, 2);
+                  // If only 1 example, always show it; otherwise use expansion logic for backward compatibility
+                  const displayExamples = idiom.examples.length === 1 
+                    ? idiom.examples 
+                    : (isExpanded ? idiom.examples : idiom.examples.slice(0, 2));
 
                   return (
                     <div key={idiom.phrase} className="space-y-3">
@@ -239,53 +242,69 @@ export default function HistoryDetail() {
             )}
 
             {/* Collocations */}
-            {examplesData.collocations && examplesData.collocations.length > 0 && examplesData.collocations.some(c => c.examples.length > 0) && (
+            {examplesData.collocations && examplesData.collocations.length > 0 && (
                <div className="space-y-6">
                 <h3 className="text-lg font-semibold text-primary">{language === "en" ? "Collocations" : "搭配詞"}</h3>
-                {examplesData.collocations.map((collocation: CollocationWithExamples) => {
-                  const isExpanded = expandedCollocations.has(collocation.phrase);
-                  const displayExamples = isExpanded ? collocation.examples : collocation.examples.slice(0, 2);
+                <div className="space-y-3">
+                  {examplesData.collocations.map((collocation: any) => {
+                    // Backward compatibility: support both old (with examples) and new (without examples) format
+                    const hasExamples = collocation.examples && Array.isArray(collocation.examples) && collocation.examples.length > 0;
+                    
+                    if (hasExamples) {
+                      // Old format: show with examples (for backward compatibility)
+                      const isExpanded = expandedCollocations.has(collocation.phrase);
+                      const displayExamples = isExpanded ? collocation.examples : collocation.examples.slice(0, 2);
 
-                  return (
-                    <div key={collocation.phrase} className="space-y-3">
-                      <div>
-                        <p className="font-semibold">{collocation.phrase}</p>
-                        <p className="text-base font-medium">{collocation.gloss_zh}</p>
-                      </div>
-
-                      <div className="space-y-2">
-                        {displayExamples.map((example, idx) => (
-                          <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
-                            <p className="text-sm">{example.en}</p>
-                            <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                      return (
+                        <div key={collocation.phrase} className="space-y-3">
+                          <div>
+                            <p className="font-semibold">• {collocation.phrase}</p>
+                            <p className="text-base font-medium pl-6">{collocation.gloss_zh}</p>
                           </div>
-                        ))}
-                      </div>
 
-                      {collocation.examples.length > 2 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleCollocationExpansion(collocation.phrase)}
-                          className="w-full"
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="h-4 w-4 mr-2" />
-                              {language === "en" ? "Show Less" : "收起"}
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4 mr-2" />
-                              {language === "en" ? "Show More" : "展開更多"}
-                            </>
+                          <div className="space-y-2">
+                            {displayExamples.map((example: any, idx: number) => (
+                              <div key={idx} className="pl-4 border-l-2 border-primary/40 space-y-1">
+                                <p className="text-sm">{example.en}</p>
+                                <p className="text-sm text-muted-foreground">{example.zh_tw}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {collocation.examples.length > 2 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleCollocationExpansion(collocation.phrase)}
+                              className="w-full"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <ChevronUp className="h-4 w-4 mr-2" />
+                                  {language === "en" ? "Show Less" : "收起"}
+                                </>
+                              ) : (
+                                <>
+                                  <ChevronDown className="h-4 w-4 mr-2" />
+                                  {language === "en" ? "Show More" : "展開更多"}
+                                </>
+                              )}
+                            </Button>
                           )}
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                        </div>
+                      );
+                    } else {
+                      // New format: show without examples
+                      return (
+                        <div key={collocation.phrase} className="space-y-1">
+                          <p className="font-semibold">• {collocation.phrase}</p>
+                          <p className="text-base font-medium pl-6">{collocation.gloss_zh}</p>
+                        </div>
+                      );
+                    }
+                  })}
+                </div>
+               </div>
             )}
           </>
         )}

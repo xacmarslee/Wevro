@@ -41,11 +41,11 @@ export function useMindMapPersistence(mindMapId?: string) {
    * 儲存心智圖 mutation
    */
   const saveMutation = useMutation({
-    mutationFn: async (nodes: MindMapNode[]) => {
+    mutationFn: async ({ nodes, silent = false }: { nodes: MindMapNode[], silent?: boolean }) => {
       const centerNode = nodes.find(n => n.isCenter);
       const name = centerNode ? centerNode.word : "Untitled Mind Map";
       
-      console.log("[MindMap] Saving mind map:", { mindMapId, name, nodeCount: nodes.length });
+      console.log("[MindMap] Saving mind map:", { mindMapId, name, nodeCount: nodes.length, silent });
 
       if (mindMapId) {
         // 更新現有心智圖
@@ -55,7 +55,7 @@ export function useMindMapPersistence(mindMapId?: string) {
         });
         const data = await response.json();
         console.log("[MindMap] Updated successfully:", data);
-        return data;
+        return { data, silent };
       } else {
         // 建立新心智圖
         const response = await apiRequest("POST", "/api/mindmaps", {
@@ -68,10 +68,10 @@ export function useMindMapPersistence(mindMapId?: string) {
         // Track Analytics event (only for new mind maps)
         trackMindMapCreated();
         
-        return data;
+        return { data, silent };
       }
     },
-    onSuccess: (data) => {
+    onSuccess: ({ data, silent }) => {
       if (!data) {
         return;
       }
@@ -92,7 +92,20 @@ export function useMindMapPersistence(mindMapId?: string) {
         queryClient.setQueryData(["/api/mindmaps", data.id], data);
       }
 
-      setShowSaveConfirmDialog(true);
+      if (!silent) {
+        setShowSaveConfirmDialog(true);
+      } else {
+        // Silent save still shows a small toast to confirm it happened? 
+        // Or maybe strictly silent. Let's do strictly silent for auto-save to avoid spam.
+        // But maybe a small "Saved" indicator in UI is better. 
+        // For now, just strictly silent or maybe a non-intrusive toast?
+        // User said "Auto save (avoid data loss)", usually implies background save.
+        // I'll add a small toast for feedback.
+        toast({
+           title: language === "en" ? "Auto-saved" : "已自動儲存",
+           duration: 1500,
+        });
+      }
     },
     onError: (error: Error) => {
       console.error("[MindMap] Save failed:", error);
@@ -185,9 +198,9 @@ export function useMindMapPersistence(mindMapId?: string) {
   /**
    * 儲存心智圖
    */
-  const save = (nodes: MindMapNode[]) => {
+  const save = (nodes: MindMapNode[], silent: boolean = false) => {
     if (nodes.length === 0) return;
-    saveMutation.mutate(nodes);
+    saveMutation.mutate({ nodes, silent });
   };
 
   /**

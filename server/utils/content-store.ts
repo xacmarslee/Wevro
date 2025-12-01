@@ -18,7 +18,7 @@ export async function storeExamplesResult(userId: string, data: ExamplesResponse
   const snapshotData: any = {
     exampleIds: [],
     idiomExampleIds: [],
-    collocationExampleIds: []
+    collocationIds: [] // Changed from collocationExampleIds to collocationIds
   };
 
   // 2. Process Senses & Examples
@@ -75,7 +75,7 @@ export async function storeExamplesResult(userId: string, data: ExamplesResponse
     }
   }
 
-  // 4. Process Collocations
+  // 4. Process Collocations (no longer store examples)
   if (data.collocations) {
     for (const col of data.collocations) {
       const [colRecord] = await db.insert(collocations)
@@ -87,17 +87,8 @@ export async function storeExamplesResult(userId: string, data: ExamplesResponse
         })
         .returning();
 
-      for (const ex of col.examples) {
-        const [exRecord] = await db.insert(collocationExamples)
-          .values({
-            collocationId: colRecord.id,
-            sentenceEn: ex.en,
-            sentenceZh: ex.zh_tw
-          })
-          .returning();
-        
-        snapshotData.collocationExampleIds.push(exRecord.id);
-      }
+      // No longer store collocation examples
+      snapshotData.collocationIds.push(colRecord.id);
     }
   }
 

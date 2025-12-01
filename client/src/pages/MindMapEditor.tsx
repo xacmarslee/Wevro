@@ -63,6 +63,9 @@ export default function MindMapEditor() {
   const [focusNodeId, setFocusNodeId] = useState<string | undefined>();
   const [initialWord, setInitialWord] = useState("");
 
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [editNodeWord, setEditNodeWord] = useState("");
+
   // 使用重構後的 hooks
   const history = useMindMapHistory();
   const nodeOps = useMindMapNodes();
@@ -276,6 +279,20 @@ export default function MindMapEditor() {
   // 保留這個註釋以說明邏輯已被合併到上面的 useEffect 中
 
 
+  // Auto-save effect
+  useEffect(() => {
+    if (!mindMapId || isHydrating || history.historyLength === 0 || nodes.length === 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      console.log("[MindMapEditor] Auto-saving...");
+      persistence.save(nodes, true);
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [nodes, mindMapId, isHydrating]);
+
   // Undo
   const handleUndo = () => {
     const prevNodes = history.undo();
@@ -350,6 +367,31 @@ export default function MindMapEditor() {
   const handleDeleteNode = (nodeId: string) => {
     const newNodes = nodeOps.deleteNode(history.currentNodes, nodeId);
     history.updateNodesWithHistory(() => newNodes);
+  };
+
+  // 節點拖曳結束
+  const handleNodeDragEnd = (nodeId: string, x: number, y: number) => {
+    const newNodes = nodeOps.updateNodePosition(history.currentNodes, nodeId, x, y);
+    history.updateNodesWithHistory(() => newNodes);
+  };
+
+  // 編輯節點
+  const handleNodeEdit = (nodeId: string) => {
+    const node = history.currentNodes.find((n) => n.id === nodeId);
+    if (node) {
+      setEditingNodeId(nodeId);
+      setEditNodeWord(node.word);
+    }
+  };
+
+  // 確認編輯節點
+  const handleConfirmEditNode = () => {
+    if (!editingNodeId || !editNodeWord.trim()) return;
+    
+    const newNodes = nodeOps.updateNodeWord(history.currentNodes, editingNodeId, editNodeWord);
+    history.updateNodesWithHistory(() => newNodes);
+    setEditingNodeId(null);
+    setEditNodeWord("");
   };
 
   // 儲存心智圖
@@ -465,11 +507,44 @@ export default function MindMapEditor() {
           onNodeClick={handleNodeClick}
           onNodeDelete={handleDeleteNode}
           onNodeAdd={nodeOps.openAddDialog}
+          onNodeDragEnd={handleNodeDragEnd}
+          onNodeEdit={handleNodeEdit}
           centerNodeId={centerNodeId}
           focusNodeId={focusNodeId}
           maxNodes={LIMITS.MAX_TOTAL_NODES}
         />
       </div>
+
+      {/* 編輯節點對話框 */}
+      <Dialog open={!!editingNodeId} onOpenChange={(open) => !open && setEditingNodeId(null)}>
+        <DialogContent className="max-w-sm rounded-2xl p-6">
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-center">
+              {language === "en" ? "Edit Node" : "編輯節點"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex gap-2">
+            <Input
+              value={editNodeWord}
+              onChange={(e) => setEditNodeWord(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && editNodeWord.trim()) handleConfirmEditNode();
+                if (e.key === "Escape") setEditingNodeId(null);
+              }}
+              autoFocus
+              className="flex-1"
+            />
+            <Button
+              onClick={handleConfirmEditNode}
+              disabled={!editNodeWord.trim()}
+              size="icon"
+              className="shrink-0"
+            >
+              <Save className="h-5 w-5" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 新增節點對話框 */}
       <Dialog 

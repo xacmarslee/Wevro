@@ -3,7 +3,7 @@ import {
 } from "../../shared/schema.js";
 import { db } from "../db.js";
 import { eq, and, inArray, sql, notInArray } from "drizzle-orm";
-import type { ExamplesResponse, SynonymComparisonResponse, SenseWithExamples, IdiomWithExamples, CollocationWithExamples } from "../../shared/schema.js";
+import type { ExamplesResponse, SynonymComparisonResponse, SenseWithExamples, IdiomWithExamples, Collocation } from "../../shared/schema.js";
 
 /**
  * Try to fetch cached examples for a query using a "Limited Random Pool" strategy.
@@ -35,13 +35,19 @@ export async function fetchCachedExamples(userId: string, query: string, counts 
   // Collect all seen IDs
   const seenExampleIds = new Set<string>();
   const seenIdiomExampleIds = new Set<string>();
-  const seenCollocationExampleIds = new Set<string>();
+  const seenCollocationIds = new Set<string>();
 
   for (const record of userHistory) {
     const data = record.snapshotData as any;
     if (data?.exampleIds) data.exampleIds.forEach((id: string) => seenExampleIds.add(id));
     if (data?.idiomExampleIds) data.idiomExampleIds.forEach((id: string) => seenIdiomExampleIds.add(id));
-    if (data?.collocationExampleIds) data.collocationExampleIds.forEach((id: string) => seenCollocationExampleIds.add(id));
+    // Backward compatibility: support both old (collocationExampleIds) and new (collocationIds) format
+    if (data?.collocationIds) data.collocationIds.forEach((id: string) => seenCollocationIds.add(id));
+    if (data?.collocationExampleIds) {
+      // Old format: extract collocation IDs from example IDs (requires querying examples table)
+      // For simplicity, we'll just skip this backward compatibility check for now
+      // as it requires additional queries. New records will use collocationIds.
+    }
   }
 
   // 3. Check Senses & Examples
@@ -127,40 +133,38 @@ export async function fetchCachedExamples(userId: string, query: string, counts 
       }
   }
 
-  // 6. Check Collocations
+  // 6. Check Collocations (no longer fetch examples)
   const dbCollocations = await db.query.collocations.findMany({
-    where: eq(collocations.wordId, word.id),
-    with: {
-      examples: true
-    }
+    where: eq(collocations.wordId, word.id)
   });
 
-  const resultCollocations: CollocationWithExamples[] = [];
+  const resultCollocations: any[] = [];
   for (const col of dbCollocations) {
-      // Filter out seen collocation examples
-      const unseenExamples = col.examples.filter(e => !seenCollocationExampleIds.has(e.id));
+      // Filter out seen collocations
+      if (seenCollocationIds.has(col.id)) continue;
 
-      const shuffled = [...unseenExamples].sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, counts.phrase);
-      
-      if (selected.length > 0) {
-        resultCollocations.push({
-            phrase: col.phrase,
-            gloss_zh: col.glossZh,
-            examples: selected.map(e => ({
-                id: e.id,
-                en: e.sentenceEn,
-                zh_tw: e.sentenceZh
-            }))
-        });
-      }
+      resultCollocations.push({
+          phrase: col.phrase,
+          gloss_zh: col.glossZh
+      });
+  }
+
+  // Shuffle and limit to reasonable number (3-10 as per new requirement)
+  const shuffled = [...resultCollocations].sort(() => 0.5 - Math.random());
+  const selected = shuffled.slice(0, 10); // Max 10 collocations
+  
+  // Get collocation IDs for selected collocations (for history tracking)
+  const selectedCollocationIds: string[] = [];
+  for (const col of selected) {
+    const dbCol = dbCollocations.find(c => c.phrase === col.phrase && c.glossZh === col.gloss_zh);
+    if (dbCol) selectedCollocationIds.push(dbCol.id);
   }
 
   // 7. Record "Hit" in History (even if cached)
   const snapshotData = {
     exampleIds: resultSenses.flatMap(s => s.examples.map((e: any) => e.id)),
     idiomExampleIds: resultIdioms.flatMap(i => i.examples.map((e: any) => e.id)),
-    collocationExampleIds: resultCollocations.flatMap(c => c.examples.map((e: any) => e.id))
+    collocationIds: selectedCollocationIds // Changed from collocationExampleIds
   };
 
   try {
@@ -179,13 +183,13 @@ export async function fetchCachedExamples(userId: string, query: string, counts 
   // Clean up IDs from response before returning (to match interface)
   resultSenses.forEach((s: any) => s.examples.forEach((e: any) => delete e.id));
   resultIdioms.forEach((i: any) => i.examples.forEach((e: any) => delete e.id));
-  resultCollocations.forEach((c: any) => c.examples.forEach((e: any) => delete e.id));
+  // Collocations no longer have examples, so no cleanup needed
 
   return {
     query: word.text,
     senses: resultSenses,
     idioms: resultIdioms,
-    collocations: resultCollocations
+    collocations: selected // Use selected collocations without examples
   };
 }
 
