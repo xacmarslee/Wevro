@@ -51,8 +51,14 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
     // For now, we trust the client (Development/MVP mode)
     
     // Normalize product ID (trim whitespace, handle case variations)
-    const normalizedProductId = productId?.trim()?.toLowerCase();
+    let normalizedProductId = productId?.trim()?.toLowerCase();
     
+    // Strip package name prefix if present (common issue with Google Play)
+    if (normalizedProductId?.startsWith('com.wevro.app.')) {
+      console.log(`🔍 Stripping package prefix: "${normalizedProductId}" -> "${normalizedProductId.replace('com.wevro.app.', '')}"`);
+      normalizedProductId = normalizedProductId.replace('com.wevro.app.', '');
+    }
+
     // Product ID mapping for Google Play (in case it returns Base Plan ID or different format)
     const productIdMap: Record<string, string> = {
       // Standard product IDs
@@ -61,6 +67,10 @@ router.post("/verify", firebaseAuthMiddleware, async (req: any, res) => {
       'wevro_token_l': 'wevro_token_l',
       'wevro_pro_monthly': 'wevro_pro_monthly',
       'wevro_token_test': 'wevro_token_test', // Test product: $0.3 for 2 tokens
+      
+      // Test IDs
+      'android.test.purchased': 'wevro_token_test',
+      
       // Handle potential variations
       'wevro_tokens_small': 'wevro_token_s',
       'wevro_tokens_medium': 'wevro_token_m',

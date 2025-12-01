@@ -41,7 +41,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initIAP = async () => {
       // DEBUG: Log version to verify update
-      console.log('[IAP] IAPContext loaded - Version: 1.0.40 (Fix for stuck transactions)');
+      console.log('[IAP] IAPContext loaded - Version: 1.0.41 (Fix for stuck transactions)');
       
       // Only initialize on mobile platforms
       const platform = Capacitor.getPlatform();
@@ -336,7 +336,11 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       const knownProductIds = [
         ...Object.values(PRODUCT_IDS),
         ...Object.values(BASE_PLAN_IDS),
-        'monthly-plan' // Add any other aliases here
+        'monthly-plan', // Add any other aliases here
+        'android.test.purchased',
+        'android.test.canceled',
+        'android.test.refunded',
+        'android.test.item_unavailable',
       ];
       
       // Check if the productId is in our allowlist
