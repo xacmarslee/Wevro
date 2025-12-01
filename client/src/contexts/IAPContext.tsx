@@ -41,7 +41,7 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initIAP = async () => {
       // DEBUG: Log version to verify update
-      console.log('[IAP] IAPContext loaded - Version: 1.0.41 (Fix for stuck transactions)');
+      console.log('[IAP] IAPContext loaded - Version: 1.0.42 (Fix Content-Type header for IAP verification)');
       
       // Only initialize on mobile platforms
       const platform = Capacitor.getPlatform();
@@ -385,6 +385,9 @@ export function IAPProvider({ children }: { children: React.ReactNode }) {
       // Send receipt to backend for verification
       const response = await fetchWithAuth('/api/billing/verify', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(requestBody),
       });
 
