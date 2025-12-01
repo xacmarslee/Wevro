@@ -228,6 +228,16 @@ export function MindMapCanvas({
       return;
     }
 
+    if (draggingNodeId) {
+      const touch = e.touches[0];
+      const scale = zoom;
+      const deltaX = (touch.clientX - nodeDragStart.x) / scale;
+      const deltaY = (touch.clientY - nodeDragStart.y) / scale;
+      setNodeDragOffset({ x: deltaX, y: deltaY });
+      e.preventDefault(); // Prevent scrolling while dragging node
+      return;
+    }
+
     if (!isDragging) return;
     const touch = e.touches[0];
     setPan({
@@ -237,8 +247,30 @@ export function MindMapCanvas({
   };
 
   const handleTouchEnd = () => {
+    if (draggingNodeId && onNodeDragEnd) {
+      const finalX = nodeOriginalPos.x + nodeDragOffset.x;
+      const finalY = nodeOriginalPos.y + nodeDragOffset.y;
+      if (nodeDragOffset.x !== 0 || nodeDragOffset.y !== 0) {
+        onNodeDragEnd(draggingNodeId, finalX, finalY);
+      }
+    }
+
     setIsDragging(false);
+    setDraggingNodeId(null);
+    setNodeDragOffset({ x: 0, y: 0 });
     pinchStateRef.current = null;
+  };
+
+  const handleNodeTouchStart = (e: React.TouchEvent, nodeId: string, x: number, y: number) => {
+    e.stopPropagation(); // Prevent canvas panning
+    // Allow clicking delete button/add button without dragging
+    if ((e.target as HTMLElement).closest("button")) return;
+    
+    const touch = e.touches[0];
+    setDraggingNodeId(nodeId);
+    setNodeDragStart({ x: touch.clientX, y: touch.clientY });
+    setNodeOriginalPos({ x, y });
+    setNodeDragOffset({ x: 0, y: 0 });
   };
 
   const resetView = () => {
@@ -396,8 +428,8 @@ export function MindMapCanvas({
 
               // Check if thread should be highlighted
               const isHighlighted = !hoverNodeId || (highlightedIds?.has(from.id) && highlightedIds?.has(to.id));
-              const opacity = isHighlighted ? 0.8 : 0.1;
-              const width = isHighlighted ? 2 : 1;
+              const opacity = 1; // Always 1 as requested
+              const width = isHighlighted ? 2.5 : 1;
               
               return (
                 <motion.path
@@ -510,7 +542,7 @@ export function MindMapCanvas({
               
               // Highlight logic
               const isHighlighted = !hoverNodeId || highlightedIds?.has(node.id);
-              const opacity = isHighlighted ? 1 : 0.3;
+              const opacity = 1; // Always 1 as requested
 
               return (
                 <div
@@ -532,6 +564,7 @@ export function MindMapCanvas({
                     className="relative group"
                     data-testid={`node-${node.word}`}
                     onMouseDown={(e) => handleNodeMouseDown(e, node.id, node.x, node.y)}
+                    onTouchStart={(e) => handleNodeTouchStart(e, node.id, node.x, node.y)}
                     onMouseEnter={() => setHoverNodeId(node.id)}
                     onMouseLeave={() => setHoverNodeId(null)}
                   >
